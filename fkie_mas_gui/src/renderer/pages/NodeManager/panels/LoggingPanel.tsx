@@ -59,6 +59,7 @@ export default function LoggingPanel(): JSX.Element {
   const [logLevel, setLogLevel] = useLocalStorage<LoggingLevel>("LoggingPanel:level", LoggingLevel.INFO);
   const [showDetails, setShowDetails] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedIndex, setExpandedIndex] = useState(-1);
 
   function showLogLevel(level: string): boolean {
     if (level === LoggingLevel.DEBUG) {
@@ -91,7 +92,7 @@ export default function LoggingPanel(): JSX.Element {
     return `${fmt(megabytes)} MB`;
   }
 
-  function rowContent(_index: number, row: LogEvent): JSX.Element {
+  function rowContent(index: number, row: LogEvent): JSX.Element {
     const color = levelColors[row.level.toLowerCase()];
     const details = JSON.stringify(row.details).replaceAll("\\n", "\n").replaceAll('\\"', '"').replace(/^"|"$/g, "");
     const detailsSize = details.length || 0;
@@ -165,10 +166,12 @@ export default function LoggingPanel(): JSX.Element {
                   overflowWrap: "anywhere",
                   wordBreak: "break-word",
                   textOverflow: "ellipsis",
+                  cursor: detailsSize > 150 ? "pointer" : "auto"
                   // whiteSpace: "pre-line",
                 }}
+                onClick={() => { setExpandedIndex((prev) => prev != index ? index : -1) }}
               >
-                {detailsSize > 300 ? `${details.slice(0, 300)}...` : details}
+                {expandedIndex != index && detailsSize > 150 ? `${details.slice(0, 150)}...` : details}
               </Typography>
             )}
           </Stack>
@@ -191,7 +194,6 @@ export default function LoggingPanel(): JSX.Element {
           }}
           placeholder="Filter logs"
           defaultValue={searchTerm}
-          // fullWidth={true}
         />
 
         <Select
