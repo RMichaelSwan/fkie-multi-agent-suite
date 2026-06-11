@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.7.1 - 11.06.2026
+
+Expand long log items on click
+
 ## 5.7.0 - 26.05.2026
 
 Changed callback group for services
