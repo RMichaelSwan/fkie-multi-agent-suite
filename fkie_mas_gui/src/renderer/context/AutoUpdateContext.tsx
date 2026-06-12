@@ -1,5 +1,13 @@
 import { ProgressInfo, UpdateInfo } from "electron-updater";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import semver from "semver";
 
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
@@ -10,6 +18,7 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { JSONObject, TAutoUpdateManager } from "@/types";
 import packageJson from "../../../package.json";
 import { CmdType } from "../providers";
+import GithubCredentialsDialog from "@/renderer/components/PasswordModal/GithubCredentialsDialog";
 
 /**
  * Context providing automatic update management for both AppImage and Debian builds.
@@ -54,7 +63,10 @@ export const AutoUpdateProvider = ({
   const [autoUpdateManager, setAutoUpdateManager] = useState<TAutoUpdateManager | null>(null);
   const [checkingForUpdate, setCheckingForUpdate] = useState(false);
   const [checkedThisRun, setCheckedThisRun] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useLocalStorage<UpdateInfo | null>("AutoUpdate:updateAvailable", null);
+  const [updateAvailable, setUpdateAvailable] = useLocalStorage<UpdateInfo | null>(
+    "AutoUpdate:updateAvailable",
+    null
+  );
   const [downloadProgress, setDownloadProgress] = useState<ProgressInfo | null>(null);
   const [updateError, setUpdateError] = useState("");
   const [requestedInstallUpdate, setRequestedInstallUpdate] = useState(false);
@@ -66,6 +78,63 @@ export const AutoUpdateProvider = ({
     "release"
   );
   const [checkTimestamp, setCheckTimestamp] = useLocalStorage<number>("AutoUpdate:checkTimestamp", 0);
+
+  // ==== Credentials Dialog State ====
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
+  const credentialsResolverRef = useRef<{
+    resolve: (value: { username: string; token: string } | null) => void;
+  } | null>(null);
+
+  // Stored credentials (persisted in localStorage if user opted in)
+  const [storedCredentials, setStoredCredentials] = useLocalStorage<{
+    username: string;
+    token: string;
+  } | null>("AutoUpdate:githubCredentials", null);
+
+  /** Opens the credentials dialog and returns a promise with the result */
+  const requestCredentials = useCallback((): Promise<{ username: string; token: string } | null> => {
+    return new Promise((resolve) => {
+      credentialsResolverRef.current = { resolve };
+      setShowCredentialsDialog(true);
+    });
+  }, []);
+
+  const handleCredentialsSubmit = useCallback((username: string, token: string, remember: boolean) => {
+    setShowCredentialsDialog(false);
+    const creds = { username, token };
+
+    if (remember) {
+      setStoredCredentials(creds);
+    } else {
+      setStoredCredentials(null);
+    }
+
+    credentialsResolverRef.current?.resolve(creds);
+    credentialsResolverRef.current = null;
+  }, []);
+
+  const handleCredentialsCancel = useCallback(() => {
+    setShowCredentialsDialog(false);
+    credentialsResolverRef.current?.resolve(null);
+    credentialsResolverRef.current = null;
+  }, []);
+
+  // ─── Helper: Authenticated fetch ──────────────────────────────────────────
+
+  /** Fetches from GitHub, optionally with provided or stored credentials */
+  const fetchWithAuth = useCallback(
+    async (url: string, credentials?: { username: string; token: string } | null): Promise<Response> => {
+      const headers: HeadersInit = { Accept: "application/vnd.github+json" };
+      const creds = credentials || storedCredentials;
+      if (creds) {
+        headers["Authorization"] = `Basic ${btoa(`${creds.username}:${creds.token}`)}`;
+      }
+      return fetch(url, { headers });
+    },
+    [storedCredentials]
+  );
+
+  // ─── Core Logic ────────────────────────────────────────────────────────────
 
   /** Builds CLI command for updating MAS */
   const getUpdateCli = useCallback(
@@ -83,7 +152,11 @@ export const AutoUpdateProvider = ({
   const checkForUpdate = useCallback(
     (channelParam?: "prerelease" | "release" | string): void => {
       const channel = channelParam || updateChannel;
-      logCtx.info(`Checking for new ${channel} ${isAppImage ? "AppImage" : "Debian"} update`, "", "check update");
+      logCtx.info(
+        `Checking for new ${channel} ${isAppImage ? "AppImage" : "Debian"} update`,
+        "",
+        "check update"
+      );
 
       setUpdateAvailable(null);
       setUpdateError("");
@@ -104,41 +177,74 @@ export const AutoUpdateProvider = ({
     [autoUpdateManager, isAppImage, updateChannel]
   );
 
-  /** Fetches release info directly from GitHub */
-  const fetchRelease = useCallback(async (channel: "prerelease" | "release" | string): Promise<void> => {
-    try {
-      setUpdateError("");
-      const response = await fetch("https://api.github.com/repos/fkie/fkie-multi-agent-suite/releases");
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  /** Fetches release info directly from GitHub (with 403 handling) */
+  const fetchRelease = useCallback(
+    async (channel: "prerelease" | "release" | string): Promise<void> => {
+      const url = "https://api.github.com/repos/fkie/fkie-multi-agent-suite/releases";
 
-      const data = await response.json();
-      if (!Array.isArray(data)) throw new Error(`Unexpected GitHub API response: ${JSON.stringify(data)}`);
+      try {
+        setUpdateError("");
 
-      let release: JSONObject | undefined;
-      if (channel === "release") release = data.find((r) => !r.prerelease);
-      else if (channel === "prerelease") release = data[0];
-      else release = data.find((r) => r.name === channel);
+        // First attempt (with stored credentials if available)
+        let response = await fetchWithAuth(url);
 
-      if (!release) throw new Error(`No ${channel} release found`);
-      const pkgVersion = packageJson.version;
-      if (pkgVersion !== release.name) {
-        // build changelog for all newer versions
-        const changes = data
-          .filter((r) => semver.gt(r.name, pkgVersion))
-          .map((r) => r.body?.replace("Changes", getTitle(r)));
-        setUpdateAvailable({
-          version: release.name,
-          releaseDate: release.published_at,
-          releaseNotes: changes,
-        } as UpdateInfo);
+        // On 403/401: show credentials dialog and retry
+        if (response.status === 403 || response.status === 401) {
+          logCtx.warn(
+            "GitHub API rate limit reached or auth failed. Requesting credentials...",
+            "",
+            "update"
+          );
+
+          const credentials = await requestCredentials();
+          if (!credentials) {
+            throw new Error("Authentication canceled");
+          }
+
+          // Retry with credentials
+          response = await fetchWithAuth(url, credentials);
+
+          if (response.status === 401 || response.status === 403) {
+            // Invalid credentials — clear stored ones
+            setStoredCredentials(null);
+            throw new Error("Invalid credentials. Please try again.");
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error(`Unexpected GitHub API response: ${JSON.stringify(data)}`);
+
+        let release: JSONObject | undefined;
+        if (channel === "release") release = data.find((r) => !r.prerelease);
+        else if (channel === "prerelease") release = data[0];
+        else release = data.find((r) => r.name === channel);
+
+        if (!release) throw new Error(`No ${channel} release found`);
+        const pkgVersion = packageJson.version;
+        if (pkgVersion !== release.name) {
+          // build changelog for all newer versions
+          const changes = data
+            .filter((r) => semver.gt(r.name, pkgVersion))
+            .map((r) => r.body?.replace("Changes", getTitle(r)));
+          setUpdateAvailable({
+            version: release.name,
+            releaseDate: release.published_at,
+            releaseNotes: changes,
+          } as UpdateInfo);
+        }
+      } catch (e) {
+        setUpdateError(e instanceof Error ? e.message : "Unknown error during fetchRelease()");
+      } finally {
+        setCheckingForUpdate(false);
+        setCheckedThisRun(true);
       }
-    } catch (e) {
-      setUpdateError(e instanceof Error ? e.message : "Unknown error during fetchRelease()");
-    } finally {
-      setCheckingForUpdate(false);
-      setCheckedThisRun(true);
-    }
-  }, []);
+    },
+    [fetchWithAuth, requestCredentials]
+  );
 
   const getTitle = (release: JSONObject) =>
     `Changes in version ${release.name} (${(release.published_at as string).split("T")[0]})${release.prerelease ? " prerelease" : ""}:`;
@@ -191,7 +297,8 @@ export const AutoUpdateProvider = ({
 
   const getLocalProviderId = () => rosCtx.getLocalProvider()[0]?.id || "";
 
-  const autoCheckAllowed = (timestamp: number) => Math.floor(Date.now() / 1000) - timestamp > MIN_DELAY_AUTO_CHECK;
+  const autoCheckAllowed = (timestamp: number) =>
+    Math.floor(Date.now() / 1000) - timestamp > MIN_DELAY_AUTO_CHECK;
 
   /** Determine if we are using AppImage and maybe trigger background check */
   const updateIsAppImage = useCallback(
@@ -213,7 +320,6 @@ export const AutoUpdateProvider = ({
   useEffect(() => {
     if (!autoUpdateManager) return;
 
-    // Register electron-updater event hooks
     autoUpdateManager.onCheckingForUpdate(setCheckingForUpdate);
     autoUpdateManager.onUpdateAvailable((info) => {
       setUpdateAvailable(info);
@@ -230,7 +336,6 @@ export const AutoUpdateProvider = ({
     updateIsAppImage(autoUpdateManager);
   }, [autoUpdateManager]);
 
-  // Initialize the local provider id if not set
   useEffect(() => {
     if (!localProviderId) {
       const local = rosCtx.getLocalProvider();
@@ -238,12 +343,10 @@ export const AutoUpdateProvider = ({
     }
   }, [rosCtx.providers]);
 
-  // Auto-check for updates if enough time elapsed
   useEffect(() => {
     if (localProviderId && autoCheckAllowed(checkTimestamp)) checkForUpdate(updateChannel);
   }, [localProviderId, updateChannel, checkTimestamp]);
 
-  // Clear stored update if same version as current
   useEffect(() => {
     if (updateAvailable?.version === packageJson.version) setUpdateAvailable(null);
   }, [updateAvailable]);
@@ -283,7 +386,16 @@ export const AutoUpdateProvider = ({
     ]
   );
 
-  return <AutoUpdateContext.Provider value={contextValue}>{children}</AutoUpdateContext.Provider>;
+  return (
+    <AutoUpdateContext.Provider value={contextValue}>
+      {children}
+      <GithubCredentialsDialog
+        open={showCredentialsDialog}
+        onSubmit={handleCredentialsSubmit}
+        onCancel={handleCredentialsCancel}
+      />
+    </AutoUpdateContext.Provider>
+  );
 };
 
 /** Hook to access the auto-update context. Throws if used outside provider. */
