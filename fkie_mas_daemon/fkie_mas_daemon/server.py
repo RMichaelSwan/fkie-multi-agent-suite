@@ -76,6 +76,7 @@ class Server:
                     0, self.ros_domain_id)
             )
         self.name = get_host_name()
+        self.host_name = get_host_name()
         self.uri = f"ws://{self.name}:{self.ws_port}"
         self._timer_ws_ready = None
         self.monitor_servicer = MonitorServicer(self._settings, self.ws_server)
@@ -118,6 +119,7 @@ class Server:
         self.insecure_port = port
         if ws_port() != port:
             self.name = f"{self.name}_{port}"
+            self.uri = f"ws://{self.host_name}:{port}"
         self._endpoint_msg.name = self.name
         self._endpoint_msg.uri = f"ws://{get_host_name()}:{port}"
         self.ws_server.start_threaded(port)
