@@ -47,7 +47,7 @@ import {
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
 
-import ExternalAppsModal from "@/renderer/components/ExternalAppsModal/ExternalAppsModal";
+// import ExternalAppsModal from "@/renderer/components/ExternalAppsModal/ExternalAppsModal";
 import PasswordDialog from "@/renderer/components/PasswordModal/PasswordDialog";
 import ProviderSelectionModal from "@/renderer/components/SelectionModal/ProviderSelectionModal";
 import { getInfoStateColor } from "@/renderer/components/UI/Colors";
@@ -747,17 +747,17 @@ export default function NodeManager(): JSX.Element {
           node.getId(),
           <FeaturedPlayListIcon sx={{ fontSize: "inherit" }} />
         );
-        pAddTabStickyButton(
-          renderValues.stickyButtons,
-          LAYOUT_TABS.PARAMETER,
-          "Parameter",
-          <ParameterPanel nodes={[]} providers={[]} />,
-          node.getId(),
-          <TuneIcon sx={{ fontSize: "inherit" }} />
-        );
-        if (window.commandExecutor) {
-          renderValues.stickyButtons.push(<ExternalAppsModal key="external-apps-dialog" />);
-        }
+        // pAddTabStickyButton(
+        //   renderValues.stickyButtons,
+        //   LAYOUT_TABS.PARAMETER,
+        //   "Parameter",
+        //   <ParameterPanel nodes={[]} providers={[]} />,
+        //   node.getId(),
+        //   <TuneIcon sx={{ fontSize: "inherit" }} />
+        // );
+        // if (window.commandExecutor) {
+        //   renderValues.stickyButtons.push(<ExternalAppsModal key="external-apps-dialog" />);
+        // }
       }
       // if (child.getId() === LAYOUT_TABS.HOSTS) {
       //   renderValues.buttons.push(<SettingsModal key="settings-dialog" />);

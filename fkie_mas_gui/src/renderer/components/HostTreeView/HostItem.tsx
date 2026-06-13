@@ -53,7 +53,7 @@ interface HostItemProps {
 }
 
 export default function HostItem(props: HostItemProps): JSX.Element {
-  const { provider, stopNodes = (): void => {}, onDoubleClick = (): void => {}, nodeCount, nodeRunningCount, ...children } = props;
+  const { provider, stopNodes = (): void => { }, onDoubleClick = (): void => { }, nodeCount, nodeRunningCount, ...children } = props;
   const settingsCtx = useSettingsContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
@@ -204,7 +204,7 @@ export default function HostItem(props: HostItemProps): JSX.Element {
     toggled = false;
   };
 
-  const handleLabelClick: UseTreeItemContentSlotOwnProps["onClick"] = () => {};
+  const handleLabelClick: UseTreeItemContentSlotOwnProps["onClick"] = () => { };
 
   const handleIconContainerClick: UseTreeItemIconContainerSlotOwnProps["onClick"] = () => {
     toggled = true;
@@ -245,6 +245,8 @@ export default function HostItem(props: HostItemProps): JSX.Element {
               </IconButton>
             </Tooltip>
           )}
+
+
 
           {Math.abs(provider.timeDiff) > timeDiffThreshold && (
             <Tooltip title={`Time not in sync for approx. ${formatTime(provider.timeDiff)}`} placement="right-end">
@@ -345,15 +347,21 @@ export default function HostItem(props: HostItemProps): JSX.Element {
             display="flex"
             alignItems="center"
             sx={{ flexGrow: 1, userSelect: "none" }}
-            // style={{ pointerEvents: "none" }}
+          // style={{ pointerEvents: "none" }}
           >
-            <Typography variant="body1" flexGrow={1} sx={{ marginLeft: 1 }}>{provider.name()}</Typography>
+            <Typography variant="body1" alignItems="center" marginRight={1}>{provider.name()}</Typography>
+            {provider.isLocalHost && (
+              <Typography variant="body2" color="grey" flexGrow={1}>
+                (localhost)
+              </Typography>
+            )}
+            <Typography variant="body1" alignItems="center" flexGrow={1} marginRight={1} />
 
             {nodeCount > 0 && (
               <Tooltip title="count of running / total nodes" disableInteractive>
-              <Typography variant="body2" sx={{ marginLeft: 1 }}>
-                [{nodeRunningCount}/{nodeCount}]
-              </Typography>
+                <Typography variant="body2" sx={{ marginLeft: 1 }}>
+                  [{nodeRunningCount}/{nodeCount}]
+                </Typography>
               </Tooltip>
             )}
             {getProviderTags(provider).map((tag: TTag) => (
