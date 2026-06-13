@@ -501,7 +501,7 @@ export default class Provider implements IProvider {
         const logPaths = await this.getLogPaths([nodeName]);
         if (logPaths.length > 0) {
           // `tail -f ${logPaths[0].screen_log} \r`,
-          result.cmd = `${this.settings().paramLogCommand} ${logPaths[0].screen_log}`;
+          result.cmd = `${this.settings().paramLogCommand.replaceAll('{LOG_FILE}', logPaths[0].screen_log)} ${logPaths[0].screen_log}`;
           result.log = logPaths[0].screen_log;
         }
         break;
