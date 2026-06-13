@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.7.2 - 13.06.2026
+
+Wait until the log file has been created when viewing the log
+Fix for issue #12
+Ask for creadentials on github rate limit
+
 ## 5.7.1 - 11.06.2026
 
 Expand long log items on click
