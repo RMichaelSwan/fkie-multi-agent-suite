@@ -391,7 +391,6 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
         style={{
           display: "flex",
           padding: 0,
-          alignItems: "center",
         }}
       >
         <TableCell
@@ -436,7 +435,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
                 onClick={() => {
                   onProviderMenuClick(EMenuProvider.INFO, provider);
                 }}
-                sx={{ flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+                sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
               >
                 <Typography
                   variant="body2"
@@ -460,7 +459,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
             )} */}
               {providersActivity && (
                 <Stack minWidth="2em">
-                  <LinearProgress sx={{ marginTop: "0.5em" }} variant="query" color="inherit" />
+                  <LinearProgress sx={{ marginTop: "0.3em" }} variant="query" color="inherit" />
                 </Stack>
               )}
             </Stack>
@@ -482,7 +481,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
               <Typography
                 variant="body2"
                 fontSize="0.8em"
-                sx={{ paddingLeft: "0.5em", paddingRight: "0.5em" }}
+                sx={{ paddingTop: "0.5em", paddingLeft: "0.5em", paddingRight: "0.5em" }}
                 color={getDelayColor(provider.currentDelay)}
               >
                 {formatDelay(provider.currentDelay)}
