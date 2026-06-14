@@ -325,8 +325,8 @@ export default function ProviderPanel(): JSX.Element {
     const result = (
       // <TableContainer  height="100%" style={{ overflowX: 'scroll', flexGrow: 1 }}>
       <TableContainer style={{ flexGrow: 1 }}>
-        <Table aria-label="hosts table">
-          <TableBody>
+        <Table aria-label="hosts table" sx={{ display: "block" }}>
+          <TableBody sx={{ display: "block" }}>
             {providerRowsFiltered.map((provider) => {
               return <ProviderPanelRow key={provider.id} provider={provider} />;
             })}
@@ -339,10 +339,9 @@ export default function ProviderPanel(): JSX.Element {
 
   const createProviderStartTable = useMemo(() => {
     const result = (
-      // <TableContainer  height="100%" style={{ overflowX: 'scroll', flexGrow: 1 }}>
-      <TableContainer style={{ flexGrow: 1 }}>
-        <Table aria-label="configs table">
-          <TableBody>
+      <TableContainer>
+        <Table aria-label="configs table" sx={{ display: "block" }}>
+          <TableBody sx={{ display: "block" }}>
             {showStartConfigurations.map((config) => {
               return (
                 <ProviderPanelRowCfg
@@ -407,17 +406,29 @@ export default function ProviderPanel(): JSX.Element {
         }}
         sx={{ pl: 0, padding: 0 }}
       >
-        <Stack direction="row" alignItems="center" spacing="0.3em" flexGrow={1}>
+        <Stack direction="row" alignItems="center" spacing="0.3em" flexGrow={1} minWidth={0}>
           <AccordionSummary
             // disabled={!startSystemNodes}
             expandIcon={<ExpandMoreIcon />}
             aria-controls="start-commands"
             id="start-commands"
-            sx={{ pl: 0, paddingBottom: 0 }}
+            sx={{
+              pl: 0,
+              paddingBottom: 0,
+              flexShrink: 1,
+              minWidth: 0,
+              "& .MuiAccordionSummary-content": {
+                minWidth: 0,
+                overflow: "hidden",
+              },
+            }}
           >
-            <Stack direction="row" alignItems="center" spacing="0.3em" flexGrow={1}>
+            <Stack direction="row" alignItems="center" spacing="0.3em" flexGrow={1} minWidth={0}>
               <SettingsOutlinedIcon fontSize="inherit" />
-              <Typography variant="subtitle1" flexGrow={1}>
+              <Typography
+                variant="subtitle1"
+                sx={{ flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
                 Start Configurations - {startConfigurations.length}
               </Typography>
             </Stack>

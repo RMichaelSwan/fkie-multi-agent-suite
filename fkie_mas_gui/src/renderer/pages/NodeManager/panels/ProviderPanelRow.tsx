@@ -42,8 +42,8 @@ import {
   EVENT_PROVIDER_STATE,
   EVENT_PROVIDER_WARNINGS,
 } from "@/renderer/providers/eventTypes";
-import { EMenuProvider } from "./OverflowMenuProvider";
 import OverflowMenuExternalApps from "./OverflowMenuExternalApps";
+import { EMenuProvider } from "./OverflowMenuProvider";
 
 interface ProviderPanelRowProps {
   provider: Provider;
@@ -388,19 +388,23 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
       <TableRow
         key={provider.id}
         style={{
-          display: "block",
+          display: "flex",
           padding: 0,
+          alignItems: "center",
         }}
       >
         <TableCell
           style={{
             padding: 2,
             flexGrow: 1,
-            width: "100%",
+            flexShrink: 1,
+            minWidth: 20,
+            overflow: "hidden",
           }}
           sx={getHostStyle(provider)}
         >
-          <Stack direction="row" spacing="0.5em">
+          <Stack direction="row" spacing="0.2em" alignItems="center" flexGrow={1}>
+            {provider.isLocalHost && <OverflowMenuExternalApps provider={provider} />}
             <Link
               noWrap
               href="#"
@@ -409,26 +413,32 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
               onClick={() => {
                 onProviderMenuClick(EMenuProvider.INFO, provider);
               }}
+              sx={{ flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
             >
-              {provider.isLocalHost ? <Tooltip
-                title={"localhsot"}
-                placement="bottom-start"
-                disableInteractive
-              >
-                <Typography variant="body2">{provider.name()}</Typography>
-              </Tooltip> :
-                <Typography variant="body2">{provider.name()}</Typography>}
-
+              {provider.isLocalHost ? (
+                <Tooltip title={"localhost"} placement="bottom-start" disableInteractive>
+                  <Typography
+                    variant="body2"
+                    sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {provider.name()}
+                  </Typography>
+                </Tooltip>
+              ) : (
+                <Typography
+                  variant="body2"
+                  sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
+                >
+                  {provider.name()}
+                </Typography>
+              )}
             </Link>
             {/* {provider.isLocalHost && (
               <Typography variant="body2" color="grey">
                 &gt;localhost&lt;
               </Typography>
             )} */}
-            {provider.isLocalHost && <OverflowMenuExternalApps
-              provider={provider}
-            />
-            }
+
             {/* {provider.connection.domainId !== undefined && Number.parseInt(provider.connection.domainId) > 0 && (
               <Tooltip title={provider.rosVersion === "2" ? "ROS_DOMAIN_ID" : "Network ID"} placement="right">
                 <Typography color="grey" variant="body2">
@@ -443,7 +453,11 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
             )}
           </Stack>
         </TableCell>
-        <TableCell style={{ padding: 0 }}>
+        <TableCell
+          style={{
+            padding: 0,
+          }}
+        >
           {provider.isAvailable() && (
             <Tooltip
               title="websocket delay from the host"
@@ -529,18 +543,18 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
             ConnectionState.STATES.CONNECTING,
             ConnectionState.STATES.CONNECTED,
           ].includes(provider.connectionState as string) && (
-              <Tooltip title="Remove host" placement="bottom" disableInteractive>
-                <IconButton
-                  color="error"
-                  onClick={() => {
-                    rosCtx.removeProvider(provider.id);
-                  }}
-                  size="small"
-                >
-                  <DeleteOutlineOutlinedIcon fontSize="inherit" />
-                </IconButton>
-              </Tooltip>
-            )}
+            <Tooltip title="Remove host" placement="bottom" disableInteractive>
+              <IconButton
+                color="error"
+                onClick={() => {
+                  rosCtx.removeProvider(provider.id);
+                }}
+                size="small"
+              >
+                <DeleteOutlineOutlinedIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
+          )}
         </TableCell>
       </TableRow>
     );

@@ -28,34 +28,78 @@ export default function ProviderPanelRowCfg(props: ProviderPanelRowCfgProps): JS
   );
 
   const createTableRow = useMemo(() => {
+    const hostname = startConfig.params.name || startConfig.params.host;
+    const domainTitle = startConfig.params.rosVersion === "2" ? "ROS_DOMAIN_ID" : "Network ID";
+    const rmwImpl = startConfig.params.rmw.current !== "RMW_IMPLEMENTATION";
     return (
-      <TableRow key={startConfig.params.id} style={{ display: "block" }}>
+      <TableRow key={startConfig.params.id} style={{ display: "flex" }}>
         <TableCell
           style={{
             padding: 2,
             flexGrow: 1,
-            width: "100%",
+            flexShrink: 1,
+            minWidth: 0,
+            overflow: "hidden",
           }}
         >
-          <Stack direction="row" spacing="0.5em" flexGrow={1}>
-            <Link noWrap href="#" underline="none" color="inherit" onClick={() => {}}>
-              <Typography variant="body2">{startConfig.params.name || startConfig.params.host}</Typography>
-            </Link>
-            <Tooltip title={startConfig.params.rosVersion === "2" ? "ROS_DOMAIN_ID" : "Network ID"} placement="right">
-              <Typography color="grey" variant="body2">
+          <Tooltip
+            title={
+              <div>
+                <Typography fontWeight="bold" fontSize="inherit">
+                  {hostname}
+                </Typography>
+                <Stack direction="row" spacing={"0.2em"}>
+                  <Typography fontWeight="bold" fontSize="inherit">
+                    {domainTitle}:
+                  </Typography>
+                  <Typography fontSize="inherit">{startConfig.params.domainId}</Typography>
+                </Stack>
+                {rmwImpl && (
+                  <Stack direction="row" spacing={"0.2em"}>
+                    {/* <Typography fontWeight="bold" fontSize="inherit">
+                    RMW_IMPLEMENTATION:
+                  </Typography> */}
+                    <Typography fontSize="inherit">{startConfig.params.rmw.current}</Typography>
+                  </Stack>
+                )}
+              </div>
+            }
+            disableInteractive
+          >
+            <Stack direction="row" spacing="0.5em" flexGrow={1}>
+              <Link
+                noWrap
+                href="#"
+                underline="none"
+                color="inherit"
+                onClick={() => {}}
+                sx={{ flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+              >
+                <Typography variant="body2">{hostname}</Typography>
+              </Link>
+              <Typography
+                color="grey"
+                variant="body2"
+                sx={{ flexShrink: 100, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+              >
                 [{startConfig.params.domainId}]
               </Typography>
-            </Tooltip>
-            {startConfig.params.rmw.current !== "RMW_IMPLEMENTATION" && (
-              <Typography color="grey" variant="body2">
-                {startConfig.params.rmw.current}
-              </Typography>
-            )}
-          </Stack>
+              {rmwImpl && (
+                <Typography
+                  color="grey"
+                  variant="body2"
+                  sx={{ flexShrink: 1000, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+                >
+                  {startConfig.params.rmw.current}
+                </Typography>
+              )}
+            </Stack>
+          </Tooltip>
         </TableCell>
         <TableCell
           style={{
             padding: 0,
+            flexShrink: 0,
           }}
         >
           <Stack direction="row" spacing="0.2em">
