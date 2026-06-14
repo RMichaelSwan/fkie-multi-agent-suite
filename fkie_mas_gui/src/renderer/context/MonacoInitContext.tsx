@@ -23,10 +23,11 @@ export function MonacoInitProvider({ children }: { children: React.ReactNode }) 
   const rosCtxRef = useAlwaysCurrentRef<IRosContext>(rosCtx);
   const monacoCtxRef = useAlwaysCurrentRef<IMonacoContext>(monacoCtx);
 
-  useEffect(() => {
 
-    setInitialized(initMonacoRuntime(monacoCtxRef, rosCtxRef));
-  }, [monacoCtxRef.current, rosCtxRef.current]);
+  useEffect(() => {
+    const res = initMonacoRuntime(monacoCtxRef, rosCtxRef)
+    setInitialized(res);
+  }, [monacoCtx, monacoCtx.monaco, rosCtx]);
 
   useEffect(() => {
     return () => {

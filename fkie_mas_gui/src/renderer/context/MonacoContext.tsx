@@ -1,5 +1,5 @@
 import * as MonacoReact from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
+import * as monacoEditor from "monaco-editor";
 import { editor } from "monaco-editor";
 import { createContext, useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -148,7 +148,7 @@ export function MonacoProvider({ children }: { children: React.ReactNode }) {
    * Create a new monaco model from a given file
    * @param file - Original file
    */
-  const createModel = useCallback((editorId: string, file: FileItem): monaco.editor.ITextModel | null => {
+  const createModel = useCallback((editorId: string, file: FileItem): monacoEditor.editor.ITextModel | null => {
     if (!workspaceRef.current) {
       return null;
     }
