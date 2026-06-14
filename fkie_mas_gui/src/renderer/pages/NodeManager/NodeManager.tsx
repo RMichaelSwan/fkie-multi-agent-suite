@@ -409,6 +409,10 @@ export default function NodeManager(): JSX.Element {
           ?.getId() || id;
     } else {
       const nodeBId = model.getNodeById(panelGroup);
+      if (panelGroup === LAYOUT_TAB_SETS.CENTER && !nodeBId) {
+        // no center panel group found, reset layout
+        setLayoutJson(DEFAULT_LAYOUT);
+      }
       if (nodeBId && LAYOUT_TAB_LIST.includes(nodeBId.getId())) {
         result.id = nodeBId.getParent()?.getId() || id;
       }
@@ -985,7 +989,7 @@ export default function NodeManager(): JSX.Element {
           }
           if (action.type === Actions.SELECT_TAB) {
             const tabId = action.data.tabNode as string;
-            emitCustomEvent(EVENT_SELECT_TAB, {tabId: tabId})
+            emitCustomEvent(EVENT_SELECT_TAB, { tabId: tabId });
           }
           return action;
         }}
