@@ -403,67 +403,69 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
           }}
           sx={getHostStyle(provider)}
         >
-          <Tooltip
-            title={
-              <div>
-                <Typography fontWeight="bold" fontSize="inherit">
-                  {provider.name()}
-                </Typography>
-                {provider.isLocalHost && (
+          <Stack direction="row" spacing="0.2em" alignItems="center" flexGrow={1}>
+            {provider.isLocalHost && <OverflowMenuExternalApps provider={provider} />}
+            <Tooltip
+              title={
+                <div>
                   <Typography fontWeight="bold" fontSize="inherit">
-                    &gt;localhost&lt;
+                    {provider.name()}
                   </Typography>
-                )}
-                <Stack direction="row" spacing={"0.2em"}>
-                  <Typography fontWeight="bold" fontSize="inherit">
-                    {domainTitle}:
-                  </Typography>
-                  <Typography fontSize="inherit">{provider.connection.domainId}</Typography>
-                </Stack>
-              </div>
-            }
-            placement="bottom-start"
-            disableInteractive
-          >
-            <Stack direction="row" spacing="0.2em" alignItems="center" flexGrow={1}>
-              {provider.isLocalHost && <OverflowMenuExternalApps provider={provider} />}
-              <Link
-                noWrap
-                href="#"
-                underline="none"
-                color="inherit"
-                onClick={() => {
-                  onProviderMenuClick(EMenuProvider.INFO, provider);
-                }}
-                sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
-              >
-                <Typography
-                  variant="body2"
+                  {provider.isLocalHost && (
+                    <Typography fontWeight="bold" fontSize="inherit">
+                      &gt;localhost&lt;
+                    </Typography>
+                  )}
+                  <Stack direction="row" spacing={"0.2em"}>
+                    <Typography fontWeight="bold" fontSize="inherit">
+                      {domainTitle}:
+                    </Typography>
+                    <Typography fontSize="inherit">{provider.connection.domainId}</Typography>
+                  </Stack>
+                </div>
+              }
+              placement="bottom-start"
+              disableInteractive
+            >
+              <Stack direction="row" spacing="0.2em" alignItems="center" flexGrow={1}>
+                <Link
+                  noWrap
+                  href="#"
+                  underline="none"
+                  color="inherit"
+                  onClick={() => {
+                    onProviderMenuClick(EMenuProvider.INFO, provider);
+                  }}
                   sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
                 >
-                  {provider.name()}
-                </Typography>
-              </Link>
-              {/* {provider.isLocalHost && (
+                  <Typography
+                    variant="body2"
+                    sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {provider.name()}
+                  </Typography>
+                </Link>
+                {/* {provider.isLocalHost && (
               <Typography variant="body2" color="grey">
                 &gt;localhost&lt;
               </Typography>
             )} */}
 
-              {/* {provider.connection.domainId !== undefined && Number.parseInt(provider.connection.domainId) > 0 && (
+                {/* {provider.connection.domainId !== undefined && Number.parseInt(provider.connection.domainId) > 0 && (
               <Tooltip title={provider.rosVersion === "2" ? "ROS_DOMAIN_ID" : "Network ID"} placement="right">
                 <Typography color="grey" variant="body2">
                   [{provider.connection.domainId}]
                 </Typography>
               </Tooltip>
             )} */}
-              {providersActivity && (
-                <Stack minWidth="2em">
-                  <LinearProgress sx={{ marginTop: "0.3em" }} variant="query" color="inherit" />
-                </Stack>
-              )}
-            </Stack>
-          </Tooltip>
+                {providersActivity && (
+                  <Stack minWidth="2em">
+                    <LinearProgress sx={{ marginTop: "0.3em" }} variant="query" color="inherit" />
+                  </Stack>
+                )}
+              </Stack>
+            </Tooltip>
+          </Stack>
         </TableCell>
         <TableCell
           style={{

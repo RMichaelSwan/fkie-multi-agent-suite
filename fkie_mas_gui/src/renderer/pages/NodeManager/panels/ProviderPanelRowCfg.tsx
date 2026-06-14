@@ -80,7 +80,6 @@ export default function ProviderPanelRowCfg(props: ProviderPanelRowCfgProps): JS
               <Typography
                 color="grey"
                 variant="body2"
-                sx={{ flexShrink: 100, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
               >
                 [{startConfig.params.domainId}]
               </Typography>
@@ -88,7 +87,7 @@ export default function ProviderPanelRowCfg(props: ProviderPanelRowCfgProps): JS
                 <Typography
                   color="grey"
                   variant="body2"
-                  sx={{ flexShrink: 1000, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+                  sx={{ flexShrink: 100, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
                 >
                   {startConfig.params.rmw.current}
                 </Typography>
