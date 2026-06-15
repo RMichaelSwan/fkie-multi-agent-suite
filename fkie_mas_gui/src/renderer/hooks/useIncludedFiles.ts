@@ -24,7 +24,7 @@ export type IncludeResolver = {
   includedFiles: LaunchIncludedFile[];
   fetchIncludedFiles: () => Promise<{ result: boolean; error: string }>;
   clearIncludedFiles: () => void;
-  resolve: (currentFile: string, rawPath: string, fullTextBeforeMatch?: string) => ResolveType[];
+  resolve: (currentFile: string, rawPath: string, lineNumber: number, fullTextBeforeMatch?: string) => ResolveType[];
   getArgs: (currentFile: string) => ResolverIncludeArgs | undefined;
   update: (includedFiles: LaunchIncludedFile[], packages: RosPackage[]) => void;
   extractIncludes(text: string, language: string, currentFile: string): IncludeMatch[];
@@ -133,11 +133,17 @@ export function useIncludedFiles(
   *
   * @param currentFile         The file that contains the include statement
   * @param rawPath             The raw include value as it appears in the file
+  * @param lineNumber          Line number of the raw path in full text
   * @param fullTextBeforeMatch Full text before the include position (used for XML var resolution)
   * @returns                   Array of possible resolutions (each as ResolveType)
 
   */
-  function resolve(currentFile: string, rawPath: string, fullTextBeforeMatch?: string): ResolveType[] {
+  function resolve(
+    currentFile: string,
+    rawPath: string,
+    lineNumber: number,
+    fullTextBeforeMatch?: string
+  ): ResolveType[] {
     // Regex to replace ROS package expressions with actual package paths
     const pkgRegex = /\$\((?:find|find-pkg-share)\s+([^)]+)\)|\$\((?:package|pkg):\/\/([^)]+)\)/;
 
@@ -172,7 +178,7 @@ export function useIncludedFiles(
         resolver: "editor",
       });
       seenPaths.add(variant);
-      addDiscoveredInclude(currentFile, rawPath, variant);
+      addDiscoveredInclude(currentFile, rawPath, lineNumber, variant);
     }
 
     return result;
@@ -236,6 +242,21 @@ export function useIncludedFiles(
     return mapIncludeArgs.get(currentFile);
   }
 
+  function getLineFromOffset(lineStarts: number[], offset: number): number {
+    // Binäre Suche für O(log n)
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (lineStarts[mid] <= offset) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return hi + 1; // 0-basierte Zeilennummer
+  }
+
   /**
    * Extracts ROS/Launch/Include paths from text
    * @param text The text to parse
@@ -244,6 +265,13 @@ export function useIncludedFiles(
    */
   function extractIncludes(text: string, language: string, currentFile: string): IncludeMatch[] {
     const matches: IncludeMatch[] = [];
+
+    const lineStarts = [0];
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === "\n") {
+        lineStarts.push(i + 1);
+      }
+    }
 
     if (language === "python") {
       // --- Handle Python IncludeLaunchDescription(...) separately ---
@@ -254,8 +282,7 @@ export function useIncludedFiles(
         const startOffset = match.index;
         const block = extractPythonInclude(text, startOffset);
         if (!block) continue;
-
-        const resolves = resolve(currentFile, block);
+        const resolves = resolve(currentFile, block, getLineFromOffset(lineStarts, match.index));
         for (const resolved of resolves) {
           const fileMatches = extractPythonIncludeFiles(block, startOffset, resolved);
           matches.push(...fileMatches);
@@ -282,8 +309,7 @@ export function useIncludedFiles(
       const fullTextBeforeMatch = text.slice(0, match.index);
       const value = match.slice(1).find((v) => v != null);
       if (!value) continue;
-
-      const resolves = resolve(currentFile, value, fullTextBeforeMatch);
+      const resolves = resolve(currentFile, value, getLineFromOffset(lineStarts, match.index), fullTextBeforeMatch);
       const offset = match.index + match[0].indexOf(value);
       for (const resolved of resolves) {
         matches.push({
@@ -300,7 +326,7 @@ export function useIncludedFiles(
     return matches;
   }
 
-  function addDiscoveredInclude(currentFile: string, rawPath: string, variant: string) {
+  function addDiscoveredInclude(currentFile: string, rawPath: string, lineNumber: number, variant: string) {
     setIncludedFiles((prev) => {
       // exists?
       const exists = prev.some((f) => f.path === currentFile && f.inc_path === variant);
@@ -321,11 +347,17 @@ export function useIncludedFiles(
         exists: true,
       };
 
+      newEntry.line_number = lineNumber;
+
       // insert position: after entry with path === currentFile
       let insertIndex = -1;
       for (let i = prev.length - 1; i >= 0; i--) {
         if (prev[i].path === currentFile) {
-          insertIndex = i + 1;
+          if (prev[i].line_number < lineNumber) {
+            insertIndex = i + 1;
+          } else {
+            insertIndex = i;
+          }
           break;
         }
       }

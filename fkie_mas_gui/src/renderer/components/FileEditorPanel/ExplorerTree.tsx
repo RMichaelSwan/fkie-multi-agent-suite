@@ -1,9 +1,8 @@
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowRightIcon from "@mui/icons-material/ArrowRight";
 import { SimpleTreeView } from "@mui/x-tree-view";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 
-import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { LaunchArgument, LaunchIncludedFile } from "@/renderer/models";
 import { createUriPath } from "@/renderer/monaco/utils";
 import { Provider } from "@/renderer/providers";
@@ -14,7 +13,6 @@ import { TLaunchIncludeItem } from "./types";
 export function equalLaunchArgs(launchArgs: TLaunchArg[], argList: LaunchArgument[]): boolean {
   if (launchArgs && launchArgs.length > 0) {
     const notEqual = argList?.filter((item) => {
-      // ignore args with not resolved statements
       const found = launchArgs.filter(
         (li) => li.name === item.name && (li.value === item.value || (!li.value && !item.value))
       );
@@ -25,14 +23,21 @@ export function equalLaunchArgs(launchArgs: TLaunchArg[], argList: LaunchArgumen
   return true;
 }
 
+export type SelectedFile = {
+  uriPath: string;
+  launchArgs: TLaunchArg[];
+};
+
 interface ExplorerTreeProps {
   editorId: string;
   provider: Provider;
   rootFilePath: string;
   includedFiles: LaunchIncludedFile[];
-  selectedUriPath: string;
-  launchArgs: TLaunchArg[];
+  selectedFile: SelectedFile;
   modifiedUriPaths: string[];
+  // Optional: control state from parent
+  expandedItems: string[];
+  onExpandedItemsChange: Dispatch<SetStateAction<string[]>>;
 }
 
 export default function ExplorerTree(props: ExplorerTreeProps): JSX.Element {
@@ -41,18 +46,25 @@ export default function ExplorerTree(props: ExplorerTreeProps): JSX.Element {
     provider,
     rootFilePath,
     includedFiles,
-    selectedUriPath = "",
-    launchArgs = [],
+    selectedFile = { uriPath: "", launchArgs: [] },
     modifiedUriPaths = [],
+    expandedItems: externalExpanded,
+    onExpandedItemsChange: externalOnChange,
   } = props;
-  const rosCtx = useRosContext();
-  const [includeRoot, setIncludeRoot] = useState<TLaunchIncludeItem>();
-  const [expandedExplorerResults, setExpandedExplorerResults] = useState<string[]>([]);
 
+  // Internal state as fallback if nothing is provided from outside
+  const [internalExpanded, setInternalExpanded] = useState<string[]>([]);
+  const expandedExplorerResults = externalExpanded ?? internalExpanded;
+  const setExpandedExplorerResults = externalOnChange ?? setInternalExpanded;
+
+  const [includeRoot, setIncludeRoot] = useState<TLaunchIncludeItem>();
+
+  // Build tree structure from included files
   useEffect(() => {
     if (!provider) return;
     const providerHost = provider.host();
     if (!providerHost) return;
+
     const rootItem: TLaunchIncludeItem = {
       uriPath: createUriPath(provider.id, rootFilePath),
       children: [],
@@ -63,7 +75,8 @@ export default function ExplorerTree(props: ExplorerTreeProps): JSX.Element {
         line_number: -1,
         conditional_excluded: false,
       } as LaunchIncludedFile,
-    } as TLaunchIncludeItem;
+    };
+
     let currentFile: TLaunchIncludeItem = rootItem;
     for (const file of includedFiles) {
       const incItem: TLaunchIncludeItem = {
@@ -89,22 +102,57 @@ export default function ExplorerTree(props: ExplorerTreeProps): JSX.Element {
       }
     }
     setIncludeRoot(rootItem);
-  }, [includedFiles, provider, rootFilePath, rosCtx]);
+  }, [includedFiles, provider, rootFilePath]);
 
-  /** Create from SimpleTreeView from given root item */
-  const includeFilesToTree = useCallback(
-    (item: TLaunchIncludeItem, lineNumber: number, parentItems: string[] = []): JSX.Element => {
-      if (!item) return <></>;
-      const id = `${lineNumber}-${item.file.inc_path}-${item.file.line_number}`;
-      const pathList: string[] = [...parentItems, id];
-      const selected =
-        selectedUriPath === item.uriPath &&
-        // compare launchArgs if there are several files with the same name
-        (item.uriPath.endsWith(`:${rootFilePath}`) || equalLaunchArgs(launchArgs, item.file.args || []));
-      if (selected) {
-        // expand all items from root to the selected item
-        setExpandedExplorerResults(pathList);
+  // Generate a stable ID for a given item
+  const getStableId = useCallback((item: TLaunchIncludeItem, lineNumber: number, siblingIndex: number): string => {
+    const key = `${lineNumber}-${item.file.inc_path}-${item.file.line_number}-${siblingIndex}`;
+    return key;
+  }, []);
+
+  // Compute expanded items separately (no setState during render!)
+  useEffect(() => {
+    if (!includeRoot) return;
+    const findPathToSelected = (
+      item: TLaunchIncludeItem,
+      lineNumber: number,
+      siblingIndex: number,
+      parentItems: string[]
+    ): string[] | null => {
+      const id = getStableId(item, lineNumber, siblingIndex);
+      const pathList = [...parentItems, id];
+
+      const isSelected =
+        selectedFile.uriPath === item.uriPath &&
+        (item.uriPath.endsWith(`:${rootFilePath}`) || equalLaunchArgs(selectedFile.launchArgs, item.file.args || []));
+
+      if (isSelected) return pathList;
+
+      for (let i = 0; i < item.children.length; i++) {
+        const found = findPathToSelected(item.children[i], item.file.line_number, siblingIndex + 1, pathList);
+        if (found) return found;
       }
+      return null;
+    };
+
+    const path = findPathToSelected(includeRoot, 0, 0, []);
+    if (path) {
+      setExpandedExplorerResults((prev: string[]) => {
+        const merged = new Set<string>([...prev, ...path]);
+        return Array.from(merged);
+      });
+    }
+  }, [includeRoot, selectedFile, rootFilePath, getStableId, setExpandedExplorerResults]);
+
+  // Render tree without any state updates
+  const includeFilesToTree = useCallback(
+    (item: TLaunchIncludeItem, lineNumber: number, siblingIndex: number): JSX.Element => {
+      if (!item) return <></>;
+      const id = getStableId(item, lineNumber, siblingIndex);
+      const selected =
+        selectedFile.uriPath === item.uriPath &&
+        (item.uriPath.endsWith(`:${rootFilePath}`) || equalLaunchArgs(selectedFile.launchArgs, item.file.args || []));
+
       return (
         <FileTreeItem
           key={id}
@@ -114,46 +162,43 @@ export default function ExplorerTree(props: ExplorerTreeProps): JSX.Element {
           modified={modifiedUriPaths.includes(item.uriPath)}
           selected={selected}
         >
-          {item.children.map((child) => {
-            return includeFilesToTree(child, item.file.line_number, pathList);
-          })}
+          {item.children.map((child) => includeFilesToTree(child, item.file.line_number, siblingIndex + 1))}
         </FileTreeItem>
       );
     },
-    [modifiedUriPaths, editorId, rootFilePath, launchArgs, selectedUriPath]
+    [modifiedUriPaths, editorId, rootFilePath, selectedFile, getStableId]
   );
+
+  const treeContent = useMemo(() => {
+    if (includeRoot) {
+      return includeFilesToTree(includeRoot, 0, 0);
+    }
+    return <></>;
+  }, [includeRoot, includeFilesToTree]);
 
   return (
     <SimpleTreeView
+      id="explorer-tree"
       aria-label="Explorer"
-      expansionTrigger={"iconContainer"}
+      expansionTrigger="iconContainer"
       expandedItems={expandedExplorerResults}
       slots={{ collapseIcon: ArrowDropDownIcon, expandIcon: ArrowRightIcon }}
-      onExpandedItemsChange={(_event: React.SyntheticEvent | null, itemIds: string[]) =>
-        setExpandedExplorerResults(itemIds)
-      }
+      onExpandedItemsChange={(_event, itemIds) => setExpandedExplorerResults(itemIds)}
       onSelectedItemsChange={(_event, itemId) => {
         if (itemId) {
-          const index = expandedExplorerResults.indexOf(itemId);
           const copyExpanded = [...expandedExplorerResults];
+          const index = copyExpanded.indexOf(itemId);
           if (index === -1) {
             copyExpanded.push(itemId);
           } else {
             copyExpanded.splice(index, 1);
           }
           setExpandedExplorerResults(copyExpanded);
-        } else {
-          setExpandedExplorerResults([]);
         }
       }}
       sx={{ flexGrow: 1, overflow: "auto" }}
     >
-      {useMemo(() => {
-        if (includeRoot) {
-          return includeFilesToTree(includeRoot, 0);
-        }
-        return <></>;
-      }, [includeFilesToTree, includeRoot, selectedUriPath])}
+      {treeContent}
     </SimpleTreeView>
   );
 }

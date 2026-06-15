@@ -43,10 +43,11 @@ interface FileEditorPanelProps {
   currentFilePath: string;
   fileRange: TFileRange | null;
   launchArgs: TLaunchArg[];
+  topLevelLaunchArgs: TLaunchArg[];
 }
 
 export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Element {
-  const { editorId, provider, rootFilePath, currentFilePath, fileRange, launchArgs } = props;
+  const { editorId, provider, rootFilePath, currentFilePath, fileRange, launchArgs, topLevelLaunchArgs } = props;
   const settingsCtx = useSettingsContext();
   const logCtx = useLoggingContext();
   const monacoInitCtx = useMonacoInitContext();
@@ -86,7 +87,7 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
     setSavedSideBarUserWidth,
   } = useEditorLayout();
 
-  const includeResolver = useIncludedFiles(provider, rootFilePath, launchArgs);
+  const includeResolver = useIncludedFiles(provider, rootFilePath, topLevelLaunchArgs);
   monacoCtx.setResolver(editorId, includeResolver);
 
   const mEditor = useMonacoEditor({
@@ -168,6 +169,11 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
       // get model from path if exists
       if (!result.model) {
         logCtx.error(`Could not get model for file: ${uriPath}`, "");
+        setNotificationDescription({
+          message: result?.error || `Could not get model for file: ${uriPath}`,
+          messageSeverity: "error",
+        });
+        mEditor.setCurrentModel(null);
         return false;
       }
       mEditor.setCurrentModel(result.model);
@@ -231,7 +237,6 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
       if (savedFiles.includes(changedUri)) {
         setSavedFiles(savedFiles.filter((uri) => uri !== changedUri));
         // TODO: reload file content
-        return;
       }
       if (!editorRef.current) return;
       const currentModelUri = editorRef.current.getModel()?.uri.path;
@@ -242,7 +247,6 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
           message: `Could not open file: [${result.file.fileName}]: ${result.error}`,
           messageSeverity: "warning",
         });
-        return;
       }
       const model = monacoCtx.createModel(editorId, result.file);
       if (!model) {
@@ -255,10 +259,9 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
       }
       if (monacoCtx.dirtyManager()?.isDirty(model)) {
         setNotificationDescription({
-          message: `${result.file.fileName} was changed on remote host! Save your file or reload manually!`,
+          message: `${result.file.fileName} was changed on remote host! Sa        return;ve your file or reload manually!`,
           messageSeverity: "warning",
         });
-        return;
       }
       if (currentModelUri === model.uri.path) {
         mEditor.setCurrentModel(model);
@@ -476,8 +479,7 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
             provider={provider}
             rootFilePath={rootFilePath}
             includedFiles={includeResolver.includedFiles}
-            selectedUriPath={mEditor.activeModel?.uri.path ? mEditor.activeModel?.uri.path : ""}
-            launchArgs={currentLaunchArgs}
+            selectedFile={{ uriPath: mEditor.activeModel?.uri.path || "", launchArgs: currentLaunchArgs }}
             modifiedUriPaths={mEditor.modifiedFiles}
             sideBarWidth={sideBarWidth}
             keyboardEvent={keyboardEvent}

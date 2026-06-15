@@ -164,7 +164,7 @@ export function MonacoProvider({ children }: { children: React.ReactNode }) {
     const newModel = workspaceRef.current.models.create(
       editorId,
       uriPath,
-      file.value,
+      file.value || "",
       FileLanguageAssociations[file.extension] ?? "plaintext"
     );
     return newModel;

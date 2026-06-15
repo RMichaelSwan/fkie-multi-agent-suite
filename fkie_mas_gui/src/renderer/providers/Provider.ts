@@ -734,7 +734,7 @@ export default class Provider implements IProvider {
    * Get content of the file from provider.
    */
   public getFileContent: (path: string) => Promise<{ file: FileItem; error: string }> = async (path) => {
-    const error: string = "";
+    let error: string = "";
     const fileItem: FileItem | null = await this.makeCall(URI.ROS_FILE_GET, [path], false).then(
       (value: TResultData) => {
         if (value.result) {
@@ -742,6 +742,7 @@ export default class Provider implements IProvider {
           result.host = this.host();
           return result;
         }
+        error = `Provider [${this.id}]: can not get content for ${path}: ${value.message}`
         this.log().error(`Provider [${this.id}]: can not get content for ${path}: `, `${value.message}`);
         return null;
       }

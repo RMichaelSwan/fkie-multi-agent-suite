@@ -49,6 +49,7 @@ export interface INavigationContext {
     path: string,
     fileRange: TFileRange | null,
     launchArgs: TLaunchArg[],
+    topLevelLaunchArgs: TLaunchArg[],
     externalKeyModifier: boolean
   ) => void;
   startPublisher: (
@@ -144,6 +145,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       path: string,
       fileRange: TFileRange | null,
       launchArgs: TLaunchArg[],
+      topLevelLaunchArgs: TLaunchArg[],
       externalKeyModifier: boolean
     ): Promise<void> => {
       const provider = rosCtx.getProviderById(providerId);
@@ -171,7 +173,6 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         );
         return;
       }
-
       emitCustomEvent(EVENT_EDITOR_SELECT_RANGE, eventEditorSelectRange(id, path, fileRange, launchArgs));
       emitCustomEvent(
         EVENT_OPEN_COMPONENT,
@@ -185,6 +186,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
             rootFilePath={rootLaunch}
             fileRange={fileRange}
             launchArgs={launchArgs}
+            topLevelLaunchArgs={topLevelLaunchArgs}
           />,
           true,
           LAYOUT_TAB_SETS[settingsCtx.get("editorOpenLocation") as string],

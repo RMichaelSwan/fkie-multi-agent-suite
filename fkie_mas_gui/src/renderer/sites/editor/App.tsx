@@ -151,6 +151,7 @@ export default function EditorApp(): JSX.Element {
           currentFilePath={launchInfo.launch}
           fileRange={launchInfo.fileRange}
           launchArgs={launchInfo.launchArgs}
+          topLevelLaunchArgs={launchInfo.launchArgs}
         />
       )}
       {launchInfo && dirtyModels.length > 0 && (

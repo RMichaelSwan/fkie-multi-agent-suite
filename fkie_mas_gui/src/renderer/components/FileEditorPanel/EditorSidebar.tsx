@@ -7,9 +7,8 @@ import SplitPane, { Pane, SashContent } from "split-pane-react";
 import { useEditorSidebarLayout } from "@/renderer/hooks/editor/useEditorSidebarLayout";
 import { LaunchIncludedFile } from "@/renderer/models";
 import { Provider } from "@/renderer/providers";
-import { TLaunchArg } from "@/types";
 import { SearchBar } from "../UI";
-import ExplorerTree from "./ExplorerTree";
+import ExplorerTree, { SelectedFile } from "./ExplorerTree";
 import SearchTree from "./SearchTree";
 
 interface EditorSidebarProps {
@@ -17,8 +16,7 @@ interface EditorSidebarProps {
   provider: Provider;
   rootFilePath: string;
   includedFiles: LaunchIncludedFile[];
-  selectedUriPath: string;
-  launchArgs: TLaunchArg[];
+  selectedFile: SelectedFile;
   modifiedUriPaths: string[];
   sideBarWidth: number;
   keyboardEvent?: React.KeyboardEvent;
@@ -35,8 +33,7 @@ export function EditorSidebar(props: EditorSidebarProps) {
     provider,
     rootFilePath,
     includedFiles,
-    selectedUriPath = "",
-    launchArgs = [],
+    selectedFile = { uriPath: "", launchArgs: [] },
     modifiedUriPaths = [],
     sideBarWidth,
     keyboardEvent,
@@ -46,6 +43,7 @@ export function EditorSidebar(props: EditorSidebarProps) {
   const [enableGlobalSearch, setEnableGlobalSearch] = useState(false);
   const [enableExplorer, setEnableExplorer] = useState(false);
   const [globalSearchTerm, setGlobalSearchTerm] = useState("");
+  const [expandedExplorerItems, setExpandedExplorerItems] = useState<string[]>([]);
 
   const {
     fontSize,
@@ -112,6 +110,7 @@ export function EditorSidebar(props: EditorSidebarProps) {
           </Stack>
           {enableExplorer && (
             <Stack
+              id="explorer-tree"
               overflow="auto"
               direction="column"
               height={explorerBarHeight - fontSize * 2 - 2}
@@ -122,9 +121,10 @@ export function EditorSidebar(props: EditorSidebarProps) {
                 provider={provider}
                 rootFilePath={rootFilePath}
                 includedFiles={includedFiles}
-                selectedUriPath={selectedUriPath}
-                launchArgs={launchArgs}
+                selectedFile={selectedFile}
                 modifiedUriPaths={modifiedUriPaths}
+                expandedItems={expandedExplorerItems}
+                onExpandedItemsChange={setExpandedExplorerItems}
               />
             </Stack>
           )}
