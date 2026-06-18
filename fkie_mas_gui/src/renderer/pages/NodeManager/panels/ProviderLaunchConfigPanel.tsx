@@ -619,21 +619,41 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
       sx={{ backgroundColor: backgroundColor }}
     >
       <Stack direction="row" spacing="1em" pt={1}>
-        <Button
-          type="submit"
-          variant="contained"
-          // display="flex"
-          color="success"
-          onClick={() => {
-            onSave(launchCfg);
-            emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(launchCfg.params.id));
-          }}
-          style={{ height: "3em", textAlign: "center" }}
-          endIcon={<SaveIcon />}
-          disabled={!launchCfg.params.host}
+        <Tooltip
+          title={
+            <div>
+              {!launchCfg.params.host && (
+                <Typography fontWeight="bold" fontSize="inherit">
+                  No Host selected
+                </Typography>
+              )}
+              {launchCfg.params.domainId === -1 && (
+                <Typography fontWeight="bold" fontSize="inherit">
+                  Invalid domain id
+                </Typography>
+              )}
+            </div>
+          }
+          disableInteractive
         >
-          Save
-        </Button>
+          <span>
+            <Button
+              type="submit"
+              variant="contained"
+              // display="flex"
+              color="success"
+              onClick={() => {
+                onSave(launchCfg);
+                emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(launchCfg.params.id));
+              }}
+              style={{ height: "3em", textAlign: "center" }}
+              endIcon={<SaveIcon />}
+              disabled={!launchCfg.params.host || launchCfg.params.domainId === -1}
+            >
+              Save
+            </Button>
+          </span>
+        </Tooltip>
         <Typography flexGrow={1} />
         <Button
           type="submit"
@@ -691,737 +711,751 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
               size="small"
               variant="outlined"
               style={{ minWidth: "9em" }}
-              InputProps={{ inputProps: { min: -1, max: 99 } }}
+              InputProps={{ inputProps: { min: 0, max: 99 } }}
               // fullWidth
               onChange={(e) => setNetworkId(Number(`${e.target.value}`))}
               value={launchCfg.params.domainId}
             />
             {launchCfg.params.domainId === -1 && <Typography>Use default domain ID</Typography>}
           </Stack>
-
-          <Stack
-            direction="column"
-            // divider={<Divider orientation="horizontal" />}
-          >
-            <FormGroup
-              aria-label="position"
-              row
-              sx={{ "&:hover": { backgroundColor: (theme) => theme.palette.action.hover } }}
-            >
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={launchCfg.params.daemon.enable}
-                    onChange={(event) => {
-                      launchCfg.params.daemon.enable = event.target.checked;
-                      updateStartParameter();
-                    }}
-                  />
-                }
-                label="Daemon Node"
-                labelPlacement="end"
-              />
-            </FormGroup>
-            {launchCfg.params.rosVersion === "2" && (
-              <FormGroup aria-label="position" row>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={launchCfg.params.discovery.enable}
-                      onChange={(event) => {
-                        launchCfg.params.discovery.enable = event.target.checked;
-                        updateStartParameter();
-                      }}
-                    />
-                  }
-                  label="Discovery Node"
-                  labelPlacement="end"
-                />
-              </FormGroup>
-            )}
-            {launchCfg.params.rosVersion === "1" && (
-              <Accordion
-                disableGutters
-                elevation={0}
-                sx={{
-                  "&:before": {
-                    display: "none",
-                  },
-                }}
+          {window.commandExecutor && (
+            <Stack>
+              <Stack
+                direction="column"
+                // divider={<Divider orientation="horizontal" />}
               >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls="discovery_panel-content"
-                  id="discovery_panel-header"
-                  sx={{ pl: 0 }}
+                <FormGroup
+                  aria-label="position"
+                  row
+                  sx={{ "&:hover": { backgroundColor: (theme) => theme.palette.action.hover } }}
                 >
-                  <GridLegacy container>
-                    <GridLegacy item xs={4}>
-                      <FormGroup
-                        aria-label="position"
-                        row
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
-                      >
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={launchCfg.params.discovery.enable}
-                              onChange={(event) => {
-                                launchCfg.params.discovery.enable = event.target.checked;
-                                updateStartParameter();
-                              }}
-                            />
-                          }
-                          label="Discovery Node"
-                          labelPlacement="end"
-                        />
-                      </FormGroup>
-                    </GridLegacy>
-                    <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                      <Stack direction="column" sx={{ display: "grid" }}>
-                        <Typography
-                          noWrap
-                          variant="body2"
-                          sx={{
-                            color: grey[700],
-                            fontWeight: "inherit",
-                            flexGrow: 1,
-                            ml: 0.5,
-                          }}
-                        >
-                          {`Heartbeat Hz: ${launchCfg.params.discovery.heartbeatHz}`}
-                        </Typography>
-                        <Typography
-                          noWrap
-                          variant="body2"
-                          sx={{
-                            color: grey[700],
-                            fontWeight: "inherit",
-                            flexGrow: 1,
-                            ml: 0.5,
-                          }}
-                        >
-                          {`Robot Hosts: [${getRobotHosts().join(",")}]`}
-                        </Typography>
-                      </Stack>
-                    </GridLegacy>
-                  </GridLegacy>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Stack direction="column" divider={<Divider orientation="vertical" />}>
-                    <TextField
-                      type="number"
-                      id="heartbeat-hz"
-                      label="Heartbeat Hz"
-                      size="small"
-                      variant="outlined"
-                      fullWidth
-                      onChange={(e) => setHeartbeatHz(Number(`${e.target.value}`))}
-                      value={launchCfg.params.discovery.heartbeatHz}
-                      disabled={!launchCfg.params.discovery.enable}
-                    />
-                    <Autocomplete
-                      handleHomeEndKeys={false}
-                      disabled={!launchCfg.params.discovery.enable}
-                      disablePortal
-                      multiple
-                      id="auto-complete-robot-hosts"
-                      size="small"
-                      options={hostList}
-                      freeSolo
-                      sx={{ margin: 0 }}
-                      getOptionLabel={(option: string | THostIp) => host2label(option)}
-                      renderInput={(params) => (
-                        <TextField {...params} variant="outlined" label="Add Robot Hosts" placeholder="..." fullWidth />
-                      )}
-                      value={launchCfg.params.discovery.robotHosts}
-                      onChange={(_event, newValue) => {
-                        setRobotHostValues(newValue.map((item) => host2string(item)));
-                      }}
-                      inputValue={robotHostInputValue}
-                      onInputChange={(_event, newInputValue) => {
-                        setRobotHostInputValue(newInputValue);
-                      }}
-                      disableCloseOnSelect
-                      renderOption={(props, option, { selected }) => (
-                        <li {...props} key={`${host2label(option)}`} style={{ height: "1.5em" }}>
-                          <Checkbox
-                            icon={icon}
-                            checkedIcon={checkedIcon}
-                            // style={{ marginRight: 8 }}
-                            checked={selected}
-                            size="small"
-                          />
-                          {`${host2label(option)}`}
-                        </li>
-                      )}
-                      slotProps={{
-                        listbox: {
-                          style: { maxHeight: 150 },
-                        },
-                        popper: {
-                          placement: "top-start",
-                        },
-                      }}
-                    />
-                  </Stack>
-                </AccordionDetails>
-              </Accordion>
-            )}
-            {launchCfg.params.rosVersion === "1" && (
-              <Accordion
-                disableGutters
-                elevation={0}
-                sx={{
-                  "&:before": {
-                    display: "none",
-                  },
-                }}
-              >
-                <AccordionSummary
-                  // disabled={!startSystemNodes}
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls="sync_panel-content"
-                  id="sync_panel-header"
-                  sx={{ pl: 0 }}
-                >
-                  <GridLegacy container>
-                    <GridLegacy item xs={4}>
-                      <FormGroup
-                        aria-label="position"
-                        row
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
-                      >
-                        <FormControlLabel
-                          // disabled={!startSystemNodes}
-                          control={
-                            <Checkbox
-                              checked={launchCfg.params.sync.enable}
-                              onChange={(event) => {
-                                launchCfg.params.sync.enable = event.target.checked;
-                                updateStartParameter();
-                              }}
-                            />
-                          }
-                          label="Master Sync"
-                          labelPlacement="end"
-                        />
-                      </FormGroup>
-                    </GridLegacy>
-                    <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                      <Stack direction="column" sx={{ display: "grid" }}>
-                        <Typography
-                          noWrap
-                          variant="body2"
-                          sx={{
-                            color: grey[700],
-                            fontWeight: "inherit",
-                            flexGrow: 1,
-                            ml: 0.5,
-                          }}
-                        >
-                          {`DoNotSync: [${launchCfg.params.sync.doNotSync.join()}]`}
-                        </Typography>
-                        <Typography
-                          noWrap
-                          variant="body2"
-                          sx={{
-                            color: grey[700],
-                            fontWeight: "inherit",
-                            flexGrow: 1,
-                            ml: 0.5,
-                          }}
-                        >
-                          {`SyncTopics: [${launchCfg.params.sync.syncTopics.join()}]`}
-                        </Typography>
-                      </Stack>
-                    </GridLegacy>
-                  </GridLegacy>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Stack direction="column" divider={<Divider orientation="vertical" />}>
-                    <Autocomplete
-                      handleHomeEndKeys={false}
-                      disablePortal
-                      multiple
-                      id="auto-complete-do-not-sync"
-                      size="small"
-                      options={tsList}
-                      freeSolo
-                      sx={{ margin: 0 }}
-                      renderInput={(params) => <TextField {...params} variant="outlined" label="do not sync" />}
-                      value={launchCfg.params.sync.doNotSync}
-                      onChange={(_event, newValue) => {
-                        setDoNotSync(newValue);
-                      }}
-                      // disableCloseOnSelect
-                    />
-                    <Autocomplete
-                      handleHomeEndKeys={false}
-                      disablePortal
-                      multiple
-                      id="auto-complete-sync-topics"
-                      size="small"
-                      options={topicList}
-                      freeSolo
-                      sx={{ margin: 0 }}
-                      renderInput={(params) => <TextField {...params} variant="outlined" label="sync topics" />}
-                      value={launchCfg.params.sync.syncTopics}
-                      onChange={(_event, newValue) => {
-                        setSyncTopics(newValue);
-                      }}
-                      // disableCloseOnSelect
-                    />
-                  </Stack>
-                </AccordionDetails>
-              </Accordion>
-            )}
-            <Accordion
-              disableGutters
-              elevation={0}
-              sx={{
-                "&:before": {
-                  display: "none",
-                },
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                aria-controls="terminal_panel-content"
-                id="terminal_panel-header"
-                sx={{ pl: 0, margin: 0 }}
-                style={{ margin: 0 }}
-              >
-                <GridLegacy container>
-                  <GridLegacy item xs={4}>
-                    <Stack
-                      direction="row"
-                      style={{ marginLeft: 0, paddingLeft: 0 }}
-                      justifyItems="center"
-                      alignItems="center"
-                    >
+                  <FormControlLabel
+                    control={
                       <Checkbox
-                        style={{ marginLeft: 0, paddingLeft: 0 }}
-                        checked={launchCfg.params.terminal.enable}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
+                        checked={launchCfg.params.daemon.enable}
                         onChange={(event) => {
-                          launchCfg.params.terminal.enable = event.target.checked;
+                          launchCfg.params.daemon.enable = event.target.checked;
                           updateStartParameter();
                         }}
                       />
-                      <Typography>Terminal Manager</Typography>
-
-                      <Tooltip
-                        title={
-                          <>
-                            <Typography variant="body1">Install TTYD in the host using:</Typography>
-                            <Stack mt={1} direction="row" justifyContent="center">
-                              <Typography variant="body2">sudo snap install ttyd --classic</Typography>
-                              <CopyButton value="sudo snap install ttyd --classic" />
-                            </Stack>
-                            <Link mt={2} href="https://github.com/tsl0922/ttyd" target="_blank" color="inherit">
-                              See https://github.com/tsl0922/ttyd
-                            </Link>
-                          </>
-                        }
-                        // PopperProps={{
-                        //   disablePortal: true,
-                        // }}
-                        disableFocusListener
-                        disableHoverListener
-                        disableTouchListener
-                        open={openTerminalTooltip}
-                        placement="bottom-start"
-                        // enterDelay={tooltipDelay}
-                        // enterNextDelay={tooltipDelay}
-                      >
-                        <Stack
-                          marginLeft="3px"
-                          onClick={(event) => {
-                            setOpenTerminalTooltip(!openTerminalTooltip);
-                            event.stopPropagation();
+                    }
+                    label="Daemon Node"
+                    labelPlacement="end"
+                  />
+                </FormGroup>
+                {launchCfg.params.rosVersion === "2" && (
+                  <FormGroup aria-label="position" row>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={launchCfg.params.discovery.enable}
+                          onChange={(event) => {
+                            launchCfg.params.discovery.enable = event.target.checked;
+                            updateStartParameter();
                           }}
+                        />
+                      }
+                      label="Discovery Node"
+                      labelPlacement="end"
+                    />
+                  </FormGroup>
+                )}
+                {launchCfg.params.rosVersion === "1" && (
+                  <Accordion
+                    disableGutters
+                    elevation={0}
+                    sx={{
+                      "&:before": {
+                        display: "none",
+                      },
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon />}
+                      aria-controls="discovery_panel-content"
+                      id="discovery_panel-header"
+                      sx={{ pl: 0 }}
+                    >
+                      <GridLegacy container>
+                        <GridLegacy item xs={4}>
+                          <FormGroup
+                            aria-label="position"
+                            row
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                          >
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={launchCfg.params.discovery.enable}
+                                  onChange={(event) => {
+                                    launchCfg.params.discovery.enable = event.target.checked;
+                                    updateStartParameter();
+                                  }}
+                                />
+                              }
+                              label="Discovery Node"
+                              labelPlacement="end"
+                            />
+                          </FormGroup>
+                        </GridLegacy>
+                        <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
+                          <Stack direction="column" sx={{ display: "grid" }}>
+                            <Typography
+                              noWrap
+                              variant="body2"
+                              sx={{
+                                color: grey[700],
+                                fontWeight: "inherit",
+                                flexGrow: 1,
+                                ml: 0.5,
+                              }}
+                            >
+                              {`Heartbeat Hz: ${launchCfg.params.discovery.heartbeatHz}`}
+                            </Typography>
+                            <Typography
+                              noWrap
+                              variant="body2"
+                              sx={{
+                                color: grey[700],
+                                fontWeight: "inherit",
+                                flexGrow: 1,
+                                ml: 0.5,
+                              }}
+                            >
+                              {`Robot Hosts: [${getRobotHosts().join(",")}]`}
+                            </Typography>
+                          </Stack>
+                        </GridLegacy>
+                      </GridLegacy>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Stack direction="column" divider={<Divider orientation="vertical" />}>
+                        <TextField
+                          type="number"
+                          id="heartbeat-hz"
+                          label="Heartbeat Hz"
+                          size="small"
+                          variant="outlined"
+                          fullWidth
+                          onChange={(e) => setHeartbeatHz(Number(`${e.target.value}`))}
+                          value={launchCfg.params.discovery.heartbeatHz}
+                          disabled={!launchCfg.params.discovery.enable}
+                        />
+                        <Autocomplete
+                          handleHomeEndKeys={false}
+                          disabled={!launchCfg.params.discovery.enable}
+                          disablePortal
+                          multiple
+                          id="auto-complete-robot-hosts"
+                          size="small"
+                          options={hostList}
+                          freeSolo
+                          sx={{ margin: 0 }}
+                          getOptionLabel={(option: string | THostIp) => host2label(option)}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              variant="outlined"
+                              label="Add Robot Hosts"
+                              placeholder="..."
+                              fullWidth
+                            />
+                          )}
+                          value={launchCfg.params.discovery.robotHosts}
+                          onChange={(_event, newValue) => {
+                            setRobotHostValues(newValue.map((item) => host2string(item)));
+                          }}
+                          inputValue={robotHostInputValue}
+                          onInputChange={(_event, newInputValue) => {
+                            setRobotHostInputValue(newInputValue);
+                          }}
+                          disableCloseOnSelect
+                          renderOption={(props, option, { selected }) => (
+                            <li {...props} key={`${host2label(option)}`} style={{ height: "1.5em" }}>
+                              <Checkbox
+                                icon={icon}
+                                checkedIcon={checkedIcon}
+                                // style={{ marginRight: 8 }}
+                                checked={selected}
+                                size="small"
+                              />
+                              {`${host2label(option)}`}
+                            </li>
+                          )}
+                          slotProps={{
+                            listbox: {
+                              style: { maxHeight: 150 },
+                            },
+                            popper: {
+                              placement: "top-start",
+                            },
+                          }}
+                        />
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+                {launchCfg.params.rosVersion === "1" && (
+                  <Accordion
+                    disableGutters
+                    elevation={0}
+                    sx={{
+                      "&:before": {
+                        display: "none",
+                      },
+                    }}
+                  >
+                    <AccordionSummary
+                      // disabled={!startSystemNodes}
+                      expandIcon={<ExpandMoreIcon />}
+                      aria-controls="sync_panel-content"
+                      id="sync_panel-header"
+                      sx={{ pl: 0 }}
+                    >
+                      <GridLegacy container>
+                        <GridLegacy item xs={4}>
+                          <FormGroup
+                            aria-label="position"
+                            row
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                          >
+                            <FormControlLabel
+                              // disabled={!startSystemNodes}
+                              control={
+                                <Checkbox
+                                  checked={launchCfg.params.sync.enable}
+                                  onChange={(event) => {
+                                    launchCfg.params.sync.enable = event.target.checked;
+                                    updateStartParameter();
+                                  }}
+                                />
+                              }
+                              label="Master Sync"
+                              labelPlacement="end"
+                            />
+                          </FormGroup>
+                        </GridLegacy>
+                        <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
+                          <Stack direction="column" sx={{ display: "grid" }}>
+                            <Typography
+                              noWrap
+                              variant="body2"
+                              sx={{
+                                color: grey[700],
+                                fontWeight: "inherit",
+                                flexGrow: 1,
+                                ml: 0.5,
+                              }}
+                            >
+                              {`DoNotSync: [${launchCfg.params.sync.doNotSync.join()}]`}
+                            </Typography>
+                            <Typography
+                              noWrap
+                              variant="body2"
+                              sx={{
+                                color: grey[700],
+                                fontWeight: "inherit",
+                                flexGrow: 1,
+                                ml: 0.5,
+                              }}
+                            >
+                              {`SyncTopics: [${launchCfg.params.sync.syncTopics.join()}]`}
+                            </Typography>
+                          </Stack>
+                        </GridLegacy>
+                      </GridLegacy>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Stack direction="column" divider={<Divider orientation="vertical" />}>
+                        <Autocomplete
+                          handleHomeEndKeys={false}
+                          disablePortal
+                          multiple
+                          id="auto-complete-do-not-sync"
+                          size="small"
+                          options={tsList}
+                          freeSolo
+                          sx={{ margin: 0 }}
+                          renderInput={(params) => <TextField {...params} variant="outlined" label="do not sync" />}
+                          value={launchCfg.params.sync.doNotSync}
+                          onChange={(_event, newValue) => {
+                            setDoNotSync(newValue);
+                          }}
+                          // disableCloseOnSelect
+                        />
+                        <Autocomplete
+                          handleHomeEndKeys={false}
+                          disablePortal
+                          multiple
+                          id="auto-complete-sync-topics"
+                          size="small"
+                          options={topicList}
+                          freeSolo
+                          sx={{ margin: 0 }}
+                          renderInput={(params) => <TextField {...params} variant="outlined" label="sync topics" />}
+                          value={launchCfg.params.sync.syncTopics}
+                          onChange={(_event, newValue) => {
+                            setSyncTopics(newValue);
+                          }}
+                          // disableCloseOnSelect
+                        />
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+                <Accordion
+                  disableGutters
+                  elevation={0}
+                  sx={{
+                    "&:before": {
+                      display: "none",
+                    },
+                  }}
+                >
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    aria-controls="terminal_panel-content"
+                    id="terminal_panel-header"
+                    sx={{ pl: 0, margin: 0 }}
+                    style={{ margin: 0 }}
+                  >
+                    <GridLegacy container>
+                      <GridLegacy item xs={4}>
+                        <Stack
+                          direction="row"
+                          style={{ marginLeft: 0, paddingLeft: 0 }}
+                          justifyItems="center"
+                          alignItems="center"
                         >
-                          <InfoOutlinedIcon
-                            sx={{
-                              fontSize: "inherit",
-                              color: "DodgerBlue",
+                          <Checkbox
+                            style={{ marginLeft: 0, paddingLeft: 0 }}
+                            checked={launchCfg.params.terminal.enable}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                            onChange={(event) => {
+                              launchCfg.params.terminal.enable = event.target.checked;
+                              updateStartParameter();
                             }}
                           />
+                          <Typography>Terminal Manager</Typography>
+
+                          <Tooltip
+                            title={
+                              <>
+                                <Typography variant="body1">Install TTYD in the host using:</Typography>
+                                <Stack mt={1} direction="row" justifyContent="center">
+                                  <Typography variant="body2">sudo snap install ttyd --classic</Typography>
+                                  <CopyButton value="sudo snap install ttyd --classic" />
+                                </Stack>
+                                <Link mt={2} href="https://github.com/tsl0922/ttyd" target="_blank" color="inherit">
+                                  See https://github.com/tsl0922/ttyd
+                                </Link>
+                              </>
+                            }
+                            // PopperProps={{
+                            //   disablePortal: true,
+                            // }}
+                            disableFocusListener
+                            disableHoverListener
+                            disableTouchListener
+                            open={openTerminalTooltip}
+                            placement="bottom-start"
+                            // enterDelay={tooltipDelay}
+                            // enterNextDelay={tooltipDelay}
+                          >
+                            <Stack
+                              marginLeft="3px"
+                              onClick={(event) => {
+                                setOpenTerminalTooltip(!openTerminalTooltip);
+                                event.stopPropagation();
+                              }}
+                            >
+                              <InfoOutlinedIcon
+                                sx={{
+                                  fontSize: "inherit",
+                                  color: "DodgerBlue",
+                                }}
+                              />
+                            </Stack>
+                          </Tooltip>
                         </Stack>
-                      </Tooltip>
-                    </Stack>
-                  </GridLegacy>
-                  <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                    <Stack direction="column" sx={{ display: "grid" }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: grey[700],
-                          fontWeight: "inherit",
-                          flexGrow: 1,
-                          ml: 0.5,
-                        }}
-                      >
-                        {`Path: ${launchCfg.params.terminal.path}`}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: grey[700],
-                          fontWeight: "inherit",
-                          flexGrow: 1,
-                          ml: 0.5,
-                        }}
-                      >
-                        {`Port: ${launchCfg.params.terminal.port}`}
-                      </Typography>
-                    </Stack>
-                  </GridLegacy>
-                </GridLegacy>
-              </AccordionSummary>
-              <AccordionDetails>
-                <TextField
-                  type="string"
-                  id="terminal-path"
-                  label="Path"
-                  size="small"
-                  variant="outlined"
-                  fullWidth
-                  onChange={(e) => setTerminalPath(`${e.target.value}`)}
-                  value={launchCfg.params.terminal.path}
-                  disabled={!launchCfg.params.terminal.enable}
-                />
-                <TextField
-                  type="number"
-                  id="terminal-port"
-                  label="Port"
-                  size="small"
-                  variant="outlined"
-                  fullWidth
-                  onChange={(e) => setTerminalPort(Number(`${e.target.value}`))}
-                  value={launchCfg.params.terminal.port}
-                  disabled={!launchCfg.params.terminal.enable}
-                />
-              </AccordionDetails>
-            </Accordion>
-            {launchCfg.params.rosVersion === "1" && (
-              <Accordion>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls="discovery_panel-content"
-                  id="master-uri-header"
-                  sx={{ pl: 0 }}
-                >
-                  <GridLegacy container>
-                    <GridLegacy item xs={4}>
+                      </GridLegacy>
+                      <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
+                        <Stack direction="column" sx={{ display: "grid" }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: grey[700],
+                              fontWeight: "inherit",
+                              flexGrow: 1,
+                              ml: 0.5,
+                            }}
+                          >
+                            {`Path: ${launchCfg.params.terminal.path}`}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: grey[700],
+                              fontWeight: "inherit",
+                              flexGrow: 1,
+                              ml: 0.5,
+                            }}
+                          >
+                            {`Port: ${launchCfg.params.terminal.port}`}
+                          </Typography>
+                        </Stack>
+                      </GridLegacy>
+                    </GridLegacy>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <TextField
+                      type="string"
+                      id="terminal-path"
+                      label="Path"
+                      size="small"
+                      variant="outlined"
+                      fullWidth
+                      onChange={(e) => setTerminalPath(`${e.target.value}`)}
+                      value={launchCfg.params.terminal.path}
+                      disabled={!launchCfg.params.terminal.enable}
+                    />
+                    <TextField
+                      type="number"
+                      id="terminal-port"
+                      label="Port"
+                      size="small"
+                      variant="outlined"
+                      fullWidth
+                      onChange={(e) => setTerminalPort(Number(`${e.target.value}`))}
+                      value={launchCfg.params.terminal.port}
+                      disabled={!launchCfg.params.terminal.enable}
+                    />
+                  </AccordionDetails>
+                </Accordion>
+                {launchCfg.params.rosVersion === "1" && (
+                  <Accordion>
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon />}
+                      aria-controls="discovery_panel-content"
+                      id="master-uri-header"
+                      sx={{ pl: 0 }}
+                    >
+                      <GridLegacy container>
+                        <GridLegacy item xs={4}>
+                          <FormGroup
+                            aria-label="position"
+                            row
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                          >
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  size="small"
+                                  checked={launchCfg.params.ros1MasterUri.enable}
+                                  onChange={(event) => {
+                                    launchCfg.params.ros1MasterUri.enable = event.target.checked;
+                                    updateStartParameter();
+                                  }}
+                                />
+                              }
+                              label={
+                                <Tooltip
+                                  title={"The new ROS_MASTER_URI is prefixed when system nodes are started."}
+                                  placement="bottom"
+                                  disableInteractive
+                                >
+                                  <Typography>ROS_MASTER_URI</Typography>
+                                </Tooltip>
+                              }
+                              labelPlacement="end"
+                            />
+                          </FormGroup>
+                        </GridLegacy>
+                        <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
+                          <Stack direction="column" sx={{ display: "grid" }}>
+                            <Typography
+                              noWrap
+                              variant="body2"
+                              sx={{
+                                color: grey[700],
+                                fontWeight: "inherit",
+                                flexGrow: 1,
+                                ml: 0.5,
+                              }}
+                            >
+                              {`${launchCfg.params.ros1MasterUri.uri}`}
+                            </Typography>
+                          </Stack>
+                        </GridLegacy>
+                      </GridLegacy>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Stack direction="column" divider={<Divider orientation="vertical" />}>
+                        <Tooltip
+                          title={
+                            <>
+                              <Typography variant="body2">Enter: save entry</Typography>
+                              <Typography variant="body2">Delete: remove selected entry from options list</Typography>
+                            </>
+                          }
+                          placement="bottom"
+                          disableInteractive
+                        >
+                          <Autocomplete
+                            disableListWrap
+                            handleHomeEndKeys={false}
+                            autoHighlight
+                            value={inputMasterUri}
+                            options={optionsMasterUri}
+                            isOptionEqualToValue={(option, value) =>
+                              option === value || (option === "http://{HOST}:11311" && value === "default")
+                            }
+                            getOptionLabel={(option) => option}
+                            onInputChange={(_e, newValue) => {
+                              setMasterUri(newValue);
+                              setInputMasterUri(newValue);
+                            }}
+                            size="small"
+                            fullWidth
+                            freeSolo
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                // label="ROS_MASTER_URI"
+                                variant="outlined"
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    optionsMasterUri.findIndex((o) => o === inputMasterUri) === -1
+                                  ) {
+                                    // add to options
+                                    setOptionsMasterUri((prev) => [
+                                      ...prev.filter((item) => item !== inputMasterUri),
+                                      inputMasterUri,
+                                    ]);
+                                  }
+                                  if (e.key === "Delete") {
+                                    // remove entry from options
+                                    setOptionsMasterUri((prev) => [
+                                      ...prev.filter(
+                                        (item) => item !== inputMasterUri || item === "http://{HOST}:11311"
+                                      ),
+                                    ]);
+                                  }
+                                }}
+                              />
+                            )}
+                          />
+                        </Tooltip>
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+                <Divider />
+                <Box sx={{ flexGrow: 1, minWidth: 0, overflowX: "auto" }}>{createRMWSelector}</Box>
+
+                {launchCfg.params.rmw.current === "rmw_zenoh_cpp" && (
+                  <Box>
+                    <Box sx={{ flexGrow: 1, minWidth: 0, overflowX: "auto" }}>{createZenohEnvSelector}</Box>
+
+                    {(launchCfg.params.rmw.zenoh.overrideEnv !== "multicast" ||
+                      !ZENOH_SELECTIONS.includes(
+                        launchCfg.params.rmw.zenoh.overrideEnv as (typeof ZENOH_SELECTIONS)[number]
+                      )) && (
                       <FormGroup
                         aria-label="position"
                         row
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
+                        sx={{ "&:hover": { backgroundColor: (theme) => theme.palette.action.hover } }}
                       >
                         <FormControlLabel
                           control={
                             <Checkbox
                               size="small"
-                              checked={launchCfg.params.ros1MasterUri.enable}
+                              checked={!!launchCfg.params.rmw.zenoh.startDaemon}
                               onChange={(event) => {
-                                launchCfg.params.ros1MasterUri.enable = event.target.checked;
+                                launchCfg.params.rmw.zenoh.startDaemon = event.target.checked;
                                 updateStartParameter();
                               }}
                             />
                           }
-                          label={
-                            <Tooltip
-                              title={"The new ROS_MASTER_URI is prefixed when system nodes are started."}
-                              placement="bottom"
-                              disableInteractive
-                            >
-                              <Typography>ROS_MASTER_URI</Typography>
-                            </Tooltip>
-                          }
+                          label={"start zenoh daemon"}
                           labelPlacement="end"
                         />
                       </FormGroup>
-                    </GridLegacy>
-                    <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                      <Stack direction="column" sx={{ display: "grid" }}>
-                        <Typography
-                          noWrap
-                          variant="body2"
-                          sx={{
-                            color: grey[700],
-                            fontWeight: "inherit",
-                            flexGrow: 1,
-                            ml: 0.5,
-                          }}
-                        >
-                          {`${launchCfg.params.ros1MasterUri.uri}`}
-                        </Typography>
-                      </Stack>
-                    </GridLegacy>
-                  </GridLegacy>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Stack direction="column" divider={<Divider orientation="vertical" />}>
-                    <Tooltip
-                      title={
-                        <>
-                          <Typography variant="body2">Enter: save entry</Typography>
-                          <Typography variant="body2">Delete: remove selected entry from options list</Typography>
-                        </>
-                      }
-                      placement="bottom"
-                      disableInteractive
-                    >
-                      <Autocomplete
-                        disableListWrap
-                        handleHomeEndKeys={false}
-                        autoHighlight
-                        value={inputMasterUri}
-                        options={optionsMasterUri}
-                        isOptionEqualToValue={(option, value) =>
-                          option === value || (option === "http://{HOST}:11311" && value === "default")
-                        }
-                        getOptionLabel={(option) => option}
-                        onInputChange={(_e, newValue) => {
-                          setMasterUri(newValue);
-                          setInputMasterUri(newValue);
-                        }}
-                        size="small"
-                        fullWidth
-                        freeSolo
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            // label="ROS_MASTER_URI"
-                            variant="outlined"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && optionsMasterUri.findIndex((o) => o === inputMasterUri) === -1) {
-                                // add to options
-                                setOptionsMasterUri((prev) => [
-                                  ...prev.filter((item) => item !== inputMasterUri),
-                                  inputMasterUri,
-                                ]);
-                              }
-                              if (e.key === "Delete") {
-                                // remove entry from options
-                                setOptionsMasterUri((prev) => [
-                                  ...prev.filter((item) => item !== inputMasterUri || item === "http://{HOST}:11311"),
-                                ]);
-                              }
-                            }}
-                          />
-                        )}
-                      />
-                    </Tooltip>
-                  </Stack>
-                </AccordionDetails>
-              </Accordion>
-            )}
-            <Divider />
-            <Box sx={{ flexGrow: 1, minWidth: 0, overflowX: "auto" }}>{createRMWSelector}</Box>
-
-            {launchCfg.params.rmw.current === "rmw_zenoh_cpp" && (
-              <Box>
-                <Box sx={{ flexGrow: 1, minWidth: 0, overflowX: "auto" }}>{createZenohEnvSelector}</Box>
-
-                {(launchCfg.params.rmw.zenoh.overrideEnv !== "multicast" ||
-                  !ZENOH_SELECTIONS.includes(
-                    launchCfg.params.rmw.zenoh.overrideEnv as (typeof ZENOH_SELECTIONS)[number]
-                  )) && (
-                  <FormGroup
-                    aria-label="position"
-                    row
-                    sx={{ "&:hover": { backgroundColor: (theme) => theme.palette.action.hover } }}
-                  >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
+                    )}
+                  </Box>
+                )}
+                {launchCfg.params.rmw.current === "rmw_cyclonedds_cpp" && (
+                  <Stack direction="column">
+                    <Box sx={{ flexGrow: 1, minWidth: 0, overflowX: "auto" }}>{createCycloneEnvSelector}</Box>
+                    {selectedCycloneEnv && (
+                      <Stack direction="column">
+                        <Autocomplete
+                          id="autocomplete-cyclone-allow-multicast"
                           size="small"
-                          checked={!!launchCfg.params.rmw.zenoh.startDaemon}
-                          onChange={(event) => {
-                            launchCfg.params.rmw.zenoh.startDaemon = event.target.checked;
-                            updateStartParameter();
+                          autoHighlight
+                          freeSolo={false}
+                          fullWidth
+                          handleHomeEndKeys={false}
+                          options={CYCLONE_ALLOW_MULTICAST}
+                          value={cycloneAllowMulticast}
+                          sx={{ minWidth: 250 }} // optional: horizontales Scrollen erlauben
+                          renderInput={(params) => (
+                            <TextField {...params} variant="standard" label="cyclone allow multicast" />
+                          )}
+                          onInputChange={(_event, newInputValue) => {
+                            setCycloneAllowMulticast(newInputValue as CycloneAllowMulticast);
                           }}
                         />
-                      }
-                      label={"start zenoh daemon"}
-                      labelPlacement="end"
-                    />
-                  </FormGroup>
-                )}
-              </Box>
-            )}
-            {launchCfg.params.rmw.current === "rmw_cyclonedds_cpp" && (
-              <Stack direction="column">
-                <Box sx={{ flexGrow: 1, minWidth: 0, overflowX: "auto" }}>{createCycloneEnvSelector}</Box>
-                {selectedCycloneEnv && (
-                  <Stack direction="column">
-                    <Autocomplete
-                      id="autocomplete-cyclone-allow-multicast"
-                      size="small"
-                      autoHighlight
-                      freeSolo={false}
-                      fullWidth
-                      handleHomeEndKeys={false}
-                      options={CYCLONE_ALLOW_MULTICAST}
-                      value={cycloneAllowMulticast}
-                      sx={{ minWidth: 250 }} // optional: horizontales Scrollen erlauben
-                      renderInput={(params) => (
-                        <TextField {...params} variant="standard" label="cyclone allow multicast" />
-                      )}
-                      onInputChange={(_event, newInputValue) => {
-                        setCycloneAllowMulticast(newInputValue as CycloneAllowMulticast);
-                      }}
-                    />
-                    <Autocomplete
-                      id="autocomplete-cyclone-max-participants"
-                      size="small"
-                      autoHighlight
-                      freeSolo
-                      fullWidth
-                      handleHomeEndKeys={false}
-                      options={CYCLONE_MAX_PARTICIPANTS}
-                      value={cycloneMaxParticipants}
-                      sx={{ minWidth: 250 }} // optional: horizontales Scrollen erlauben
-                      renderInput={(params) => (
-                        <TextField {...params} variant="standard" label="cyclone max participants" />
-                      )}
-                      onInputChange={(_event, newInputValue) => {
-                        setCycloneMaxParticipants(newInputValue as CycloneMaxParticipants);
-                      }}
-                    />
+                        <Autocomplete
+                          id="autocomplete-cyclone-max-participants"
+                          size="small"
+                          autoHighlight
+                          freeSolo
+                          fullWidth
+                          handleHomeEndKeys={false}
+                          options={CYCLONE_MAX_PARTICIPANTS}
+                          value={cycloneMaxParticipants}
+                          sx={{ minWidth: 250 }} // optional: horizontales Scrollen erlauben
+                          renderInput={(params) => (
+                            <TextField {...params} variant="standard" label="cyclone max participants" />
+                          )}
+                          onInputChange={(_event, newInputValue) => {
+                            setCycloneMaxParticipants(newInputValue as CycloneMaxParticipants);
+                          }}
+                        />
+                      </Stack>
+                    )}
                   </Stack>
                 )}
+                {launchCfg.params.rmw.current === "rmw_fastrtps_cpp" && createEnvOverride}
+                {launchCfg.params.rmw.current === "rmw_connextdds" && createEnvOverride}
               </Stack>
-            )}
-            {launchCfg.params.rmw.current === "rmw_fastrtps_cpp" && createEnvOverride}
-            {launchCfg.params.rmw.current === "rmw_connextdds" && createEnvOverride}
-          </Stack>
-          <Divider />
-          <AccordionAdv
-            disabled={!window.commandExecutor}
-            expanded={startCmdInfoExpanded}
-            onChange={(_event, expanded) => {
-              setStartCmdInfoExpanded(expanded);
-            }}
-          >
-            <AccordionSummary
-              // disabled={!startSystemNodes}
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="start-commands"
-              id="start-commands"
-              sx={{ pl: 0, paddingBottom: 0 }}
-            >
-              <Stack direction="row" alignItems="center" spacing="0.3em">
-                <ChevronRightIcon fontSize="inherit" />
-                <Typography variant="subtitle1">Start commands:</Typography>
-              </Stack>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Stack
-                direction="column"
-                // divider={<Divider orientation="horizontal" />}
+              <Divider />
+              <AccordionAdv
+                disabled={!window.commandExecutor}
+                expanded={startCmdInfoExpanded}
+                onChange={(_event, expanded) => {
+                  setStartCmdInfoExpanded(expanded);
+                }}
               >
-                {launchCfg.params.daemon.enable && (
-                  <Stack direction="row">
-                    <Stack spacing={1}>
-                      <CopyButton value={startCmdDaemon} fontSize="inherit" />
-                      <Tooltip title="copy only environment prefix" disableInteractive>
-                        <span>
-                          <CopyButton value={startCmdZenohOverride} fontSize="0.7em" />
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        fontFamily: "monospace",
-                        backgroundColor: "#f5f5f5",
-                        padding: 1,
-                        borderRadius: 1,
-                        overflowWrap: "break-word",
-                        wordBreak: "break-word",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {startCmdDaemon}
-                    </Typography>
+                <AccordionSummary
+                  // disabled={!startSystemNodes}
+                  expandIcon={<ExpandMoreIcon />}
+                  aria-controls="start-commands"
+                  id="start-commands"
+                  sx={{ pl: 0, paddingBottom: 0 }}
+                >
+                  <Stack direction="row" alignItems="center" spacing="0.3em">
+                    <ChevronRightIcon fontSize="inherit" />
+                    <Typography variant="subtitle1">Start commands:</Typography>
                   </Stack>
-                )}
-                {launchCfg.params.discovery.enable && (
-                  <Stack direction="row" alignItems="start">
-                    <CopyButton value={startCmdDiscovery} fontSize="inherit" />
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        fontFamily: "monospace",
-                        backgroundColor: "#f5f5f5",
-                        padding: 1,
-                        borderRadius: 1,
-                        overflowWrap: "break-word",
-                        wordBreak: "break-word",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {startCmdDiscovery}
-                    </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Stack
+                    direction="column"
+                    // divider={<Divider orientation="horizontal" />}
+                  >
+                    {launchCfg.params.daemon.enable && (
+                      <Stack direction="row">
+                        <Stack spacing={1}>
+                          <CopyButton value={startCmdDaemon} fontSize="inherit" />
+                          <Tooltip title="copy only environment prefix" disableInteractive>
+                            <span>
+                              <CopyButton value={startCmdZenohOverride} fontSize="0.7em" />
+                            </span>
+                          </Tooltip>
+                        </Stack>
+                        <Typography
+                          variant="body2"
+                          component="pre"
+                          sx={{
+                            fontFamily: "monospace",
+                            backgroundColor: "#f5f5f5",
+                            padding: 1,
+                            borderRadius: 1,
+                            overflowWrap: "break-word",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {startCmdDaemon}
+                        </Typography>
+                      </Stack>
+                    )}
+                    {launchCfg.params.discovery.enable && (
+                      <Stack direction="row" alignItems="start">
+                        <CopyButton value={startCmdDiscovery} fontSize="inherit" />
+                        <Typography
+                          variant="body2"
+                          component="pre"
+                          sx={{
+                            fontFamily: "monospace",
+                            backgroundColor: "#f5f5f5",
+                            padding: 1,
+                            borderRadius: 1,
+                            overflowWrap: "break-word",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {startCmdDiscovery}
+                        </Typography>
+                      </Stack>
+                    )}
+                    {launchCfg.params.terminal.enable && (
+                      <Stack direction="row" alignItems="start">
+                        <CopyButton value={startCmdTtyd} fontSize="inherit" />
+                        <Typography
+                          variant="body2"
+                          component="pre"
+                          sx={{
+                            fontFamily: "monospace",
+                            backgroundColor: "#f5f5f5",
+                            padding: 1,
+                            borderRadius: 1,
+                            overflowWrap: "break-word",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {startCmdTtyd}
+                        </Typography>
+                      </Stack>
+                    )}
+                    {startCmdZenohDaemon && (
+                      <Stack direction="row" alignItems="start">
+                        <CopyButton value={startCmdZenohDaemon} fontSize="inherit" />
+                        <Typography
+                          variant="body2"
+                          component="pre"
+                          sx={{
+                            fontFamily: "monospace",
+                            backgroundColor: "#f5f5f5",
+                            padding: 1,
+                            borderRadius: 1,
+                            overflowWrap: "break-word",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {startCmdZenohDaemon}
+                        </Typography>
+                      </Stack>
+                    )}
                   </Stack>
-                )}
-                {launchCfg.params.terminal.enable && (
-                  <Stack direction="row" alignItems="start">
-                    <CopyButton value={startCmdTtyd} fontSize="inherit" />
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        fontFamily: "monospace",
-                        backgroundColor: "#f5f5f5",
-                        padding: 1,
-                        borderRadius: 1,
-                        overflowWrap: "break-word",
-                        wordBreak: "break-word",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {startCmdTtyd}
-                    </Typography>
-                  </Stack>
-                )}
-                {startCmdZenohDaemon && (
-                  <Stack direction="row" alignItems="start">
-                    <CopyButton value={startCmdZenohDaemon} fontSize="inherit" />
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        fontFamily: "monospace",
-                        backgroundColor: "#f5f5f5",
-                        padding: 1,
-                        borderRadius: 1,
-                        overflowWrap: "break-word",
-                        wordBreak: "break-word",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {startCmdZenohDaemon}
-                    </Typography>
-                  </Stack>
-                )}
-              </Stack>
-            </AccordionDetails>
-          </AccordionAdv>
+                </AccordionDetails>
+              </AccordionAdv>
+            </Stack>
+          )}
         </Stack>
       </Stack>{" "}
     </Stack>

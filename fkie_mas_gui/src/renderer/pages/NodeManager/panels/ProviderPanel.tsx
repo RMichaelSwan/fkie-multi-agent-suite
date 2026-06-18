@@ -399,7 +399,7 @@ export default function ProviderPanel(): JSX.Element {
         )}
       </Stack>
       <AccordionAdv
-        disabled={!window.commandExecutor}
+        // disabled={!window.commandExecutor}
         expanded={expandedProviderCfg}
         onChange={(_event, expanded) => {
           setExpandedProviderCfg(expanded);
@@ -429,18 +429,18 @@ export default function ProviderPanel(): JSX.Element {
                 variant="subtitle1"
                 sx={{ flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
               >
-                Start Configurations - {startConfigurations.length}
+                {window.commandExecutor ? "Start" : "Join"} Configurations - {startConfigurations.length}
               </Typography>
             </Stack>
           </AccordionSummary>
-          <Tooltip title="Add new start configuration" disableInteractive>
+          <Tooltip title={`Add new ${window.commandExecutor ? "start" : "join"} configuration`} disableInteractive>
             <IconButton
               component="span"
               ref={addButtonRef}
               onClick={(event) => {
                 event.stopPropagation();
                 const launchCfg = new ProviderLaunchConfiguration();
-                editLaunchConfiguration(launchCfg, "New start configuration");
+                editLaunchConfiguration(launchCfg, `New ${window.commandExecutor ? "start" : "join"} configuration`);
               }}
               onTouchEnd={(event) => {
                 event.stopPropagation();

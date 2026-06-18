@@ -77,10 +77,7 @@ export default function ProviderPanelRowCfg(props: ProviderPanelRowCfgProps): JS
               >
                 <Typography variant="body2">{hostname}</Typography>
               </Link>
-              <Typography
-                color="grey"
-                variant="body2"
-              >
+              <Typography color="grey" variant="body2">
                 [{startConfig.params.domainId}]
               </Typography>
               {rmwImpl && (
@@ -137,19 +134,15 @@ export default function ProviderPanelRowCfg(props: ProviderPanelRowCfgProps): JS
               </span>
             </Tooltip>
             <Tooltip title={"Click to edit configuration"} placement="bottom" disableInteractive>
-              <span>
-                {window.commandExecutor && (
-                  <IconButton
-                    onClick={() => {
-                      editConfiguration(startConfig);
-                    }}
-                    // color="info"
-                    size="small"
-                  >
-                    <EditIcon fontSize="inherit" />
-                  </IconButton>
-                )}
-              </span>
+                <IconButton
+                  onClick={() => {
+                    editConfiguration(startConfig);
+                  }}
+                  // color="info"
+                  size="small"
+                >
+                  <EditIcon fontSize="inherit" />
+                </IconButton>
             </Tooltip>
           </Stack>
         </TableCell>
