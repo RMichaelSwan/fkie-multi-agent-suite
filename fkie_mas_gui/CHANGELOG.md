@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.7.3 - 18.06.2026
+
+Fixed join configuration handling in webbrowser
+Fixed navigation in ExplorerTree of the editor
+Fixed open external editor on slow hosts
+Updated tooltip of the host name in hosts panel
+Updated style of the hosts panel
+Moved start external app button to hosts row
+
 ## 5.7.2 - 13.06.2026
 
 Wait until the log file has been created when viewing the log
