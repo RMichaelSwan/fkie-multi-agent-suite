@@ -150,7 +150,7 @@ export default class TerminalManager implements TTerminalManager {
           node: node,
           screen: screen,
           cmd: cmd,
-          env: JSON.stringify(env)
+          env: JSON.stringify(env),
         },
       });
     }

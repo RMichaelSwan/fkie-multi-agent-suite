@@ -40,7 +40,7 @@ export default function TerminalApp(): JSX.Element {
     const screen = urlParams.get("screen");
     const cmd = urlParams.get("cmd");
     const envParam = urlParams.get("env");
-    const env = envParam ? envParam.split(",") : [];
+    const env = envParam ? JSON.parse(envParam) : [];
     console.log(`ETENV: ${env}`);
     if (!host || !port) {
       logCtx.error(`invalid address ${host}:${port}`, "");
