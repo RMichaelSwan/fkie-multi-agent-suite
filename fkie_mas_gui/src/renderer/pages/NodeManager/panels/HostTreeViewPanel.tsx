@@ -675,11 +675,14 @@ export default function HostTreeViewPanel(): JSX.Element {
    * Start nodes from a list of itemIds
 
    */
-  function startNodesFromId(itemIds: string[]): void {
-    const nodeList = getNodesFromIds(itemIds);
-    removePendingNodes(nodeList);
-    startNodesWithLaunchCheck(nodeList);
-  }
+  const startNodesFromId = useCallback(
+    (itemIds: string[]): void => {
+      const nodeList = getNodesFromIds(itemIds);
+      removePendingNodes(nodeList);
+      startNodesWithLaunchCheck(nodeList);
+    },
+    [getNodesFromIds]
+  );
 
   /** Stop node from queue and trigger the next one. */
   async function stopNodeQueued(node: RosNode | undefined): Promise<void> {
@@ -832,11 +835,13 @@ export default function HostTreeViewPanel(): JSX.Element {
    * Stop nodes from a list of itemIds
 
    */
-  function stopNodesFromId(itemIds: string[]): void {
-    const nodeList = getNodesFromIds(itemIds);
-    stopNodes(nodeList);
-  }
-
+  const stopNodesFromId = useCallback(
+    (itemIds: string[]): void => {
+      const nodeList = getNodesFromIds(itemIds);
+      stopNodes(nodeList);
+    },
+    [getNodesFromIds]
+  );
   /**
    * Restart nodes given in the arguments
 

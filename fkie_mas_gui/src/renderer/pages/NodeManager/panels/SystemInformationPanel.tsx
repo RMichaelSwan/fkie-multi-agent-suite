@@ -299,6 +299,7 @@ export default function SystemInformationPanel(props: SystemInformationPanelProp
                   onSearch={(value) => setFilter(value.toLocaleLowerCase())}
                   placeholder="filter"
                   defaultValue=""
+                  autoFocus={false}
                 />
               )}
               {showProviderDetails && providerDetails && (

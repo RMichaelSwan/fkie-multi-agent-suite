@@ -53,7 +53,14 @@ interface HostItemProps {
 }
 
 export default function HostItem(props: HostItemProps): JSX.Element {
-  const { provider, stopNodes = (): void => { }, onDoubleClick = (): void => { }, nodeCount, nodeRunningCount, ...children } = props;
+  const {
+    provider,
+    stopNodes = (): void => {},
+    onDoubleClick = (): void => {},
+    nodeCount,
+    nodeRunningCount,
+    ...children
+  } = props;
   const settingsCtx = useSettingsContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
@@ -204,7 +211,7 @@ export default function HostItem(props: HostItemProps): JSX.Element {
     toggled = false;
   };
 
-  const handleLabelClick: UseTreeItemContentSlotOwnProps["onClick"] = () => { };
+  const handleLabelClick: UseTreeItemContentSlotOwnProps["onClick"] = () => {};
 
   const handleIconContainerClick: UseTreeItemIconContainerSlotOwnProps["onClick"] = () => {
     toggled = true;
@@ -245,8 +252,6 @@ export default function HostItem(props: HostItemProps): JSX.Element {
               </IconButton>
             </Tooltip>
           )}
-
-
 
           {Math.abs(provider.timeDiff) > timeDiffThreshold && (
             <Tooltip title={`Time not in sync for approx. ${formatTime(provider.timeDiff)}`} placement="right-end">
@@ -342,14 +347,10 @@ export default function HostItem(props: HostItemProps): JSX.Element {
             <LinkOffIcon sx={{ mr: 0.5, width: 20, color: red[700] }} />
           )}
 
-          <Stack
-            direction="row"
-            display="flex"
-            alignItems="center"
-            sx={{ flexGrow: 1, userSelect: "none" }}
-          // style={{ pointerEvents: "none" }}
-          >
-            <Typography variant="body1" alignItems="center" marginRight={1}>{provider.name()}</Typography>
+          <Stack direction="row" display="flex" alignItems="center" sx={{ flexGrow: 1, userSelect: "none" }}>
+            <Typography variant="body1" alignItems="center" marginRight={1}>
+              {provider.name()}
+            </Typography>
             {provider.isLocalHost && (
               <Typography variant="body2" color="grey" flexGrow={1}>
                 (localhost)

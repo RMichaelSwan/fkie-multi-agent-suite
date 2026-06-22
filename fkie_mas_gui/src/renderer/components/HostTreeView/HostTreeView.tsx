@@ -15,7 +15,7 @@ import { CmdType, Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_LAUNCH_LOADED } from "@/renderer/providers/eventTypes";
 import { EventProviderLaunchLoaded } from "@/renderer/providers/events";
 import { generateUniqueId, idFromDDSLocations, nodeNameWithoutNamespace, removeDDSuid } from "@/renderer/utils";
-import { Alert, AlertTitle, Box, Stack } from "@mui/material";
+import { Alert, AlertTitle, alpha, Box, Stack } from "@mui/material";
 import GroupItem, { GroupIcon, MultiScreenIcon, NodesCount } from "./GroupItem";
 import HostItem from "./HostItem";
 import LaunchFileList from "./LaunchFileList";
@@ -592,8 +592,12 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
         return newSelectedItems;
       });
 
+      // Defer context notification to next microtask so the tree's
+      // internal focus tracking completes before parent re-renders
       if (notifyNavCtx) {
-        notifyNavCtxSelection(newSelectedItems);
+        queueMicrotask(() => {
+          notifyNavCtxSelection(newSelectedItems);
+        });
       }
 
       // Only fire this event for user selections
@@ -881,7 +885,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
       height="100%"
       overflow="auto"
       onClick={() => {
-        // deselect topics
+        // deselect items
         setSelectedItems([]);
         notifyNavCtxSelection([]);
       }}
@@ -908,6 +912,24 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
         onSelectedItemsChange={(event: React.SyntheticEvent | null, itemIds: string[]) => handleSelect(event, itemIds)}
         expansionTrigger={"iconContainer"}
         // selectionPropagation={{ parents: true, descendants: true }}
+        sx={(theme) => ({
+          // all selected items: light blue background
+          "& .MuiTreeItem-content.Mui-selected": {
+            backgroundColor: "action.selected",
+          },
+          // focused + selected item: stronger blue background
+          "& .MuiTreeItem-content.Mui-selected.Mui-focused": {
+            backgroundColor: alpha(theme.palette.primary.main, 0.18),
+            color: "text.secondary",
+          },
+          // Hover-Effect for selected items
+          "& .MuiTreeItem-content.Mui-selected:hover": {
+            backgroundColor: "action.hover",
+          },
+          "& .MuiTreeItem-content.Mui-selected.Mui-focused:hover": {
+            backgroundColor: alpha(theme.palette.primary.main, 0.09),
+          },
+        })}
       >
         {providerNodeTree?.sort(compareTreeProvider).map((item) => {
           let providerIsAvailable = false;
