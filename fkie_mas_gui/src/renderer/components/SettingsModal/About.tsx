@@ -105,15 +105,13 @@ export default function About(): JSX.Element {
             </Typography>
           )}
         </Stack>
-        {auCtx.autoUpdateManager && (
-          <Stack ml="1em" direction="column">
-            {auCtx.checkedThisRun && !auCtx.checkingForUpdate && !auCtx.updateAvailable && !auCtx.updateError && (
-              <Typography variant="body1" color="green">
-                Your version is up to date!
-              </Typography>
-            )}
-          </Stack>
-        )}
+        <Stack ml="1em" direction="column">
+          {auCtx.checkedThisRun && !auCtx.checkingForUpdate && !auCtx.updateAvailable && !auCtx.updateError && (
+            <Typography variant="body1" color="green">
+              Your version is up to date!
+            </Typography>
+          )}
+        </Stack>
         {auCtx.autoUpdateManager && (
           <Stack ml="1em" spacing={0.2} direction="row" alignItems="center">
             <Autocomplete
@@ -150,12 +148,16 @@ export default function About(): JSX.Element {
                 )}
               </Stack>
             )}
+          </Stack>
+        )}
 
-            {auCtx?.updateAvailable?.version && (
-              <Stack spacing={0.2} direction="row" alignItems="center">
-                <Typography variant="body1" color="green">
-                  Version {auCtx.updateAvailable?.version} available
-                </Typography>
+        {auCtx?.updateAvailable?.version && (
+          <Stack direction="column" alignItems="left">
+            <Typography variant="body1" color="green">
+              Version {auCtx.updateAvailable?.version} available
+            </Typography>
+            {auCtx.autoUpdateManager ? (
+              <Stack direction="row" alignItems="center">
                 {auCtx.isAppImage ? (
                   <Button color="primary" onClick={() => auCtx.requestInstallUpdate()} variant="text">
                     Restart required
@@ -174,6 +176,11 @@ export default function About(): JSX.Element {
                   </Button>
                 )}
               </Stack>
+            ) : (
+              <Typography variant="body1" color="orange">
+                {auCtx.autoUpdateManager ? "" : "Update from browser is not available! "}
+                Please use the command line instructions below to update.
+              </Typography>
             )}
           </Stack>
         )}
@@ -233,7 +240,7 @@ export default function About(): JSX.Element {
         )}
         {auCtx?.updateAvailable?.releaseNotes && (
           <Stack ml="1em" mt="0.6em" spacing={0.2} color="grey" direction="column">
-            {changelog(auCtx?.updateAvailable?.releaseNotes as unknown as string [] || [])}
+            {changelog((auCtx?.updateAvailable?.releaseNotes as unknown as string[]) || [])}
           </Stack>
         )}
       </Stack>

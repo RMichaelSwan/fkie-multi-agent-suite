@@ -1,15 +1,8 @@
 import { ProgressInfo, UpdateInfo } from "electron-updater";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import semver from "semver";
 
+import GithubCredentialsDialog from "@/renderer/components/PasswordModal/GithubCredentialsDialog";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
@@ -18,7 +11,6 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { JSONObject, TAutoUpdateManager } from "@/types";
 import packageJson from "../../../package.json";
 import { CmdType } from "../providers";
-import GithubCredentialsDialog from "@/renderer/components/PasswordModal/GithubCredentialsDialog";
 
 /**
  * Context providing automatic update management for both AppImage and Debian builds.
@@ -36,7 +28,7 @@ export interface IAutoUpdateContext {
   updateError: string;
   requestInstallUpdate: () => void;
   requestedInstallUpdate: boolean;
-  isAppImage: boolean;
+  isAppImage: boolean | null;
   getUpdateCli: (gui: boolean, ros: boolean) => string;
   installDebian: (gui: boolean, ros: boolean) => void;
   installing: boolean;
@@ -63,16 +55,17 @@ export const AutoUpdateProvider = ({
   const [autoUpdateManager, setAutoUpdateManager] = useState<TAutoUpdateManager | null>(null);
   const [checkingForUpdate, setCheckingForUpdate] = useState(false);
   const [checkedThisRun, setCheckedThisRun] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useLocalStorage<UpdateInfo | null>(
+  const [storedUpdateAvailable, setStoredUpdateAvailable] = useLocalStorage<UpdateInfo | null>(
     "AutoUpdate:updateAvailable",
     null
   );
+  const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<ProgressInfo | null>(null);
   const [updateError, setUpdateError] = useState("");
   const [requestedInstallUpdate, setRequestedInstallUpdate] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [localProviderId, setLocalProviderId] = useState("");
-  const [isAppImage, setIsAppImage] = useState(true);
+  const [isAppImage, setIsAppImage] = useState<null | boolean>(null);
   const [updateChannel, setStoredChannel] = useLocalStorage<"prerelease" | "release" | string>(
     "AutoUpdate:updateChannel",
     "release"
@@ -152,11 +145,7 @@ export const AutoUpdateProvider = ({
   const checkForUpdate = useCallback(
     (channelParam?: "prerelease" | "release" | string): void => {
       const channel = channelParam || updateChannel;
-      logCtx.info(
-        `Checking for new ${channel} ${isAppImage ? "AppImage" : "Debian"} update`,
-        "",
-        "check update"
-      );
+      logCtx.info(`Checking for new ${channel} ${isAppImage ? "AppImage" : "Debian"} update`, "", "check update");
 
       setUpdateAvailable(null);
       setUpdateError("");
@@ -190,11 +179,7 @@ export const AutoUpdateProvider = ({
 
         // On 403/401: show credentials dialog and retry
         if (response.status === 403 || response.status === 401) {
-          logCtx.warn(
-            "GitHub API rate limit reached or auth failed. Requesting credentials...",
-            "",
-            "update"
-          );
+          logCtx.warn("GitHub API rate limit reached or auth failed. Requesting credentials...", "", "update");
 
           const credentials = await requestCredentials();
           if (!credentials) {
@@ -225,12 +210,14 @@ export const AutoUpdateProvider = ({
 
         if (!release) throw new Error(`No ${channel} release found`);
         const pkgVersion = packageJson.version;
-        if (pkgVersion !== release.name) {
+        console.log("Latest release:", release.name, "Current version:", pkgVersion);
+        const newRelease = !autoUpdateManager ? semver.gt(release.name, pkgVersion) : pkgVersion !== release.name;
+        if (newRelease) {
           // build changelog for all newer versions
           const changes = data
             .filter((r) => semver.gt(r.name, pkgVersion))
             .map((r) => r.body?.replace("Changes", getTitle(r)));
-          setUpdateAvailable({
+          setStoredUpdateAvailable({
             version: release.name,
             releaseDate: release.published_at,
             releaseNotes: changes,
@@ -243,7 +230,7 @@ export const AutoUpdateProvider = ({
         setCheckedThisRun(true);
       }
     },
-    [fetchWithAuth, requestCredentials]
+    [fetchWithAuth, requestCredentials, autoUpdateManager]
   );
 
   const getTitle = (release: JSONObject) =>
@@ -297,8 +284,7 @@ export const AutoUpdateProvider = ({
 
   const getLocalProviderId = () => rosCtx.getLocalProvider()[0]?.id || "";
 
-  const autoCheckAllowed = (timestamp: number) =>
-    Math.floor(Date.now() / 1000) - timestamp > MIN_DELAY_AUTO_CHECK;
+  const autoCheckAllowed = (timestamp: number) => Math.floor(Date.now() / 1000) - timestamp > MIN_DELAY_AUTO_CHECK;
 
   /** Determine if we are using AppImage and maybe trigger background check */
   const updateIsAppImage = useCallback(
@@ -322,12 +308,12 @@ export const AutoUpdateProvider = ({
 
     autoUpdateManager.onCheckingForUpdate(setCheckingForUpdate);
     autoUpdateManager.onUpdateAvailable((info) => {
-      setUpdateAvailable(info);
+      setStoredUpdateAvailable(info);
       logCtx.info(`New version ${info.version} available`, "", "update available");
     });
-    autoUpdateManager.onUpdateNotAvailable(() => setUpdateAvailable(null));
+    autoUpdateManager.onUpdateNotAvailable(() => setStoredUpdateAvailable(null));
     autoUpdateManager.onDownloadProgress(setDownloadProgress);
-    autoUpdateManager.onUpdateDownloaded(setUpdateAvailable);
+    autoUpdateManager.onUpdateDownloaded(setStoredUpdateAvailable);
     autoUpdateManager.onUpdateError((msg) => {
       setUpdateError(msg);
       if (msg.includes("APPIMAGE")) setIsAppImage(false);
@@ -348,8 +334,16 @@ export const AutoUpdateProvider = ({
   }, [localProviderId, updateChannel, checkTimestamp]);
 
   useEffect(() => {
-    if (updateAvailable?.version === packageJson.version) setUpdateAvailable(null);
-  }, [updateAvailable]);
+    if (!storedUpdateAvailable || storedUpdateAvailable.version === packageJson.version) {
+      setUpdateAvailable(null);
+      return;
+    }
+    const pkgVersion = packageJson.version;
+    const newRelease = !autoUpdateManager
+      ? semver.gt(storedUpdateAvailable?.version, pkgVersion)
+      : pkgVersion !== storedUpdateAvailable?.version;
+    if (newRelease) setUpdateAvailable(storedUpdateAvailable);
+  }, [storedUpdateAvailable]);
 
   const contextValue = useMemo(
     () => ({
