@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.7.4 - 22.06.2026
+
+Do not show "update available" in web version if prerelease is installed
+In HostView, highlight the item currently selected
+Fixed wrong format of environment for external terminal
+
 ## 5.7.3 - 18.06.2026
 
 Fixed join configuration handling in webbrowser
