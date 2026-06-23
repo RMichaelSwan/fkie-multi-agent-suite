@@ -133,7 +133,11 @@ export function equalProvider(p1: Provider, p2: Provider): boolean {
     return false;
   }
 
-  return p1.hostnames.some((h) => p2.hostnames.includes(h));
+  return (
+    p1.hostnames.some((h) => p2.hostnames.includes(h)) &&
+    p1.connection.port === p2.connection.port &&
+    p1.rosVersion === p2.rosVersion
+  );
 }
 
 /**
