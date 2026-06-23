@@ -492,18 +492,20 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
           enterNextDelay={tooltipDelay}
           disableInteractive
         >
-          <LongPressIconButton
-            size="medium"
-            aria-label="Stop all screen and ros2 nodes on selected host"
-            onClick={handleShutdownRos}
-            onLongPress={() =>
-              onShutdownRosClick({
-                killRos2: true,
-              })
-            }
-          >
-            <DangerousOutlinedIcon fontSize="inherit" />
-          </LongPressIconButton>
+          <span>
+            <LongPressIconButton
+              size="medium"
+              aria-label="Stop all screen and ros2 nodes on selected host"
+              onClick={handleShutdownRos}
+              onLongPress={() =>
+                onShutdownRosClick({
+                  killRos2: true,
+                })
+              }
+            >
+              <DangerousOutlinedIcon fontSize="inherit" />
+            </LongPressIconButton>
+          </span>
         </Tooltip>
       )}
     </ButtonGroup>
