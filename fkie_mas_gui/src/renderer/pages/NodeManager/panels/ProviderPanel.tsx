@@ -155,10 +155,10 @@ export default function ProviderPanel(): JSX.Element {
         }
         return;
       }
-      const connectedToDomainIds: number[] = [];
       for (const startCfg of startConfigurations) {
-        connectedToDomainIds.push(startCfg.domainId);
-        await rosCtx.hiddenConnect(startCfg);
+        if (startCfg.autoConnect) {
+          rosCtx.connect(startCfg, true);
+        }
       }
 
       if (startConfigurations.length === 0) {
@@ -187,7 +187,8 @@ export default function ProviderPanel(): JSX.Element {
                     domainId = Number.parseInt(rosCtx.rosInfo?.domainId || "0");
                   }
                 }
-                if (domainId >= 0 && connectedToDomainIds.indexOf(domainId) === -1) {
+                console.log(`found running mas-daemon with domain id ${domainId}`);
+                if (domainId >= 0) {
                   const newProvider = rosCtx.createProvider(
                     "localhost",
                     rosCtx.rosInfo.version,
@@ -195,7 +196,8 @@ export default function ProviderPanel(): JSX.Element {
                     domainId,
                     undefined
                   );
-                  await rosCtx.connectToProvider(newProvider);
+                  newProvider.triggeredByAutoConnect = true;
+                  rosCtx.connectToProvider(newProvider);
                 }
               }
             }
@@ -266,27 +268,30 @@ export default function ProviderPanel(): JSX.Element {
     [setStartConfigurations]
   );
 
-  const editLaunchConfiguration = useCallback((config: ProviderLaunchConfiguration, title?: string) => {
-    emitCustomEvent(
-      EVENT_OPEN_COMPONENT,
-      eventOpenComponent(
-        config.params.id,
-        title || `${config.params.host} start configuration`,
-        <ProviderLaunchConfigPanel
-          config={config}
-          onDelete={(configId) => {
-            deleteLaunchConfiguration(configId);
-          }}
-          onSave={(config) => {
-            saveLaunchConfiguration(config);
-          }}
-        />,
-        true,
-        LAYOUT_TAB_SETS.CENTER,
-        undefined
-      )
-    );
-  }, []);
+  const editLaunchConfiguration = useCallback(
+    (config: ProviderLaunchConfiguration, title?: string) => {
+      emitCustomEvent(
+        EVENT_OPEN_COMPONENT,
+        eventOpenComponent(
+          config.params.id,
+          title || `${config.params.host} start configuration`,
+          <ProviderLaunchConfigPanel
+            config={config}
+            onDelete={(configId) => {
+              deleteLaunchConfiguration(configId);
+            }}
+            onSave={(config) => {
+              saveLaunchConfiguration(config);
+            }}
+          />,
+          true,
+          LAYOUT_TAB_SETS.CENTER,
+          undefined
+        )
+      );
+    },
+    [deleteLaunchConfiguration, saveLaunchConfiguration]
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useCustomEventListener(EVENT_PROVIDER_STATE, () => {
@@ -313,13 +318,17 @@ export default function ProviderPanel(): JSX.Element {
           enterNextDelay={tooltipDelay}
           disableInteractive
         >
-          <IconButton edge="start" aria-label="refresh hosts list" onClick={() => rosCtx.refreshProviderList()}>
+          <IconButton
+            edge="start"
+            aria-label="refresh hosts list"
+            onClick={() => rosCtx.refreshProviderList(startConfigurations)}
+          >
             <RefreshIcon sx={{ fontSize: "inherit" }} />
           </IconButton>
         </Tooltip>
       </Stack>
     );
-  }, [tooltipDelay]);
+  }, [tooltipDelay, startConfigurations]);
 
   const createProviderTable = useMemo(() => {
     const result = (

@@ -13,7 +13,6 @@ import {
   Divider,
   FormControlLabel,
   FormGroup,
-  GridLegacy,
   Link,
   Radio,
   RadioGroup,
@@ -252,21 +251,21 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
     return robotHosts;
   }
 
-  function updateStartParameter(): void {
+  const updateStartParameter = useCallback((): void => {
     setStartCmdDaemon(launchCfg.daemonStartCmd().message);
     setStartCmdDiscovery(launchCfg.masterDiscoveryStartCmd().message);
     setStartCmdTtyd(launchCfg.terminalStartCmd().message);
     setStartCmdZenohOverride(launchCfg.getEnv().join(" "));
     setStartCmdZenohDaemon(launchCfg.getZenohDaemonCmd().message);
     forceValuesUpdate();
-  }
+  }, [launchCfg]);
 
   const setRosVersion = useCallback(
     (rosVersion: string): void => {
       launchCfg.params.rosVersion = rosVersion;
       updateStartParameter();
     },
-    [launchCfg]
+    [launchCfg, updateStartParameter]
   );
 
   function setMasterUri(masterUri: string): void {
@@ -281,6 +280,11 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
 
   function setNetworkId(domainId: number): void {
     launchCfg.params.domainId = domainId;
+    updateStartParameter();
+  }
+
+  function setPort(port: number): void {
+    launchCfg.params.port = port;
     updateStartParameter();
   }
 
@@ -335,32 +339,32 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
       setEnvOverride(launchCfg.params.rmw.connext.overrideEnv);
     }
     updateStartParameter();
-  }, [selectedRmw]);
+  }, [selectedRmw, launchCfg, rosCtx.rosInfo?.rmwImplementation, updateStartParameter]);
 
   useEffect(() => {
     launchCfg.params.rmw.zenoh.overrideEnv = selectedZenohEnv;
     updateStartParameter();
-  }, [selectedZenohEnv, launchCfg]);
+  }, [selectedZenohEnv, launchCfg,  updateStartParameter]);
 
   useEffect(() => {
     launchCfg.params.rmw.zenoh.remoteHosts = selectedZenohHosts.map((item) => item.host || item.ip || "");
     updateStartParameter();
-  }, [selectedZenohHosts, launchCfg]);
+  }, [selectedZenohHosts, launchCfg, updateStartParameter]);
 
   useEffect(() => {
     launchCfg.params.rmw.cyclone.overrideEnv = selectedCycloneEnv;
     updateStartParameter();
-  }, [selectedCycloneEnv, launchCfg]);
+  }, [selectedCycloneEnv, launchCfg, updateStartParameter]);
 
   useEffect(() => {
     launchCfg.params.rmw.cyclone.allowMulticast = cycloneAllowMulticast;
     updateStartParameter();
-  }, [cycloneAllowMulticast, launchCfg]);
+  }, [cycloneAllowMulticast, launchCfg, updateStartParameter]);
 
   useEffect(() => {
     launchCfg.params.rmw.cyclone.maxParticipants = cycloneMaxParticipants;
     updateStartParameter();
-  }, [cycloneMaxParticipants, launchCfg]);
+  }, [cycloneMaxParticipants, launchCfg, updateStartParameter]);
 
   useEffect(() => {
     if (launchCfg.params.rmw.current === "rmw_fastrtps_cpp") {
@@ -369,7 +373,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
       launchCfg.params.rmw.connext.overrideEnv = envOverride;
     }
     updateStartParameter();
-  }, [envOverride, launchCfg]);
+  }, [envOverride, launchCfg, updateStartParameter]);
 
   const createHostSelector = useMemo(() => {
     return (
@@ -688,7 +692,6 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
       <Stack direction="row" spacing="0.5em">
         <Stack flexGrow={1}>
           <Stack direction="row" alignItems="center" spacing="0.5em" margin="0.5em">
-            {/* <FormControl> */}
             <RadioGroup
               row
               aria-labelledby="ros-version-select-group-label"
@@ -701,13 +704,13 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
               <FormControlLabel value="1" control={<Radio />} label="ROS1" />
               <FormControlLabel value="2" control={<Radio />} label="ROS2" />
             </RadioGroup>
-            {/* </FormControl> */}
+
             <TextField
               type="number"
-              id="network-id"
+              id="domain-id"
               // min={0}
               // max={99}
-              label="Network/Domain ID"
+              label="Domain ID"
               size="small"
               variant="outlined"
               style={{ minWidth: "9em" }}
@@ -716,8 +719,50 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
               onChange={(e) => setNetworkId(Number(`${e.target.value}`))}
               value={launchCfg.params.domainId}
             />
-            {launchCfg.params.domainId === -1 && <Typography>Use default domain ID</Typography>}
+            <Tooltip
+              title={
+                <div>
+                  <Stack direction="column">
+                    <Typography fontWeight="bold" fontSize="inherit" paddingBottom="0.5em">
+                      Port for websocket of the mas daemon
+                    </Typography>
+                    <Typography fontSize="inherit">Default port (0):</Typography>
+                    <Typography fontSize="inherit">ROS2: 35430+ROS_DOMAIN_ID</Typography>
+                  </Stack>
+                </div>
+              }
+              placement="bottom"
+              disableInteractive
+            >
+              <TextField
+                type="number"
+                id="port"
+                // min={0}
+                // max={99}
+                label="Daemon Port"
+                size="small"
+                variant="outlined"
+                style={{ minWidth: "9em" }}
+                InputProps={{ inputProps: { min: 0, max: 99 } }}
+                // fullWidth
+                onChange={(e) => setPort(Number(`${e.target.value}`))}
+                value={launchCfg.params.port}
+              />
+            </Tooltip>
           </Stack>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={launchCfg.params.autoConnect}
+                onChange={(event) => {
+                  launchCfg.params.autoConnect = event.target.checked;
+                  updateStartParameter();
+                }}
+              />
+            }
+            label="Connect on startup or refresh"
+            labelPlacement="end"
+          />
           {window.commandExecutor && (
             <Stack>
               <Stack
@@ -739,7 +784,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
                         }}
                       />
                     }
-                    label="Daemon Node"
+                    label="Start Daemon Node"
                     labelPlacement="end"
                   />
                 </FormGroup>
@@ -755,7 +800,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
                           }}
                         />
                       }
-                      label="Discovery Node"
+                      label="Start Discovery Node"
                       labelPlacement="end"
                     />
                   </FormGroup>
@@ -776,59 +821,55 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
                       id="discovery_panel-header"
                       sx={{ pl: 0 }}
                     >
-                      <GridLegacy container>
-                        <GridLegacy item xs={4}>
-                          <FormGroup
-                            aria-label="position"
-                            row
-                            onClick={(event) => {
-                              event.stopPropagation();
+                      <Stack direction="row">
+                        <FormGroup
+                          aria-label="position"
+                          row
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                        >
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={launchCfg.params.discovery.enable}
+                                onChange={(event) => {
+                                  launchCfg.params.discovery.enable = event.target.checked;
+                                  updateStartParameter();
+                                }}
+                              />
+                            }
+                            label="Start Discovery Node"
+                            labelPlacement="end"
+                          />
+                        </FormGroup>
+                        <Stack direction="column">
+                          <Typography
+                            noWrap
+                            variant="body2"
+                            sx={{
+                              color: grey[700],
+                              fontWeight: "inherit",
+                              flexGrow: 1,
+                              ml: 0.5,
                             }}
                           >
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={launchCfg.params.discovery.enable}
-                                  onChange={(event) => {
-                                    launchCfg.params.discovery.enable = event.target.checked;
-                                    updateStartParameter();
-                                  }}
-                                />
-                              }
-                              label="Discovery Node"
-                              labelPlacement="end"
-                            />
-                          </FormGroup>
-                        </GridLegacy>
-                        <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                          <Stack direction="column" sx={{ display: "grid" }}>
-                            <Typography
-                              noWrap
-                              variant="body2"
-                              sx={{
-                                color: grey[700],
-                                fontWeight: "inherit",
-                                flexGrow: 1,
-                                ml: 0.5,
-                              }}
-                            >
-                              {`Heartbeat Hz: ${launchCfg.params.discovery.heartbeatHz}`}
-                            </Typography>
-                            <Typography
-                              noWrap
-                              variant="body2"
-                              sx={{
-                                color: grey[700],
-                                fontWeight: "inherit",
-                                flexGrow: 1,
-                                ml: 0.5,
-                              }}
-                            >
-                              {`Robot Hosts: [${getRobotHosts().join(",")}]`}
-                            </Typography>
-                          </Stack>
-                        </GridLegacy>
-                      </GridLegacy>
+                            {`Heartbeat Hz: ${launchCfg.params.discovery.heartbeatHz}`}
+                          </Typography>
+                          <Typography
+                            noWrap
+                            variant="body2"
+                            sx={{
+                              color: grey[700],
+                              fontWeight: "inherit",
+                              flexGrow: 1,
+                              ml: 0.5,
+                            }}
+                          >
+                            {`Robot Hosts: [${getRobotHosts().join(",")}]`}
+                          </Typography>
+                        </Stack>
+                      </Stack>
                     </AccordionSummary>
                     <AccordionDetails>
                       <Stack direction="column" divider={<Divider orientation="vertical" />}>
@@ -914,60 +955,56 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
                       id="sync_panel-header"
                       sx={{ pl: 0 }}
                     >
-                      <GridLegacy container>
-                        <GridLegacy item xs={4}>
-                          <FormGroup
-                            aria-label="position"
-                            row
-                            onClick={(event) => {
-                              event.stopPropagation();
+                      <Stack direction="row">
+                        <FormGroup
+                          aria-label="position"
+                          row
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                        >
+                          <FormControlLabel
+                            // disabled={!startSystemNodes}
+                            control={
+                              <Checkbox
+                                checked={launchCfg.params.sync.enable}
+                                onChange={(event) => {
+                                  launchCfg.params.sync.enable = event.target.checked;
+                                  updateStartParameter();
+                                }}
+                              />
+                            }
+                            label="Start Master Sync"
+                            labelPlacement="end"
+                          />
+                        </FormGroup>
+                        <Stack direction="column" sx={{ display: "grid" }}>
+                          <Typography
+                            noWrap
+                            variant="body2"
+                            sx={{
+                              color: grey[700],
+                              fontWeight: "inherit",
+                              flexGrow: 1,
+                              ml: 0.5,
                             }}
                           >
-                            <FormControlLabel
-                              // disabled={!startSystemNodes}
-                              control={
-                                <Checkbox
-                                  checked={launchCfg.params.sync.enable}
-                                  onChange={(event) => {
-                                    launchCfg.params.sync.enable = event.target.checked;
-                                    updateStartParameter();
-                                  }}
-                                />
-                              }
-                              label="Master Sync"
-                              labelPlacement="end"
-                            />
-                          </FormGroup>
-                        </GridLegacy>
-                        <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                          <Stack direction="column" sx={{ display: "grid" }}>
-                            <Typography
-                              noWrap
-                              variant="body2"
-                              sx={{
-                                color: grey[700],
-                                fontWeight: "inherit",
-                                flexGrow: 1,
-                                ml: 0.5,
-                              }}
-                            >
-                              {`DoNotSync: [${launchCfg.params.sync.doNotSync.join()}]`}
-                            </Typography>
-                            <Typography
-                              noWrap
-                              variant="body2"
-                              sx={{
-                                color: grey[700],
-                                fontWeight: "inherit",
-                                flexGrow: 1,
-                                ml: 0.5,
-                              }}
-                            >
-                              {`SyncTopics: [${launchCfg.params.sync.syncTopics.join()}]`}
-                            </Typography>
-                          </Stack>
-                        </GridLegacy>
-                      </GridLegacy>
+                            {`DoNotSync: [${launchCfg.params.sync.doNotSync.join()}]`}
+                          </Typography>
+                          <Typography
+                            noWrap
+                            variant="body2"
+                            sx={{
+                              color: grey[700],
+                              fontWeight: "inherit",
+                              flexGrow: 1,
+                              ml: 0.5,
+                            }}
+                          >
+                            {`SyncTopics: [${launchCfg.params.sync.syncTopics.join()}]`}
+                          </Typography>
+                        </Stack>
+                      </Stack>
                     </AccordionSummary>
                     <AccordionDetails>
                       <Stack direction="column" divider={<Divider orientation="vertical" />}>
@@ -1023,95 +1060,91 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
                     sx={{ pl: 0, margin: 0 }}
                     style={{ margin: 0 }}
                   >
-                    <GridLegacy container>
-                      <GridLegacy item xs={4}>
-                        <Stack
-                          direction="row"
+                    <Stack direction="row">
+                      <Stack
+                        direction="row"
+                        style={{ marginLeft: 0, paddingLeft: 0, paddingRight: 5 }}
+                        justifyItems="center"
+                        alignItems="center"
+                      >
+                        <Checkbox
                           style={{ marginLeft: 0, paddingLeft: 0 }}
-                          justifyItems="center"
-                          alignItems="center"
+                          checked={launchCfg.params.terminal.enable}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                          onChange={(event) => {
+                            launchCfg.params.terminal.enable = event.target.checked;
+                            updateStartParameter();
+                          }}
+                        />
+                        <Typography>Start Terminal Manager</Typography>
+
+                        <Tooltip
+                          title={
+                            <>
+                              <Typography variant="body1">Install TTYD in the host using:</Typography>
+                              <Stack mt={1} direction="row" justifyContent="center">
+                                <Typography variant="body2">sudo snap install ttyd --classic</Typography>
+                                <CopyButton value="sudo snap install ttyd --classic" />
+                              </Stack>
+                              <Link mt={2} href="https://github.com/tsl0922/ttyd" target="_blank" color="inherit">
+                                See https://github.com/tsl0922/ttyd
+                              </Link>
+                            </>
+                          }
+                          // PopperProps={{
+                          //   disablePortal: true,
+                          // }}
+                          disableFocusListener
+                          disableHoverListener
+                          disableTouchListener
+                          open={openTerminalTooltip}
+                          placement="bottom-start"
+                          // enterDelay={tooltipDelay}
+                          // enterNextDelay={tooltipDelay}
                         >
-                          <Checkbox
-                            style={{ marginLeft: 0, paddingLeft: 0 }}
-                            checked={launchCfg.params.terminal.enable}
+                          <Stack
+                            marginLeft="3px"
                             onClick={(event) => {
+                              setOpenTerminalTooltip(!openTerminalTooltip);
                               event.stopPropagation();
                             }}
-                            onChange={(event) => {
-                              launchCfg.params.terminal.enable = event.target.checked;
-                              updateStartParameter();
-                            }}
-                          />
-                          <Typography>Terminal Manager</Typography>
-
-                          <Tooltip
-                            title={
-                              <>
-                                <Typography variant="body1">Install TTYD in the host using:</Typography>
-                                <Stack mt={1} direction="row" justifyContent="center">
-                                  <Typography variant="body2">sudo snap install ttyd --classic</Typography>
-                                  <CopyButton value="sudo snap install ttyd --classic" />
-                                </Stack>
-                                <Link mt={2} href="https://github.com/tsl0922/ttyd" target="_blank" color="inherit">
-                                  See https://github.com/tsl0922/ttyd
-                                </Link>
-                              </>
-                            }
-                            // PopperProps={{
-                            //   disablePortal: true,
-                            // }}
-                            disableFocusListener
-                            disableHoverListener
-                            disableTouchListener
-                            open={openTerminalTooltip}
-                            placement="bottom-start"
-                            // enterDelay={tooltipDelay}
-                            // enterNextDelay={tooltipDelay}
                           >
-                            <Stack
-                              marginLeft="3px"
-                              onClick={(event) => {
-                                setOpenTerminalTooltip(!openTerminalTooltip);
-                                event.stopPropagation();
+                            <InfoOutlinedIcon
+                              sx={{
+                                fontSize: "inherit",
+                                color: "DodgerBlue",
                               }}
-                            >
-                              <InfoOutlinedIcon
-                                sx={{
-                                  fontSize: "inherit",
-                                  color: "DodgerBlue",
-                                }}
-                              />
-                            </Stack>
-                          </Tooltip>
-                        </Stack>
-                      </GridLegacy>
-                      <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                        <Stack direction="column" sx={{ display: "grid" }}>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: grey[700],
-                              fontWeight: "inherit",
-                              flexGrow: 1,
-                              ml: 0.5,
-                            }}
-                          >
-                            {`Path: ${launchCfg.params.terminal.path}`}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: grey[700],
-                              fontWeight: "inherit",
-                              flexGrow: 1,
-                              ml: 0.5,
-                            }}
-                          >
-                            {`Port: ${launchCfg.params.terminal.port}`}
-                          </Typography>
-                        </Stack>
-                      </GridLegacy>
-                    </GridLegacy>
+                            />
+                          </Stack>
+                        </Tooltip>
+                      </Stack>
+                      <Stack direction="column" sx={{ display: "grid" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: grey[700],
+                            fontWeight: "inherit",
+                            flexGrow: 1,
+                            ml: 0.5,
+                          }}
+                        >
+                          {`Path: ${launchCfg.params.terminal.path}`}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: grey[700],
+                            fontWeight: "inherit",
+                            flexGrow: 1,
+                            ml: 0.5,
+                          }}
+                        >
+                          {`Port: ${launchCfg.params.terminal.port}`}
+                        </Typography>
+                      </Stack>
+                    </Stack>
                   </AccordionSummary>
                   <AccordionDetails>
                     <TextField
@@ -1146,56 +1179,52 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
                       id="master-uri-header"
                       sx={{ pl: 0 }}
                     >
-                      <GridLegacy container>
-                        <GridLegacy item xs={4}>
-                          <FormGroup
-                            aria-label="position"
-                            row
-                            onClick={(event) => {
-                              event.stopPropagation();
+                      <Stack direction="row">
+                        <FormGroup
+                          aria-label="position"
+                          row
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                        >
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                size="small"
+                                checked={launchCfg.params.ros1MasterUri.enable}
+                                onChange={(event) => {
+                                  launchCfg.params.ros1MasterUri.enable = event.target.checked;
+                                  updateStartParameter();
+                                }}
+                              />
+                            }
+                            label={
+                              <Tooltip
+                                title={"The new ROS_MASTER_URI is prefixed when system nodes are started."}
+                                placement="bottom"
+                                disableInteractive
+                              >
+                                <Typography>ROS_MASTER_URI</Typography>
+                              </Tooltip>
+                            }
+                            labelPlacement="end"
+                          />
+                        </FormGroup>
+                        <Stack direction="column" sx={{ display: "grid" }} alignContent="center">
+                          <Typography
+                            noWrap
+                            variant="body2"
+                            sx={{
+                              color: grey[700],
+                              fontWeight: "inherit",
+                              flexGrow: 1,
+                              ml: 0.5,
                             }}
                           >
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  size="small"
-                                  checked={launchCfg.params.ros1MasterUri.enable}
-                                  onChange={(event) => {
-                                    launchCfg.params.ros1MasterUri.enable = event.target.checked;
-                                    updateStartParameter();
-                                  }}
-                                />
-                              }
-                              label={
-                                <Tooltip
-                                  title={"The new ROS_MASTER_URI is prefixed when system nodes are started."}
-                                  placement="bottom"
-                                  disableInteractive
-                                >
-                                  <Typography>ROS_MASTER_URI</Typography>
-                                </Tooltip>
-                              }
-                              labelPlacement="end"
-                            />
-                          </FormGroup>
-                        </GridLegacy>
-                        <GridLegacy item xs={6} sx={{ alignSelf: "center" }}>
-                          <Stack direction="column" sx={{ display: "grid" }}>
-                            <Typography
-                              noWrap
-                              variant="body2"
-                              sx={{
-                                color: grey[700],
-                                fontWeight: "inherit",
-                                flexGrow: 1,
-                                ml: 0.5,
-                              }}
-                            >
-                              {`${launchCfg.params.ros1MasterUri.uri}`}
-                            </Typography>
-                          </Stack>
-                        </GridLegacy>
-                      </GridLegacy>
+                            {`${launchCfg.params.ros1MasterUri.uri}`}
+                          </Typography>
+                        </Stack>
+                      </Stack>
                     </AccordionSummary>
                     <AccordionDetails>
                       <Stack direction="column" divider={<Divider orientation="vertical" />}>

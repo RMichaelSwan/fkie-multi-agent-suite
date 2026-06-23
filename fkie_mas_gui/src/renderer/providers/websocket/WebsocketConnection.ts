@@ -36,6 +36,7 @@ export default class WebsocketConnection extends ProviderConnection {
   private onClose: (reason: string, details: string) => void = () => {};
   private onOpen: () => void = () => {};
   private onReconnect: () => void = () => {};
+  private onError: (error: string) => void = () => {};
 
   // --- reconnect configuration ---
   /** Whether the connection should auto-reconnect after unexpected close */
@@ -59,7 +60,8 @@ export default class WebsocketConnection extends ProviderConnection {
     useSSL: boolean = false,
     onClose: (reason: string, details: string) => void = () => {},
     onOpen: () => void = () => {},
-    onReconnect: () => void = () => {}
+    onReconnect: () => void = () => {},
+    onError: (error: string) => void = () => {}
   ) {
     super();
     this.subscriptions = {};
@@ -80,6 +82,7 @@ export default class WebsocketConnection extends ProviderConnection {
     this.onClose = onClose;
     this.onOpen = onOpen;
     this.onReconnect = onReconnect;
+    this.onError = onError;
   }
 
   private log(): ILoggingContext {
@@ -151,7 +154,7 @@ export default class WebsocketConnection extends ProviderConnection {
           `error on connect to ${this.uri}`,
           `event.type: ${JSON.stringify(event.type)}\nIs the daemon running?\nIs the hostname being resolved to the correct IP address?\nPlease check the details in the console by pressing F12.`
         );
-
+        this.onError(`connect to ${this.uri} failed`);
         // Ensure the socket is closed, which will also trigger handleClose
         try {
           ws.close();

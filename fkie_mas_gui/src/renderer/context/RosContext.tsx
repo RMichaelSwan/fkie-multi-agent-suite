@@ -77,7 +77,7 @@ export interface IRosContext {
   startDynamicReconfigureClient: (nodeName: string, masteruri: string) => Promise<TResult>;
   removeProvider: (providerId: string) => void;
   getProviderName: (providerId: string) => string;
-  refreshProviderList: () => void;
+  refreshProviderList: (startConfigurations: TProviderLaunchParams[]) => void;
   closeProviders: () => void;
   updateNodeList: (providerId: string) => void;
   updateLaunchList: (providerId: string) => void;
@@ -98,7 +98,7 @@ export interface IRosContext {
   updateLocalNodes: (providerId: string, nodes: string[]) => void;
   setShowSnackbarReloadLaunchNotification: (show: boolean) => void;
   setShowSnackbarBinaryChangedNotification: (show: boolean) => void;
-  hiddenConnect: (configParams: TProviderLaunchParams) => void;
+  connect: (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean) => void;
   providerColor: (id: string) => string;
 }
 
@@ -137,7 +137,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const [providersAddQueue, setProvidersAddQueue] = useState<Provider[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [localNodes, setLocalNodes] = useState<TLocalNode[]>([]);
-  const [hiddenProviders, setHiddenProviders] = useState<Provider[]>([]);
   const [showSnackbarReloadLaunchNotification, setShowSnackbarReloadLaunchNotification] = useState<boolean>(true);
   const [showSnackbarBinaryChangedNotification, setShowSnackbarBinaryChangedNotification] = useState<boolean>(true);
   const [mapProviderRosNodes, setMapProviderRosNodes] = useState(new Map<string, RosNode[]>());
@@ -535,27 +534,33 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   );
 
   /** Refresh all user-created providers; reconnect any that have become unreachable. */
-  const refreshProviderList = useCallback((): void => {
-    setProviders((prev) =>
-      prev.filter((p) => {
-        if (!p.isCreatedByUser()) {
-          p.close();
-          return false;
-        }
-        try {
-          p.updateProviderList();
-          p.getDaemonVersion().catch((err) => {
-            logCtx.debug(`refreshProvider ${p.name()} failed`, JSON.stringify(err));
-            connectToProvider(p);
-          });
-          p.updateSystemWarnings();
-        } catch (error: unknown) {
-          logCtx.debug("refreshProviderList failed", JSON.stringify(error));
-        }
-        return true;
-      })
-    );
-  }, [connectToProvider, logCtx]);
+  const refreshProviderList = useCallback(
+    (startConfigurations: TProviderLaunchParams[]): void => {
+      setProviders((prev) => {
+        return prev.filter((p) => {
+          if (!p.isCreatedByUser()) {
+            p.close();
+            return false;
+          }
+          try {
+            p.updateProviderList();
+            p.getDaemonVersion().catch((err) => {
+              logCtx.debug(`refreshProvider ${p.name()} failed`, JSON.stringify(err));
+              connectToProvider(p);
+            });
+            p.updateSystemWarnings();
+          } catch (error: unknown) {
+            logCtx.debug("refreshProviderList failed", JSON.stringify(error));
+          }
+          return true;
+        });
+      });
+      for (const config of startConfigurations) {
+        connect(config, true);
+      }
+    },
+    [connectToProvider, logCtx]
+  );
 
   // ─────────────────────────────────────────────
   // Service start helper (shared by startConfig)
@@ -621,7 +626,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
     async (config: ProviderLaunchConfiguration, connectConfig: ConnectConfig | null = null): Promise<boolean> => {
       if (!window.commandExecutor) return false;
 
-      console.log(`config: ${JSON.stringify(config)}`);
+      console.log(`start provider with config: ${JSON.stringify(config)}`);
       let allStarted = true;
       try {
         const isLocal = isLocalHost(config.params.host);
@@ -940,8 +945,8 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
     [logCtx]
   );
 
-  const hiddenConnect = useCallback(
-    (configParams: TProviderLaunchParams) => {
+  const connect = useCallback(
+    (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean) => {
       const provider = new Provider(
         logCtxRef,
         settingsCtxRef,
@@ -952,11 +957,12 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         configParams.useSSL
       );
       providerColors.current.set(provider.id, colorFromHostname(provider.id));
-      setHiddenProviders((prev) => {
+      setProvidersAddQueue((prev) => {
         if (prev.find((p) => p.id === provider.id)) return prev;
         provider.isLocalHost = isLocalHost(provider.connection.host);
         provider.startConfiguration = new ProviderLaunchConfiguration(configParams);
         provider.init();
+        provider.triggeredByAutoConnect = triggeredByAutoConnect;
         return [...prev, provider];
       });
     },
@@ -1088,37 +1094,13 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
     EVENT_PROVIDER_STATE,
     (data: EventProviderState) => {
       const { provider, newState, oldState, details } = data;
-      console.log(
-        `trigger connection state ${provider.id}: new: ${newState}, old: ${oldState}, ${JSON.stringify(details)}`
-      );
-      const hiddenProv = hiddenProviders.find((p) => {
-        return p.startConfiguration?.params.id === provider.startConfiguration?.params.id;
-      });
       switch (newState) {
         case ConnectionState.STATES.CONNECTED:
-          if (hiddenProv) {
-            setProviders((prev) => {
-              const exists = prev.some((p) => equalProvider(p, hiddenProv));
-              if (!exists) {
-                return [...prev, hiddenProv];
-              }
-
-              return prev;
-            });
-            setHiddenProviders((prev) =>
-              prev.filter((p) => p.startConfiguration?.params.id !== provider.startConfiguration?.params.id)
-            );
-          }
+          provider.triggeredByAutoConnect = false;
           clearProviders();
           break;
         case ConnectionState.STATES.CLOSED:
           mapProviderRosNodesRef.current.set(provider.id, []);
-          if (hiddenProv) {
-            hiddenProv.close();
-            setHiddenProviders((prev) =>
-              prev.filter((p) => p.startConfiguration?.params.id !== provider.startConfiguration?.params.id)
-            );
-          }
           clearProviders();
           break;
         case ConnectionState.STATES.AUTHZ:
@@ -1126,11 +1108,8 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         case ConnectionState.STATES.UNSUPPORTED:
         case ConnectionState.STATES.UNREACHABLE:
         case ConnectionState.STATES.ERRORED:
-          if (hiddenProv) {
-            hiddenProv.close();
-            setHiddenProviders((prev) =>
-              prev.filter((p) => p.startConfiguration?.params.id !== provider.startConfiguration?.params.id)
-            );
+          if (provider.triggeredByAutoConnect) {
+            removeProvider(provider.id);
           }
           clearProviders();
           break;
@@ -1160,7 +1139,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         });
       }
     },
-    [hiddenProviders, setProviders]
+    [setProviders]
   );
 
   useCustomEventListener(EVENT_PROVIDER_WARNINGS, (data: EventProviderWarnings) => {
@@ -1253,7 +1232,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
       updateLocalNodes,
       setShowSnackbarReloadLaunchNotification,
       setShowSnackbarBinaryChangedNotification,
-      hiddenConnect,
+      connect,
       providerColor,
     }),
     [
@@ -1284,7 +1263,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
       isLocalHost,
       addProvider,
       updateLocalNodes,
-      hiddenConnect,
       providerColor,
     ]
   );

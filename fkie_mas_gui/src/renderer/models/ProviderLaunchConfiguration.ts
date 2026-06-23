@@ -334,7 +334,8 @@ export default class ProviderLaunchConfiguration {
       const ros1MasterUriPrefix = this.toRos1MasterUriPrefix(this.params.ros1MasterUri);
       cmdDaemon = `${ros1MasterUriPrefix}${this.domainPrefix()} rosrun ${cmdDaemon}`;
     } else if (this.params.rosVersion === "2") {
-      cmdDaemon = `${this.getEnvPrefix()}ros2 run ${cmdDaemon}; `;
+      const portStr = this.params.port > 0 ? ` --port ${this.params.port}` : "";
+      cmdDaemon = `${this.getEnvPrefix()}ros2 run ${cmdDaemon}${portStr}; `;
     } else {
       return {
         result: false,

@@ -109,11 +109,11 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
     }
   });
 
-  useCustomEventListener(EVENT_PROVIDER_STATE, (data: EventProviderState) => {
-    if (data.provider.id === provider.id) {
-      forceUpdate();
-    }
-  });
+  // useCustomEventListener(EVENT_PROVIDER_STATE, (data: EventProviderState) => {
+  //   if (data.provider.id === provider.id) {
+  //     forceUpdate();
+  //   }
+  // });
 
   async function onProviderMenuClick(actionType: EMenuProvider, provider: Provider): Promise<void> {
     if (actionType === EMenuProvider.INFO) {

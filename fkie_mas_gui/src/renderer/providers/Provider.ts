@@ -238,6 +238,8 @@ export default class Provider implements IProvider {
 
   startConfiguration: ProviderLaunchConfiguration | null = null;
 
+  triggeredByAutoConnect: boolean = false;
+
   // started echo topics to receive echo events
   private echoTopics: string[] = [];
 
@@ -290,6 +292,9 @@ export default class Provider implements IProvider {
             this.connectionState !== ConnectionState.STATES.STARTING
           )
             this.setConnectionState(ConnectionState.STATES.CONNECTING, "");
+        },
+        (error: string) => {
+          this.setConnectionState(ConnectionState.STATES.ERRORED, error);
         }
       );
     }
@@ -505,7 +510,7 @@ export default class Provider implements IProvider {
         const logPaths = await this.getLogPaths([nodeName]);
         if (logPaths.length > 0) {
           // `tail -f ${logPaths[0].screen_log} \r`,
-          result.cmd = `${this.settings().paramLogCommand.replaceAll('{LOG_FILE}', logPaths[0].screen_log)} ${logPaths[0].screen_log}`;
+          result.cmd = `${this.settings().paramLogCommand.replaceAll("{LOG_FILE}", logPaths[0].screen_log)} ${logPaths[0].screen_log}`;
           result.log = logPaths[0].screen_log;
         }
         break;
@@ -746,7 +751,7 @@ export default class Provider implements IProvider {
           result.host = this.host();
           return result;
         }
-        error = `Provider [${this.id}]: can not get content for ${path}: ${value.message}`
+        error = `Provider [${this.id}]: can not get content for ${path}: ${value.message}`;
         this.log().error(`Provider [${this.id}]: can not get content for ${path}: `, `${value.message}`);
         return null;
       }
@@ -1770,7 +1775,11 @@ export default class Provider implements IProvider {
         }
         const response = value.data as LaunchMessageStruct;
         if (!response.valid) {
-          this.log().error(`Provider [${this.id}]: Error at callService()`, `${response.message}`, 'service call failed');
+          this.log().error(
+            `Provider [${this.id}]: Error at callService()`,
+            `${response.message}`,
+            "service call failed"
+          );
         }
         return response;
       }
