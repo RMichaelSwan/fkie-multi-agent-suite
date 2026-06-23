@@ -95,7 +95,6 @@ export interface IRosContext {
   updateFilterRosTopic: (provider: Provider, topicName: string, msg: SubscriberFilter) => void;
   isLocalHost: (host: string) => boolean;
   addProvider: (provider: Provider) => void;
-  updateLocalNodes: (providerId: string, nodes: string[]) => void;
   setShowSnackbarReloadLaunchNotification: (show: boolean) => void;
   setShowSnackbarBinaryChangedNotification: (show: boolean) => void;
   connect: (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean) => void;
@@ -136,11 +135,9 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const [systemInfo, setSystemInfo] = useState<TSystemInfo | null>(null);
   const [providersAddQueue, setProvidersAddQueue] = useState<Provider[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [localNodes, setLocalNodes] = useState<TLocalNode[]>([]);
   const [showSnackbarReloadLaunchNotification, setShowSnackbarReloadLaunchNotification] = useState<boolean>(true);
   const [showSnackbarBinaryChangedNotification, setShowSnackbarBinaryChangedNotification] = useState<boolean>(true);
   const [mapProviderRosNodes, setMapProviderRosNodes] = useState(new Map<string, RosNode[]>());
-  const [nodeMap, setNodeMap] = useState(new Map<string, RosNode>());
 
   const providerColors = useRef<Map<string, string>>(new Map());
 
@@ -152,6 +149,31 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const showReloadRef = useAlwaysCurrentRef(showSnackbarReloadLaunchNotification);
   const showBinaryRef = useAlwaysCurrentRef(showSnackbarBinaryChangedNotification);
   const mapProviderRosNodesRef = useAlwaysCurrentRef(mapProviderRosNodes);
+
+  // ─────────────────────────────────────────────
+  // Provider Node state helpers
+  // ─────────────────────────────────────────────
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, RosNode>();
+    for (const [, nodes] of mapProviderRosNodes) {
+      for (const node of nodes) {
+        map.set(node.idGlobal, node);
+      }
+    }
+    return map;
+  }, [mapProviderRosNodes]);
+
+  const localNodes = useMemo(() => {
+    const result: TLocalNode[] = [];
+    for (const [providerId, nodes] of mapProviderRosNodes) {
+      for (const node of nodes) {
+        if (node.isLocalRunningNode() || node.launchInfo.size > 0) {
+          result.push({ providerId, node: node.name });
+        }
+      }
+    }
+    return result;
+  }, [mapProviderRosNodes]);
 
   // ─────────────────────────────────────────────
   // Provider helpers
@@ -273,14 +295,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
     },
     [logCtx]
   );
-
-  /** Update the local-node list for a given provider. */
-  const updateLocalNodes = useCallback((providerId: string, nodes: string[]): void => {
-    setLocalNodes((prev) => [
-      ...prev.filter((ln) => ln.providerId !== providerId),
-      ...nodes.map((node) => ({ providerId, node })),
-    ]);
-  }, []);
 
   // ─────────────────────────────────────────────
   // Node / launch update helpers
@@ -970,7 +984,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   );
 
   // ─────────────────────────────────────────────
-  // Initialisation
+  // Initialization
   // ─────────────────────────────────────────────
 
   const init = useCallback(async (): Promise<void> => {
@@ -1063,32 +1077,17 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   useCustomEventListener(
     EVENT_PROVIDER_ROS_NODES,
     (data: EventProviderRosNodes) => {
+      // Create a shallow copy of the previous provider → nodes map
       setMapProviderRosNodes((prevMap) => {
-        // Create a shallow copy of the previous provider → nodes map
         const newMap = new Map<string, RosNode[]>(prevMap);
-
         // Update the node list for the current provider
         newMap.set(data.provider.id, data.nodes);
-
-        // Rebuild the global nodeMap from the updated provider map
-        const newNodeMap = new Map<string, RosNode>();
-
-        // Iterate over all providers and collect their nodes
-        for (const [, nodes] of newMap) {
-          for (const node of nodes) {
-            // Use node.idGlobal as unique key
-            newNodeMap.set(node.idGlobal, node);
-          }
-        }
-        // Update the separate nodeMap state (used by other parts of the app)
-        setNodeMap(newNodeMap);
-
-        // Return the updated provider → nodes map
         return newMap;
       });
     },
     []
   );
+
 
   useCustomEventListener(
     EVENT_PROVIDER_STATE,
@@ -1122,19 +1121,8 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         setMapProviderRosNodes((prev) => {
           // Copy previous provider → nodes map
           const newMap = new Map<string, RosNode[]>(prev);
-
           // Remove entries for this provider
           newMap.delete(provider.id);
-
-          // Rebuild global nodeMap from remaining providers
-          const newNodeMap = new Map<string, RosNode>();
-          for (const [, nodes] of newMap) {
-            for (const node of nodes) {
-              newNodeMap.set(node.idGlobal, node);
-            }
-          }
-
-          setNodeMap(newNodeMap);
           return newMap;
         });
       }
@@ -1229,7 +1217,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
       updateFilterRosTopic,
       isLocalHost,
       addProvider,
-      updateLocalNodes,
       setShowSnackbarReloadLaunchNotification,
       setShowSnackbarBinaryChangedNotification,
       connect,
@@ -1262,7 +1249,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
       updateFilterRosTopic,
       isLocalHost,
       addProvider,
-      updateLocalNodes,
       providerColor,
     ]
   );

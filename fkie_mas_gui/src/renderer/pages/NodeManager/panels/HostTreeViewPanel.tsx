@@ -46,8 +46,8 @@ import {
   TEventShowScreens,
 } from "@/renderer/pages/NodeManager/layout/events";
 import { CmdType, Provider } from "@/renderer/providers";
-import { ConnectionState, EventProviderRestartNodes, EventProviderRosNodes } from "@/renderer/providers/events";
-import { EVENT_PROVIDER_RESTART_NODES, EVENT_PROVIDER_ROS_NODES } from "@/renderer/providers/eventTypes";
+import { ConnectionState, EventProviderRestartNodes } from "@/renderer/providers/events";
+import { EVENT_PROVIDER_RESTART_NODES } from "@/renderer/providers/eventTypes";
 import { TResultClearPath } from "@/renderer/providers/ProviderConnection";
 import { areArraysEqual, findIn } from "@/renderer/utils/index";
 import { TFileRange } from "@/types";
@@ -184,39 +184,6 @@ export default function HostTreeViewPanel(): JSX.Element {
   }, [navCtx.selection.selectedNodes, getNodesFromIds]);
 
   /**
-   * Update internal providerNodes state and local nodes list in RosContext
-
-   */
-  const updateNodes = useCallback(
-    (provider: Provider, nodes: RosNode[]): void => {
-      rosCtx.updateLocalNodes(
-        provider.id,
-        nodes.filter((node) => node.isLocalRunningNode() || node.launchInfo.size > 0).map((node) => node.name)
-      );
-      setProviderNodes((oldValues) => [
-        ...oldValues.filter((item) => {
-          return item.providerId !== provider.id;
-        }),
-        {
-          providerId: provider.id,
-          nodes: nodes,
-        },
-      ]);
-    },
-    [rosCtx]
-  );
-
-  /**
-   * Synchronizes providerNodes with the current provider list.
-   * Removes all entries whose providerId is no longer present.
-
-   */
-  const readNodes = useCallback((): void => {
-    const providerIds = rosCtx.providers.map((p) => p.id);
-    setProviderNodes((oldValues) => oldValues.filter((item) => providerIds.includes(item.providerId)));
-  }, [rosCtx.providers]);
-
-  /**
    * Compute visibleNodes and countFilteredNodes based on providerNodes and filterText.
    * This replaces explicit state for these derived values.
 
@@ -306,15 +273,6 @@ export default function HostTreeViewPanel(): JSX.Element {
 
   // Event listeners -----------------------------------------------------------------------------------
 
-  const onProviderRosNodes = useCallback(
-    (data: EventProviderRosNodes): void => {
-      const { provider, nodes } = data;
-      // Update local nodes in RosContext and providerNodes state
-      updateNodes(provider, nodes);
-    },
-    [updateNodes]
-  );
-
   const onProviderRestartNodes = useCallback(
     (data: EventProviderRestartNodes): void => {
       restartNodes(data.nodes, true);
@@ -348,7 +306,6 @@ export default function HostTreeViewPanel(): JSX.Element {
     [] // uses createSingleTerminalPanel which is defined later but does not capture mutable state
   );
 
-  useCustomEventListener(EVENT_PROVIDER_ROS_NODES, onProviderRosNodes);
   useCustomEventListener(EVENT_PROVIDER_RESTART_NODES, onProviderRestartNodes);
   useCustomEventListener(EVENT_FILTER_NODES, onFilterNodes);
   useCustomEventListener(EVENT_KILL_NODES, onKillNodes);
@@ -1117,16 +1074,16 @@ export default function HostTreeViewPanel(): JSX.Element {
 
   // Register useEffect Callbacks ----------------------------------------------------------------------------------
 
-  // Initialize providerNodes once at mount based on existing providers
+  /**
+   * Synchronizes providerNodes with the current provider list.
+   */
   useEffect(() => {
-    for (const p of rosCtx.providers) {
-      updateNodes(p, p.rosNodes);
+    const newProviderNodes: TProviderNodes[] = [];
+    for (const [providerId, nodes] of rosCtx.mapProviderRosNodes) {
+      newProviderNodes.push({ providerId, nodes });
     }
-  }, []);
-
-  useEffect(() => {
-    readNodes();
-  }, [readNodes]);
+    setProviderNodes(newProviderNodes);
+  }, [rosCtx.mapProviderRosNodes]);
 
   useEffect(() => {
     if (!nodesToStart) return;
