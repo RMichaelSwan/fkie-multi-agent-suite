@@ -234,6 +234,7 @@ export default class WebsocketConnection extends ProviderConnection {
 
    */
   close: () => Promise<void> = async () => {
+    console.log(`closing websocket connection to ${this.uri}`);
     this.shouldReconnect = false;
 
     if (this.websocket) {
