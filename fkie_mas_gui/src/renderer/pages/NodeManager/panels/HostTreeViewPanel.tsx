@@ -223,7 +223,7 @@ export default function HostTreeViewPanel(): JSX.Element {
       visibleNodesGlobal: newVisibleNodes,
       countFilteredNodes: nodeCount - nodeFilteredCount,
     };
-  }, [providerNodes, filterText, rosCtx.localNodes]);
+  }, [providerNodes, filterText]);
 
   const domainGroups = useMemo<TDomainGroup[]>(() => {
     const map = new Map<string, TDomainGroup>();
