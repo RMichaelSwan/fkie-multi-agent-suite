@@ -19,6 +19,7 @@ interface TagProps {
   text: string;
   color?: string;
   copyButton?: string;
+  copyButtonPrefix?: string;
   wrap?: boolean;
   direction?: ResponsiveStyleValue<"row" | "row-reverse" | "column" | "column-reverse"> | undefined;
   tooltip?: string | JSX.Element;
@@ -33,6 +34,7 @@ export default function Tag(props: TagProps): JSX.Element {
     text = "",
     color = "info",
     copyButton = "",
+    copyButtonPrefix = "",
     wrap = true,
     direction = "row",
     tooltip = "",
@@ -69,6 +71,7 @@ export default function Tag(props: TagProps): JSX.Element {
             <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
               {title}
             </Typography>
+            {copyButtonPrefix && <CopyButton value={copyButtonPrefix} fontSize="0.6em" />}
             <Typography variant="body2" align="justify" noWrap>
               {newText}
             </Typography>

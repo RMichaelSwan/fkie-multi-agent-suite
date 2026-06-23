@@ -26,7 +26,7 @@ import {
   getFileName,
 } from "@/renderer/models";
 import ConnectionState from "@/renderer/providers/ConnectionState";
-import Provider, { equalProvider } from "@/renderer/providers/Provider";
+import Provider from "@/renderer/providers/Provider";
 import {
   EVENT_PROVIDER_AUTH_REQUEST,
   EVENT_PROVIDER_DISCOVERED,

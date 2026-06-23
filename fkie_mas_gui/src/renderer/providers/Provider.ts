@@ -128,18 +128,6 @@ export interface IProvider {
   updateDaemonInit: () => void;
 }
 
-export function equalProvider(p1: Provider, p2: Provider): boolean {
-  if (p1.connection.domainId !== p2.connection.domainId) {
-    return false;
-  }
-
-  return (
-    p1.hostnames.some((h) => p2.hostnames.includes(h)) &&
-    p1.connection.port === p2.connection.port &&
-    p1.rosVersion === p2.rosVersion
-  );
-}
-
 /**
  * Provider base class to connect with a MAS daemon
  */

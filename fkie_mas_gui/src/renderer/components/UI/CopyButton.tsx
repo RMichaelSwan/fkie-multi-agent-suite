@@ -15,7 +15,7 @@ export default function CopyButton(props: CopyButtonProps): JSX.Element {
 
   return (
     <IconButton
-      sx={{ color: (theme) => theme.palette.text.disabled, paddingTop: 0, paddingBottom: 0 }}
+      sx={{ color: (theme) => theme.palette.text.disabled, padding: 0 }}
       size="small"
       component="span"
       onClick={() => {

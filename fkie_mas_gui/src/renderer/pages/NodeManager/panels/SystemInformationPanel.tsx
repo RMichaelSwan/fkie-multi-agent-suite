@@ -1,5 +1,5 @@
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Box, Button, Stack, Tooltip, Typography } from "@mui/material";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import JsonView from "react18-json-view";
 
@@ -11,6 +11,7 @@ import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { SystemWarning } from "@/renderer/models";
+import { envFromSystemEnv } from "@/renderer/models/ProviderLaunchConfiguration";
 import { Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_WARNINGS } from "@/renderer/providers/eventTypes";
 import { EventProviderWarnings } from "@/renderer/providers/events";
@@ -162,6 +163,13 @@ export default function SystemInformationPanel(props: SystemInformationPanelProp
   const createProviderDetailsView = useMemo(() => {
     if (!provider) return <></>;
     const rmwImplementation = provider.systemEnv.RMW_IMPLEMENTATION as string;
+    let envPrefix = "";
+    if (provider) {
+      envPrefix = provider.startConfiguration?.getEnvPrefix() || "";
+      if (!envPrefix) {
+        envPrefix = envFromSystemEnv(provider.systemEnv).join(" ");
+      }
+    }
     return (
       <Stack
         key={providerId}
@@ -237,6 +245,20 @@ export default function SystemInformationPanel(props: SystemInformationPanelProp
                 wrap
               />
             </Stack>
+          )}
+          {envPrefix && (
+            <Tooltip title={envPrefix} disableInteractive>
+              <Stack direction="row" spacing={0.5}>
+                <Tag
+                  color={"default"}
+                  title="env:"
+                  // title={`${RosNodeStatusInfo[node.status]}`}
+                  text={envPrefix}
+                  copyButtonPrefix={envPrefix}
+                  wrap
+                />
+              </Stack>
+            </Tooltip>
           )}
           <Box height="100%" overflow="auto" sx={{ backgroundColor: backgroundColor }}>
             <Stack direction="column" spacing="0.5em" alignItems="left">
