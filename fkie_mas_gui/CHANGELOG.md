@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.7.5 - 23.06.2026
+
+Added ros environment to host details
+Fixed tooltip in nodes control buttons
+Allow set port and auto-connect in start configuration
+Fix for issue #12
+
 ## 5.7.4 - 22.06.2026
 
 Do not show "update available" in web version if prerelease is installed
