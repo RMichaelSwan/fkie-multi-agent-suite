@@ -23,7 +23,6 @@ import { useDebounceCallback } from "@react-hook/debounce";
 import {
   EventProviderActivity,
   EventProviderDelay,
-  EventProviderState,
   EventProviderWarnings,
 } from "@/renderer/providers/events";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
@@ -39,7 +38,6 @@ import { CmdType, ConnectionState, Provider } from "@/renderer/providers";
 import {
   EVENT_PROVIDER_ACTIVITY,
   EVENT_PROVIDER_DELAY,
-  EVENT_PROVIDER_STATE,
   EVENT_PROVIDER_WARNINGS,
 } from "@/renderer/providers/eventTypes";
 import OverflowMenuExternalApps from "./OverflowMenuExternalApps";

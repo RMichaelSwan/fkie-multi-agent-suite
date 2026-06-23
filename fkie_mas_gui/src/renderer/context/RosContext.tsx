@@ -1093,7 +1093,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   useCustomEventListener(
     EVENT_PROVIDER_STATE,
     (data: EventProviderState) => {
-      const { provider, newState, oldState, details } = data;
+      const { provider, newState /*, oldState, details */ } = data;
       switch (newState) {
         case ConnectionState.STATES.CONNECTED:
           provider.triggeredByAutoConnect = false;
