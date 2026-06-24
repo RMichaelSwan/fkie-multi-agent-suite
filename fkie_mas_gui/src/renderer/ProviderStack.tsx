@@ -1,7 +1,6 @@
 // load default style for flexlayout-react. Dark/Light theme changes are in ./themes
 import { createTheme, CssBaseline } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
-import "flexlayout-react/style/gray.css";
 import { SnackbarProvider } from "notistack";
 import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
@@ -16,6 +15,7 @@ import { darkThemeDef, lightThemeDef } from "./themes";
 
 export default function ProviderStack({ children }: { children: React.ReactNode }): JSX.Element {
   const settingsCtx = useSettingsContext();
+  const useDarkMode = settingsCtx.get("useDarkMode");
   const [lightTheme, setLightTheme] = useState(createTheme(lightThemeDef));
   const [darkTheme, setDarkTheme] = useState(createTheme(darkThemeDef));
 
@@ -49,6 +49,16 @@ export default function ProviderStack({ children }: { children: React.ReactNode 
       setLightTheme(createTheme(lightThemeDef));
     }
   }, [settingsCtx.changed]);
+
+    // FlexLayout-Theme umschalten
+  useEffect(() => {
+    const link = document.getElementById("flexlayout-theme") as HTMLLinkElement | null;
+    if (!link) return;
+
+    link.href = useDarkMode
+      ? "assets/flexlayout/alpha_dark.css"
+      : "assets/flexlayout/alpha_light.css";
+  }, [useDarkMode]);
 
   useEffect(() => {
     // Anything in here is fired on component mount.

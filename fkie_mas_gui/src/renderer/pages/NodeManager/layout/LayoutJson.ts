@@ -125,6 +125,7 @@ const DEFAULT_LAYOUT = {
         id: LAYOUT_TAB_SETS.CENTER,
         type: "tabset",
         weight: 75,
+        enableDeleteWhenEmpty: false,
         children: [
           {
             id: LAYOUT_TABS.NODES,

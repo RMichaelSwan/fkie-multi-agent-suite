@@ -39,52 +39,7 @@ const darkThemeDef: ThemeOptionsExt = {
         body: {
           // flexlayout-react theme changes
           "& .flexlayout__layout": {
-            "--color-text": "#d1d1d1",
-            "--color-background": "black",
-            "--color-base": "black",
-            "--color-1": "#121212",
-            "--color-2": "#1a1a1a",
-            "--color-3": "#262626",
-            "--color-4": "#333333",
-            "--color-5": "#404040",
-            "--color-6": "#4d4d4d",
-            "--color-drag1": "rgb(207, 232, 255)",
-            "--color-drag2": "rgb(183, 209, 181)",
-            "--color-drag1-background": "rgba(128, 128, 128, 0.15)",
-            "--color-drag2-background": "rgba(128, 128, 128, 0.15)",
-            // '--color-tabset-background': 'var(--color-background)',
-            // '--color-tabset-header-background': 'var(--color-background)',
-            // '--color-border-background': 'var(--color-background)',
-            // '--color-splitter': 'var(--color-1)',
-            // '--color-splitter-drag': 'var(--color-4)',
-            // '--color-drag-rect-border': 'var(--color-6)',
-            // '--color-drag-rect-background': 'var(--color-4)',
-            // '--color-popup-unselected-background': 'white',
-            // '--color-popup-selected-background': 'var(--color-3)',
-            "--color-active-bg": "rgb(207, 232, 255)",
-            "--color-select-bg": "#555555",
-            "--color-edge-marker": "gray",
-            "--color-edge-icon": "#d1d1d1",
-          },
-          "& .flexlayout__tabset_header": {
-            boxShadow: "inset 0 0 3px 0 rgba(136, 136, 136, 0.54)",
-          },
-          "& .flexlayout__tabset-selected": {
-            backgroundImage: "linear-gradient(var(--color-background), var(--color-4))",
-          },
-          "& .flexlayout__tab_button_top": {
-            boxShadow: "inset -2px 0px 5px rgba(0, 0, 0, 0.1)",
-            borderTopLeftRadius: "1px",
-            borderBottomRightRadius: "1px",
-          },
-          "& .flexlayout__tab_button_bottom": {
-            boxShadow: "inset -2px 0px 5px rgba(0, 0, 0, 0.1)",
-            borderTopLeftRadius: "1px",
-            borderBottomRightRadius: "1px",
-          },
-          "& .flexlayout__border_button": {
-            boxShadow: "inset 0 0 5px rgba(0, 0, 0, 0.15)",
-            borderRadius: "1px",
+            "--font-size": "medium",
           },
           // react18-json-view styles
           ".json-view": {
