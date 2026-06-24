@@ -6,12 +6,11 @@ import { SimpleTreeView } from "@mui/x-tree-view";
 import { useDebounceCallback } from "@react-hook/debounce";
 import { editor } from "monaco-editor";
 import { useEffect, useMemo, useState } from "react";
-import { emitCustomEvent } from "react-custom-events";
 
 import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
 import { getFileName, LaunchIncludedFile } from "@/renderer/models";
 import { createUriPath } from "@/renderer/monaco/utils";
-import { EVENT_EDITOR_SELECT_RANGE, eventEditorSelectRange } from "@/renderer/pages/NodeManager/layout/events";
+import { emitEditorSelectRange } from "@/renderer/pages/NodeManager/layout/events";
 import { Provider } from "@/renderer/providers";
 import { SearchFileTreeItem, SearchResultTreeItem } from "./SearchTreeItem";
 import { TSearchResult } from "./types";
@@ -187,10 +186,11 @@ export default function SearchTree(props: SearchTreeProps): JSX.Element {
                     lineNumber={entry.lineNumber}
                     lineText={entry.text}
                     onClick={() => {
-                      emitCustomEvent(
-                        EVENT_EDITOR_SELECT_RANGE,
-                        eventEditorSelectRange(editorId, entry.file, entry.range)
-                      );
+                      emitEditorSelectRange({
+                        editorId: editorId,
+                        filePath: entry.file,
+                        fileRange: entry.range,
+                      });
                     }}
                   />
                 );

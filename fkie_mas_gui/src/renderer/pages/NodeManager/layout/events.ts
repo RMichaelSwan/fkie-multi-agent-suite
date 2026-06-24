@@ -58,63 +58,47 @@ export type TEventShowScreens = {
   nodes: RosNode[];
 };
 
-export function sendStateSuccess(message: string) {
+export function emitStateSuccess(message: string) {
   emitCustomEvent(EVENT_INFO_STATE, { level: InfoStateLevel.SUCCESS, message: `✅ ${message}` } as TInfoState);
 }
 
-export function sendStateInfo(message: string) {
+export function emitStateInfo(message: string) {
   emitCustomEvent(EVENT_INFO_STATE, { level: InfoStateLevel.INFO, message: `ℹ️ ${message}` } as TInfoState);
 }
 
-export function sendStateWarn(message: string) {
+export function emitStateWarn(message: string) {
   emitCustomEvent(EVENT_INFO_STATE, { level: InfoStateLevel.WARN, message: `⚠️ ${message}` } as TInfoState);
 }
 
-export function sendStateError(message: string) {
+export function emitStateError(message: string) {
   emitCustomEvent(EVENT_INFO_STATE, { level: InfoStateLevel.ERROR, message: `❌ ${message}` } as TInfoState);
 }
 
-export function sendOpenComponent(props: TEventOpenComponent) {
+export function emitOpenComponent(props: TEventOpenComponent) {
   emitCustomEvent(EVENT_OPEN_COMPONENT, props);
 }
-export function sendToggleComponent(props: TEventOpenComponent) {
+export function emitToggleComponent(props: TEventOpenComponent) {
   emitCustomEvent(EVENT_TOGGLE_COMPONENT, props);
 }
 
-export class SETTING extends String {
-  static IDS = {
-    INTERFACE: "interface",
-    ABOUT: "about",
-  };
+export function emitCloseComponent(props: TEventId) {
+  emitCustomEvent(EVENT_CLOSE_COMPONENT, props);
 }
 
-export function eventOpenSettings(id: string): TEventId {
-  return { id };
+export function emitEditorSelectRange(props: TEventEditorSelectRange) {
+  emitCustomEvent(EVENT_EDITOR_SELECT_RANGE, props);
 }
 
-export function eventCloseComponent(id: string): TEventId {
-  return { id };
+export function emitFilterNodes(props: TEventId) {
+  emitCustomEvent(EVENT_FILTER_NODES, props);
 }
 
-export function eventEditorSelectRange(
-  editorId: string,
-  filePath: string,
-  fileRange: TFileRange | null,
-  launchArgs?: TLaunchArg[]
-): TEventEditorSelectRange {
-  return { editorId, filePath, fileRange, launchArgs: launchArgs ? launchArgs : [] };
+export function emitFilterTopics(props: TFilterText) {
+  emitCustomEvent(EVENT_FILTER_TOPICS, props);
 }
 
-export function eventFilterNodes(id: string): TEventId {
-  return { id };
-}
-
-export function eventFilterTopics(data: string): TFilterText {
-  return { data };
-}
-
-export function eventFilterServices(data: string): TFilterText {
-  return { data };
+export function emitFilterServices(props: TFilterText) {
+  emitCustomEvent(EVENT_FILTER_SERVICES, props);
 }
 
 export function emitKillNodes(event: TEventKillNodes) {

@@ -1,13 +1,12 @@
 import { Alert, AlertTitle, Box } from "@mui/material";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { emitCustomEvent } from "react-custom-events";
 
 import TerminalClient from "@/renderer/components/TerminalClient/TerminalClient";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import CmdType from "@/renderer/providers/CmdType";
 import Provider from "@/renderer/providers/Provider";
-import { EVENT_CLOSE_COMPONENT, eventCloseComponent } from "../layout/events";
+import { emitCloseComponent } from "../layout/events";
 
 interface SingleTerminalPanelProps {
   id: string;
@@ -159,7 +158,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
             errorHighlighting={errorHighlighting}
             onCtrlD={() => {
               window.terminalManager?.close(id);
-              emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(id));
+              emitCloseComponent({ id: id });
             }}
           />
         )}
@@ -174,7 +173,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
             errorHighlighting={errorHighlighting}
             onCtrlD={() => {
               window.terminalManager?.close(id);
-              emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(id));
+              emitCloseComponent({ id: id });
             }}
           />
         )}
@@ -189,7 +188,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
             errorHighlighting={errorHighlighting}
             onCtrlD={() => {
               window.terminalManager?.close(id);
-              emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(id));
+              emitCloseComponent({ id: id });
             }}
           />
         )}
@@ -206,7 +205,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
             errorHighlighting={errorHighlighting}
             onCtrlD={() => {
               window.terminalManager?.close(id);
-              emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(id));
+              emitCloseComponent({ id: id });
             }}
           />
         )}

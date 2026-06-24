@@ -132,7 +132,16 @@ const DEFAULT_LAYOUT = {
         enableDivide: false,
         // enableTabStrip: false,
         tabLocation: "bottom",
-        children: [],
+        children: [
+          {
+            id: LAYOUT_TABS.NO_RUNNING_DAEMONS,
+            type: "tab",
+            name: "Info",
+            component: LAYOUT_TABS.NO_RUNNING_DAEMONS,
+            enableClose: false,
+            enablePopout: enablePopout,
+          },
+        ],
       },
     ],
   },

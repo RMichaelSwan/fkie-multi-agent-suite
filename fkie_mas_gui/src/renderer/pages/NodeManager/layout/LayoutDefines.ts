@@ -23,6 +23,7 @@ const LAYOUT_TABS = {
   LOGGING: "logging-tab",
   DOMAIN: "domain-tab",
   EDITOR: "editor-tab",
+  NO_RUNNING_DAEMONS: "no-running-daemon-info-tab",
   NODE_LOGGER: "node-logger-tab",
   PROVIDER_LAUNCH_CONTROL: "provider-launch-control-tab",
   SERVICE_CALLER: "service-caller-tab",

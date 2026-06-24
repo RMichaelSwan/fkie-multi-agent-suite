@@ -17,7 +17,7 @@ import { ServiceExtendedInfo } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { areArraysEqual, findIn } from "@/renderer/utils/index";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "../layout";
-import { EVENT_FILTER_SERVICES, sendOpenComponent, TFilterText } from "../layout/events";
+import { emitOpenComponent, EVENT_FILTER_SERVICES, TFilterText } from "../layout/events";
 import ServiceCallerPanel from "./ServiceCallerPanel";
 
 type TTreeItem = {
@@ -533,7 +533,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       // but we keep the parameters for future alignment with topic handling
       console.debug(`call service: external=${external} terminal=${openInTerminal}`);
 
-      sendOpenComponent({
+      emitOpenComponent({
         id: `call-service-${service.id}}`,
         title: `Call Service - ${service.name}`,
         closable: true,

@@ -11,7 +11,7 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosService, RosTopicId, ServiceExtendedInfo, TServiceNodeInfo } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "@/renderer/pages/NodeManager/layout";
-import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import ServiceCallerPanel from "@/renderer/pages/NodeManager/panels/ServiceCallerPanel";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { generateUniqueId, removeDDSuid } from "@/renderer/utils";
@@ -40,7 +40,7 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
   }, [settingsCtx.changed]);
 
   function onServiceCallClick(service: ServiceExtendedInfo): void {
-    sendOpenComponent({
+    emitOpenComponent({
       id: `call-service-${generateUniqueId()}`,
       title: service.name,
       closable: true,
@@ -192,7 +192,7 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
                   const id: string = `${item.providerId}${item.nodeId.replaceAll("/", "#")}`;
                   navCtx.setSelected("service-panel", [id], true);
                   // inform details panel tab about selected nodes by user
-                  sendOpenComponent({
+                  emitOpenComponent({
                     id: LAYOUT_TABS.DETAILS,
                     title: "Details",
                     component: LAYOUT_TABS.DETAILS,

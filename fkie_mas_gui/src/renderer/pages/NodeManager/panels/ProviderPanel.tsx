@@ -3,18 +3,18 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Stack,
-  Table,
-  TableBody,
-  TableContainer,
-  Tooltip,
-  Typography,
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    IconButton,
+    Stack,
+    Table,
+    TableBody,
+    TableContainer,
+    Tooltip,
+    Typography,
 } from "@mui/material";
 import MuiAccordion, { AccordionProps } from "@mui/material/Accordion";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
@@ -36,7 +36,7 @@ import { TProviderLaunchParams, ZenohEnvSelection } from "@/renderer/models/Prov
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import Provider from "@/renderer/providers/Provider";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
-import { sendOpenComponent } from "../layout/events";
+import { emitOpenComponent } from "../layout/events";
 import ProviderLaunchConfigPanel from "./ProviderLaunchConfigPanel";
 import ProviderPanelRow from "./ProviderPanelRow";
 import ProviderPanelRowCfg from "./ProviderPanelRowCfg";
@@ -271,7 +271,7 @@ export default function ProviderPanel(): JSX.Element {
   const editLaunchConfiguration = useCallback(
     (config: ProviderLaunchConfiguration, title?: string) => {
       console.log(`CREATE ${config.params.id}`);
-      sendOpenComponent({
+      emitOpenComponent({
         id: config.params.id,
         title: title || `${config.params.host} start configuration`,
         closable: true,

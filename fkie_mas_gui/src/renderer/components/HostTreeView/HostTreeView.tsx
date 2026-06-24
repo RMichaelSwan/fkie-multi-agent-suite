@@ -11,13 +11,14 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { getFileName, LaunchContent, LaunchFile, RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import {
-  sendOpenComponent,
+  emitOpenComponent,
 } from "@/renderer/pages/NodeManager/layout/events";
+import InfoNoRunningDaemons from "@/renderer/pages/NodeManager/panels/InfoNoRunningDaemons";
 import { CmdType, Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_LAUNCH_LOADED } from "@/renderer/providers/eventTypes";
 import { EventProviderLaunchLoaded } from "@/renderer/providers/events";
 import { generateUniqueId, idFromDDSLocations, nodeNameWithoutNamespace, removeDDSuid } from "@/renderer/utils";
-import { Alert, AlertTitle, alpha, Box, Stack } from "@mui/material";
+import { alpha, Box, Stack } from "@mui/material";
 import GroupItem, { GroupIcon, MultiScreenIcon, NodesCount } from "./GroupItem";
 import HostItem from "./HostItem";
 import LaunchFileList from "./LaunchFileList";
@@ -604,7 +605,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
 
       // Only fire this event for user selections
       if (event) {
-        sendOpenComponent({
+        emitOpenComponent({
           id: LAYOUT_TABS.DETAILS,
           title: "Details",
           component: LAYOUT_TABS.DETAILS,
@@ -899,10 +900,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
       }}
     >
       {(!rosCtx.providers || rosCtx.providers.length === 0) && (
-        <Alert severity="info">
-          <AlertTitle>No providers available</AlertTitle>
-          Please connect to a ROS provider
-        </Alert>
+        <InfoNoRunningDaemons/>
       )}
       <SimpleTreeView
         onClick={(event) => {

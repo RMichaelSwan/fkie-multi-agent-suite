@@ -3,8 +3,6 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import InputIcon from "@mui/icons-material/Input";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {
-  Alert,
-  AlertTitle,
   alpha,
   Autocomplete,
   Box,
@@ -36,7 +34,8 @@ import { EventProviderState } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import { grey } from "@mui/material/colors";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
-import { sendOpenComponent } from "../layout/events";
+import { emitOpenComponent } from "../layout/events";
+import InfoNoRunningDaemons from "./InfoNoRunningDaemons";
 
 /**
  * Sorting function used for comparing two package items (files/directories)
@@ -441,7 +440,7 @@ export default function PackageExplorerPanel(): JSX.Element {
     });
 
     // Notify other components that a launch file has been opened
-    sendOpenComponent({
+    emitOpenComponent({
       id: LAYOUT_TABS.NODES,
       title: "Nodes",
       component: LAYOUT_TABS.NODES,
@@ -660,12 +659,7 @@ export default function PackageExplorerPanel(): JSX.Element {
             }
           }}
         >
-          {(!rosCtx.providers || rosCtx.providers.length === 0) && (
-            <Alert severity="info" style={{ minWidth: 0, marginTop: 10 }}>
-              <AlertTitle>No providers available</AlertTitle>
-              Please connect to a ROS provider
-            </Alert>
-          )}
+          {(!rosCtx.providers || rosCtx.providers.length === 0) && <InfoNoRunningDaemons />}
           {ignoringNonRelevantPackageFiles && (
             <Tag
               key="ignore-non-relevant-packages"

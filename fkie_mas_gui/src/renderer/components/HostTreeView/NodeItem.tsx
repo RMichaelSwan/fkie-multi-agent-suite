@@ -27,19 +27,14 @@ import {
   RosNode,
   RosNodeStatus,
 } from "@/renderer/models";
-import {
-  emitKillNodes,
-  emitShowScreens,
-  EVENT_FILTER_NODES,
-  eventFilterNodes,
-} from "@/renderer/pages/NodeManager/layout/events";
+import { emitFilterNodes, emitKillNodes, emitShowScreens } from "@/renderer/pages/NodeManager/layout/events";
 import { EventNodeDiagnostic, TEventNodeLifecycle } from "@/renderer/providers/events";
 import { EVENT_NODE_DIAGNOSTIC, EVENT_NODE_LIFECYCLE } from "@/renderer/providers/eventTypes";
 import { nodeNameWithoutNamespace } from "@/renderer/utils";
 import { TTag } from "@/types";
 import { TRosMessageStruct } from "@/types/TRosMessageStruct";
 import { treeItemClasses } from "@mui/x-tree-view";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 import { OverflowMenu } from "../UI";
 import { colorFromHostname, getDiagnosticColor, getTagColor } from "../UI/Colors";
 import Tag from "../UI/Tag";
@@ -409,7 +404,7 @@ export default function NodeItem(props: NodeItemProps): JSX.Element {
           color: colorFromHostname(node.guid),
           tooltip: `Nodes with same id ${node.guid}`,
           onClick: (event: React.MouseEvent) => {
-            emitCustomEvent(EVENT_FILTER_NODES, eventFilterNodes(node.guid as string));
+            emitFilterNodes({ id: node.guid || "" });
             event?.stopPropagation();
           },
         } as TTag);

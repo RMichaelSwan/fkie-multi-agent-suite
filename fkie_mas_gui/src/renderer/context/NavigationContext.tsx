@@ -5,15 +5,10 @@ import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { getBaseName } from "@/renderer/models";
-import {
-  EVENT_EDITOR_SELECT_RANGE,
-  eventEditorSelectRange,
-  sendOpenComponent,
-} from "@/renderer/pages/NodeManager/layout/events";
+import { emitEditorSelectRange, emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import FileEditorPanel from "@/renderer/pages/NodeManager/panels/FileEditorPanel";
 import { xor } from "@/renderer/utils/index";
 import { TFileRange, TLaunchArg } from "@/types";
-import { emitCustomEvent } from "react-custom-events";
 import { createEditorId } from "../monaco/utils";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../pages/NodeManager/layout";
 import SingleTerminalPanel from "../pages/NodeManager/panels/SingleTerminalPanel";
@@ -172,8 +167,13 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         );
         return;
       }
-      emitCustomEvent(EVENT_EDITOR_SELECT_RANGE, eventEditorSelectRange(id, path, fileRange, launchArgs));
-      sendOpenComponent({
+      emitEditorSelectRange({
+        editorId: id,
+        filePath: path,
+        fileRange: fileRange,
+        launchArgs: launchArgs,
+      });
+      emitOpenComponent({
         id: id,
         title: getBaseName(rootLaunch),
         closable: true,
@@ -191,6 +191,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
               topLevelLaunchArgs={topLevelLaunchArgs}
             />
           ),
+          domainId: provider.connection.domainId,
           openExternal: true,
           tabType: "editor",
           editorConfig: {
@@ -248,7 +249,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
-      sendOpenComponent({
+      emitOpenComponent({
         id: id,
         title: topic || "unknown",
         closable: true,
@@ -317,7 +318,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
-      sendOpenComponent({
+      emitOpenComponent({
         id: id,
         title: topic || "unknown",
         closable: true,
@@ -405,7 +406,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
-      sendOpenComponent({
+      emitOpenComponent({
         id: id,
         title: node || `${type}_${provider.connection.host}`,
         closable: true,

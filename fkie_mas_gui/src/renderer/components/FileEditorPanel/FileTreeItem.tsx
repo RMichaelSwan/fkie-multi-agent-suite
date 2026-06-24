@@ -10,12 +10,11 @@ import {
   UseTreeItemIconContainerSlotOwnProps,
 } from "@mui/x-tree-view";
 import React from "react";
-import { emitCustomEvent } from "react-custom-events";
 import { FileIcon } from "react-file-icon";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { getFileExtension, getFileName } from "@/renderer/models";
-import { EVENT_EDITOR_SELECT_RANGE, eventEditorSelectRange } from "@/renderer/pages/NodeManager/layout/events";
+import { emitEditorSelectRange } from "@/renderer/pages/NodeManager/layout/events";
 import { TLaunchArg } from "@/types";
 import fileIconStyles from "../../monaco/setup/FileIconStyles";
 import { TLaunchIncludeItem } from "./types";
@@ -142,20 +141,12 @@ export default function FileTreeItem(props: FileTreeItemProps): JSX.Element {
                 variant="body2"
                 sx={getLabelSx()}
                 onClick={(event) => {
-                  emitCustomEvent(
-                    EVENT_EDITOR_SELECT_RANGE,
-                    eventEditorSelectRange(
-                      editorId,
-                      item.file.inc_path,
-                      null,
-                      item.file.args as TLaunchArg[]
-                      // ? file.args.reduce((acc, { name, value }) => {
-                      //     acc[name] = value;
-                      //     return acc;
-                      //   }, {})
-                      // : {}
-                    )
-                  );
+                  emitEditorSelectRange({
+                    editorId: editorId,
+                    filePath: item.file.inc_path,
+                    fileRange: null,
+                    launchArgs: item.file.args as TLaunchArg[],
+                  });
                   event.stopPropagation();
                 }}
                 onDoubleClick={(event) => {
@@ -176,20 +167,17 @@ export default function FileTreeItem(props: FileTreeItemProps): JSX.Element {
                   variant="caption"
                   color="inherit"
                   onClick={(event) => {
-                    emitCustomEvent(
-                      EVENT_EDITOR_SELECT_RANGE,
-                      eventEditorSelectRange(
-                        editorId,
-                        item.file.path,
-                        {
-                          startLineNumber: item.file.line_number,
-                          endLineNumber: item.file.line_number,
-                          startColumn: 0,
-                          endColumn: 0,
-                        },
-                        []
-                      )
-                    );
+                    emitEditorSelectRange({
+                      editorId: editorId,
+                      filePath: item.file.path,
+                      fileRange: {
+                        startLineNumber: item.file.line_number,
+                        endLineNumber: item.file.line_number,
+                        startColumn: 0,
+                        endColumn: 0,
+                      },
+                      launchArgs: [],
+                    });
                     event.stopPropagation();
                   }}
                 >

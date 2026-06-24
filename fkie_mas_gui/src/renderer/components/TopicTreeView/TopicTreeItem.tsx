@@ -12,7 +12,7 @@ import { IncompatibleQos, TopicExtendedInfo } from "@/renderer/models";
 import { durabilityToString, livelinessToString, reliabilityToString } from "@/renderer/models/RosQos";
 import { EndpointExtendedInfo } from "@/renderer/models/TopicExtendedInfo";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { removeDDSuid } from "@/renderer/utils/index";
 
 interface TopicTreeItemProps {
@@ -347,7 +347,7 @@ export default function TopicTreeItem({
                       event.stopPropagation();
                       const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                       navCtx.setSelected("topics-tree", [id], false);
-                      sendOpenComponent({
+                      emitOpenComponent({
                         id: LAYOUT_TABS.DETAILS,
                         title: "Details",
                         component: LAYOUT_TABS.DETAILS,
@@ -379,7 +379,7 @@ export default function TopicTreeItem({
                       event.stopPropagation();
                       const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                       navCtx.setSelected("topics-tree", [id], false);
-                      sendOpenComponent({
+                      emitOpenComponent({
                         id: LAYOUT_TABS.DETAILS,
                         title: "Details",
                         component: LAYOUT_TABS.DETAILS,

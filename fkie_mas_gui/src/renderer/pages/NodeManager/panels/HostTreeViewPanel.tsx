@@ -36,10 +36,10 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { Result, RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "@/renderer/pages/NodeManager/layout";
 import {
+  emitOpenComponent,
   EVENT_FILTER_NODES,
   EVENT_KILL_NODES,
   EVENT_SHOW_SCREENS,
-  sendOpenComponent,
   TEventId,
   TEventKillNodes,
   TEventShowScreens,
@@ -272,7 +272,7 @@ export default function HostTreeViewPanel(): JSX.Element {
 
   // useEffect(() => {
   //   for (const domainId of domainGroups) {
-  //     sendOpenComponent({
+  //     emitOpenComponent({
   //       id: `${LAYOUT_TABS.DOMAIN}-${domainId}`,
   //       title: `Domain ${domainId}`,
   //       closable: false,
@@ -332,7 +332,7 @@ export default function HostTreeViewPanel(): JSX.Element {
     (node: RosNode): void => {
       const id = `node-logger-${node.idGlobal}`;
       const title = node.name;
-      sendOpenComponent({
+      emitOpenComponent({
         id: id,
         title: title,
         closable: true,
@@ -424,7 +424,7 @@ export default function HostTreeViewPanel(): JSX.Element {
         params.push({
           name: node.name,
           callback: () => {
-            sendOpenComponent({
+            emitOpenComponent({
               id: `parameter-node-${node.idGlobal}`,
               title: `${node.name}`,
               closable: true,
@@ -442,7 +442,7 @@ export default function HostTreeViewPanel(): JSX.Element {
           params.push({
             name: provider.name(),
             callback: () => {
-              sendOpenComponent({
+              emitOpenComponent({
                 id: `parameter-provider-${provider}`,
                 title: `${provider.name()}`,
                 closable: true,

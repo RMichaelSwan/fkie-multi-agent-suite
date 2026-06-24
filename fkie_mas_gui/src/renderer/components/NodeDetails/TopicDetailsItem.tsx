@@ -15,7 +15,7 @@ import { RosTopic, RosTopicId, TopicExtendedInfo } from "@/renderer/models";
 import { durabilityToString, livelinessToString, reliabilityToString } from "@/renderer/models/RosQos";
 import { EndpointExtendedInfo } from "@/renderer/models/TopicExtendedInfo";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { EVENT_PROVIDER_ROS_TOPICS } from "@/renderer/providers/eventTypes";
 import { removeDDSuid } from "@/renderer/utils";
 import { CopyButton } from "../UI";
@@ -433,7 +433,7 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
                   const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                   navCtx.setSelected("topics-panel", [id], true);
                   // inform details panel tab about selected nodes by user
-                  sendOpenComponent({
+                  emitOpenComponent({
                     id: LAYOUT_TABS.DETAILS,
                     title: "Details",
                     component: LAYOUT_TABS.DETAILS,
@@ -485,7 +485,7 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
                   const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                   navCtx.setSelected("topics-panel", [id], true);
                   // inform details panel tab about selected nodes by user
-                  sendOpenComponent({
+                  emitOpenComponent({
                     id: LAYOUT_TABS.DETAILS,
                     title: "Details",
                     component: LAYOUT_TABS.DETAILS,

@@ -70,12 +70,13 @@ import { basename } from "@/renderer/utils";
 import { TInfoState } from "@/types";
 import { DEFAULT_LAYOUT, LAYOUT_TAB_LIST, LAYOUT_TAB_SETS, LAYOUT_TABS } from "./layout";
 import {
+  emitCloseComponent,
+  emitToggleComponent,
   EVENT_CLOSE_COMPONENT,
   EVENT_INFO_STATE,
   EVENT_OPEN_COMPONENT,
   EVENT_SELECT_TAB,
   EVENT_TOGGLE_COMPONENT,
-  sendToggleComponent,
   TEventId,
   TEventInfoState,
   TEventOpenComponent,
@@ -90,6 +91,7 @@ import LoggingPanel from "./panels/LoggingPanel";
 // import OverflowMenuNodeDetails from "./panels/OverflowMenuNodeDetails";
 import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
+import InfoNoRunningDaemons from "./panels/InfoNoRunningDaemons";
 import PackageExplorerPanel from "./panels/PackageExplorerPanel";
 import ParameterPanel from "./panels/ParameterPanel";
 import ProviderPanel from "./panels/ProviderPanel";
@@ -116,7 +118,7 @@ export default function NodeManager(): JSX.Element {
   const navCtx = useNavigationContext();
   const settingsCtx = useSettingsContext();
 
-  const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 2 });
+  const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 1 });
   const [model, setModel] = useState<Model>(() => Model.fromJson(layoutJson));
   const layoutRef = useRef<Layout | null>(null);
 
@@ -381,8 +383,11 @@ export default function NodeManager(): JSX.Element {
           layoutComponentsRef.current[data.id] = data.config.reactNode;
         }
         // store tab in state; will be added in a later effect
-
         setAddToLayout((prev) => [tab, ...prev]);
+        if (data.component === LAYOUT_TABS.DOMAIN) {
+          // hide info tab if domain tab was added
+          emitCloseComponent({ id: LAYOUT_TABS.NO_RUNNING_DAEMONS });
+        }
       }
     },
     [layoutComponentsRef, model, enablePopout]
@@ -448,7 +453,7 @@ export default function NodeManager(): JSX.Element {
     []
   );
 
-  function getPanelId(id: string, toNodeId: string): TPanelId {
+  function getPanelId(id: string, toNodeId: string, domainId?: number): TPanelId {
     const result: TPanelId = {
       id: toNodeId,
       isBorder: false,
@@ -456,6 +461,12 @@ export default function NodeManager(): JSX.Element {
     };
 
     switch (toNodeId) {
+      case LAYOUT_TAB_SETS.CENTER:
+        result.isBorder = false;
+        if (domainId !== undefined) {
+          result.id = `${LAYOUT_TABS.DOMAIN}-${domainId}`;
+        }
+        break;
       case LAYOUT_TAB_SETS.BORDER_TOP:
         result.isBorder = true;
         result.location = DockLocation.TOP;
@@ -506,8 +517,8 @@ export default function NodeManager(): JSX.Element {
           console.log(`  found: ${tab?.id}`);
           return;
         }
-        const panelId = getPanelId(tab.id || "", tab.toNodeId);
-        console.log(`PANEL ID: ${panelId.id}`);
+        const panelId = getPanelId(tab.id || "", tab.toNodeId, tab.config?.domainId);
+        console.log(`add TAB: ${tab.id} to PANEL ID: ${panelId.id}`);
         const action = Actions.addTab(tab, panelId.id, DockLocation.CENTER, -1);
         model.doAction(action);
 
@@ -565,6 +576,8 @@ export default function NodeManager(): JSX.Element {
         return <AboutPanel key="about-panel" />;
       case LAYOUT_TABS.PARAMETER:
         return <ParameterPanel key="parameter-panel" nodes={[]} providers={[]} />;
+      case LAYOUT_TABS.NO_RUNNING_DAEMONS:
+        return <InfoNoRunningDaemons key="info-no-running-daemons" />;
       case LAYOUT_TABS.DOMAIN:
         return <>node.id</>;
         return (
@@ -835,7 +848,7 @@ export default function NodeManager(): JSX.Element {
           <span>
             <IconButton
               onClick={() => {
-                sendToggleComponent({
+                emitToggleComponent({
                   id: id,
                   title: title,
                   closable: true,
@@ -890,9 +903,6 @@ export default function NodeManager(): JSX.Element {
         //   renderValues.stickyButtons.push(<ExternalAppsModal key="external-apps-dialog" />);
         // }
       }
-      // if (child.getId() === LAYOUT_TABS.HOSTS) {
-      //   renderValues.buttons.push(<SettingsModal key="settings-dialog" />);
-      // }
     }
 
     if (node.getId() === LAYOUT_TAB_SETS.BORDER_BOTTOM) {
@@ -942,7 +952,7 @@ export default function NodeManager(): JSX.Element {
             <Button
               style={{ textTransform: "none" }}
               onClick={() => {
-                sendToggleComponent({
+                emitToggleComponent({
                   id: LAYOUT_TABS.ABOUT,
                   title: "About",
                   component: LAYOUT_TABS.ABOUT,

@@ -4,24 +4,24 @@ import LinkIcon from "@mui/icons-material/Link";
 import LinkOffIcon from "@mui/icons-material/LinkOff";
 import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import {
-  Box,
-  ClickAwayListener,
-  Grow,
-  IconButton,
-  MenuItem,
-  MenuList,
-  Paper,
-  Popper,
-  Stack,
-  Tooltip,
-  Typography,
+    Box,
+    ClickAwayListener,
+    Grow,
+    IconButton,
+    MenuItem,
+    MenuList,
+    Paper,
+    Popper,
+    Stack,
+    Tooltip,
+    Typography,
 } from "@mui/material";
 import { green, grey, orange, red } from "@mui/material/colors";
 import {
-  treeItemClasses,
-  TreeItemSlotProps,
-  UseTreeItemContentSlotOwnProps,
-  UseTreeItemIconContainerSlotOwnProps,
+    treeItemClasses,
+    TreeItemSlotProps,
+    UseTreeItemContentSlotOwnProps,
+    UseTreeItemIconContainerSlotOwnProps,
 } from "@mui/x-tree-view";
 import React, { useCallback, useEffect, useState } from "react";
 
@@ -31,7 +31,7 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import SingleTerminalPanel from "@/renderer/pages/NodeManager/panels/SingleTerminalPanel";
 import { CmdType } from "@/renderer/providers";
 import Provider from "@/renderer/providers/Provider";
@@ -313,7 +313,7 @@ export default function HostItem(props: HostItemProps): JSX.Element {
                     if (value) {
                       // execute the command in own terminal
                       const id = `cmd-${generateUniqueId()}`;
-                      sendOpenComponent({
+                      emitOpenComponent({
                         id: id,
                         title: `${provider?.name()}`,
                         closable: true,

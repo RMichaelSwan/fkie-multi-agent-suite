@@ -27,7 +27,6 @@ import MuiAccordionSummary from "@mui/material/AccordionSummary";
 import { grey } from "@mui/material/colors";
 import { styled } from "@mui/material/styles";
 import { HTMLAttributes, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { emitCustomEvent } from "react-custom-events";
 
 import { CopyButton } from "@/renderer/components/UI";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
@@ -46,7 +45,7 @@ import {
   ZENOH_SELECTIONS,
   ZenohEnvSelection,
 } from "@/renderer/models/ProviderLaunchConfiguration";
-import { EVENT_CLOSE_COMPONENT, eventCloseComponent } from "../layout/events";
+import { emitCloseComponent } from "../layout/events";
 
 const AccordionAdv = styled((props: AccordionProps) => <MuiAccordion disableGutters elevation={0} square {...props} />)(
   ({ theme }) => ({
@@ -344,7 +343,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   useEffect(() => {
     launchCfg.params.rmw.zenoh.overrideEnv = selectedZenohEnv;
     updateStartParameter();
-  }, [selectedZenohEnv, launchCfg,  updateStartParameter]);
+  }, [selectedZenohEnv, launchCfg, updateStartParameter]);
 
   useEffect(() => {
     launchCfg.params.rmw.zenoh.remoteHosts = selectedZenohHosts.map((item) => item.host || item.ip || "");
@@ -648,7 +647,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
               color="success"
               onClick={() => {
                 onSave(launchCfg);
-                emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(launchCfg.params.id));
+                emitCloseComponent({ id: launchCfg.params.id });
               }}
               style={{ height: "3em", textAlign: "center" }}
               endIcon={<SaveIcon />}
@@ -666,7 +665,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
           color="error"
           onClick={() => {
             onDelete(launchCfg.params.id);
-            emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(launchCfg.params.id));
+            emitCloseComponent({ id: launchCfg.params.id });
           }}
           style={{ height: "3em", textAlign: "center" }}
           endIcon={<DeleteIcon />}

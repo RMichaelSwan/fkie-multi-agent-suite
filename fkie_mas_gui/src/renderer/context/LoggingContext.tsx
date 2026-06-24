@@ -3,10 +3,10 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { LogEvent, LoggingLevel } from "@/renderer/models";
 import {
-    sendStateError,
-    sendStateInfo,
-    sendStateSuccess,
-    sendStateWarn,
+    emitStateError,
+    emitStateInfo,
+    emitStateSuccess,
+    emitStateWarn,
 } from "@/renderer/pages/NodeManager/layout/events";
 import { JSONObject, TResult } from "@/types";
 
@@ -90,7 +90,7 @@ export function LoggingProvider({ children }: ILoggingProvider) {
   const info = useCallback(
     (description: string, details = "", stateInfo?: string) => {
       createLog(LoggingLevel.INFO, description, details);
-      if (stateInfo) sendStateInfo(stateInfo);
+      if (stateInfo) emitStateInfo(stateInfo);
     },
     [createLog]
   );
@@ -98,7 +98,7 @@ export function LoggingProvider({ children }: ILoggingProvider) {
   const success = useCallback(
     (description: string, details = "", stateInfo?: string) => {
       createLog(LoggingLevel.SUCCESS, description, details);
-      if (stateInfo) sendStateSuccess(stateInfo);
+      if (stateInfo) emitStateSuccess(stateInfo);
     },
     [createLog]
   );
@@ -106,7 +106,7 @@ export function LoggingProvider({ children }: ILoggingProvider) {
   const warn = useCallback(
     (description: string, details = "", stateInfo?: string) => {
       createLog(LoggingLevel.WARN, description, details);
-      if (stateInfo) sendStateWarn(stateInfo);
+      if (stateInfo) emitStateWarn(stateInfo);
     },
     [createLog]
   );
@@ -114,7 +114,7 @@ export function LoggingProvider({ children }: ILoggingProvider) {
   const error = useCallback(
     (description: string, details = "", stateInfo?: string) => {
       createLog(LoggingLevel.ERROR, description, details);
-      if (stateInfo) sendStateError(stateInfo);
+      if (stateInfo) emitStateError(stateInfo);
     },
     [createLog]
   );

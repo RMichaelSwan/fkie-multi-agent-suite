@@ -4,7 +4,7 @@ import { Stack } from "@mui/material";
 import { useDebounceCallback } from "@react-hook/debounce";
 import { editor } from "monaco-editor";
 import { ForwardedRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 import SplitPane, { Pane, SashContent } from "split-pane-react";
 import "split-pane-react/esm/themes/default.css";
 
@@ -20,10 +20,9 @@ import { cleanUpXmlComment } from "@/renderer/monaco/setup";
 import { TModelResult } from "@/renderer/monaco/types";
 import { createEditorId, createUriPath, fileFromUriPath } from "@/renderer/monaco/utils";
 import {
-  EVENT_CLOSE_COMPONENT,
   EVENT_EDITOR_SELECT_RANGE,
   TEventEditorSelectRange,
-  eventCloseComponent,
+  emitCloseComponent,
 } from "@/renderer/pages/NodeManager/layout/events";
 import { Provider } from "@/renderer/providers";
 import { EventProviderLaunchLoaded, EventProviderPathEvent } from "@/renderer/providers/events";
@@ -108,7 +107,7 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
 
   useEditorKeyboard(() => {
     const id = createEditorId(rootFilePath, provider.id);
-    emitCustomEvent(EVENT_CLOSE_COMPONENT, eventCloseComponent(id));
+    emitCloseComponent({ id: id });
   });
 
   useEffect(() => {

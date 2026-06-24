@@ -1,8 +1,7 @@
 import * as MonacoReact from "@monaco-editor/react";
 import { editor, IDisposable, Uri } from "monaco-editor";
-import { emitCustomEvent } from "react-custom-events";
 
-import { EVENT_EDITOR_SELECT_RANGE, eventEditorSelectRange } from "@/renderer/pages/NodeManager/layout/events";
+import { emitEditorSelectRange } from "@/renderer/pages/NodeManager/layout/events";
 import { fileFromUriPath } from "../utils";
 
 export function configureContextMenu(
@@ -67,10 +66,11 @@ export function configureMonacoEditor(m: MonacoReact.Monaco, editorId: string): 
   newDisposables.push(
     m.editor.registerLinkOpener({
       open(resource: Uri): boolean | Promise<boolean> {
-        emitCustomEvent(
-          EVENT_EDITOR_SELECT_RANGE,
-          eventEditorSelectRange(editorId, fileFromUriPath(resource.path), null)
-        );
+        emitEditorSelectRange({
+          editorId: editorId,
+          filePath: fileFromUriPath(resource.path),
+          fileRange: null,
+        });
         return true;
       },
     })
