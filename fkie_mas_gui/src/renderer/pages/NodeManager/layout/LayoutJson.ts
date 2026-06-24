@@ -11,7 +11,7 @@ const enablePopout = !window.commandExecutor && window.location.href.indexOf(":6
 const DEFAULT_LAYOUT = {
   global: {
     splitterSize: 5,
-    tabenablePopout: true,
+    tabEnablePopout: true,
     tabSetMinWidth: 100,
     tabSetMinHeight: 100,
     borderMinSize: 100,
@@ -20,6 +20,8 @@ const DEFAULT_LAYOUT = {
     enableRotateBorderIcons: false,
     tabSetEnableDeleteWhenEmpty: true,
     tabEnableRenderOnDemand: false,
+    tabSetEnableSingleTabStretch: true,
+    tabSetEnableTabStrip: true,
   },
   borders: [
     {
@@ -96,6 +98,7 @@ const DEFAULT_LAYOUT = {
             ],
           },
           {
+            id: "details-set",
             type: "tabset",
             weight: 65,
             selected: 0,
@@ -122,20 +125,14 @@ const DEFAULT_LAYOUT = {
         ],
       },
       {
-        id: LAYOUT_TAB_SETS.CENTER,
+        id: LAYOUT_TAB_SETS.DOMAINS,
         type: "tabset",
         weight: 75,
         enableDeleteWhenEmpty: false,
-        children: [
-          {
-            id: LAYOUT_TABS.NODES,
-            type: "tab",
-            name: "Nodes",
-            component: LAYOUT_TABS.NODES,
-            enableClose: false,
-            enablePopout: enablePopout,
-          },
-        ],
+        enableDivide: false,
+        // enableTabStrip: false,
+        tabLocation: "bottom",
+        children: [],
       },
     ],
   },

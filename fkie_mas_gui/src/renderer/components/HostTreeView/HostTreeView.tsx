@@ -2,7 +2,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowRightIcon from "@mui/icons-material/ArrowRight";
 import { SimpleTreeView } from "@mui/x-tree-view";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
@@ -10,7 +10,9 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { getFileName, LaunchContent, LaunchFile, RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import { EVENT_OPEN_COMPONENT, eventOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import {
+  sendOpenComponent,
+} from "@/renderer/pages/NodeManager/layout/events";
 import { CmdType, Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_LAUNCH_LOADED } from "@/renderer/providers/eventTypes";
 import { EventProviderLaunchLoaded } from "@/renderer/providers/events";
@@ -602,7 +604,13 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
 
       // Only fire this event for user selections
       if (event) {
-        emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.DETAILS, "default"));
+        sendOpenComponent({
+          id: LAYOUT_TABS.DETAILS,
+          title: "Details",
+          component: LAYOUT_TABS.DETAILS,
+          closable: false,
+          toNodeId: "details-set",
+        });
       }
     },
     [getParentAndChildrenIds, notifyNavCtxSelection]

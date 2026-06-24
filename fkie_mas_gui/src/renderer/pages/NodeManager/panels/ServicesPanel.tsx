@@ -3,7 +3,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 import { Virtuoso } from "react-virtuoso";
 
 import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
@@ -17,7 +17,7 @@ import { ServiceExtendedInfo } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { areArraysEqual, findIn } from "@/renderer/utils/index";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "../layout";
-import { EVENT_FILTER_SERVICES, EVENT_OPEN_COMPONENT, eventOpenComponent, TFilterText } from "../layout/events";
+import { EVENT_FILTER_SERVICES, sendOpenComponent, TFilterText } from "../layout/events";
 import ServiceCallerPanel from "./ServiceCallerPanel";
 
 type TTreeItem = {
@@ -533,21 +533,22 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       // but we keep the parameters for future alignment with topic handling
       console.debug(`call service: external=${external} terminal=${openInTerminal}`);
 
-      emitCustomEvent(
-        EVENT_OPEN_COMPONENT,
-        eventOpenComponent(
-          `call-service-${service.id}}`,
-          `Call Service - ${service.name}`,
-          <ServiceCallerPanel
-            serviceName={service.name}
-            serviceType={service.srvType}
-            providerId={service.nodeProviders[0]?.providerId}
-          />,
-          true,
-          LAYOUT_TAB_SETS.BORDER_RIGHT,
-          new LayoutTabConfig(false, LAYOUT_TABS.SERVICES)
-        )
-      );
+      sendOpenComponent({
+        id: `call-service-${service.id}}`,
+        title: `Call Service - ${service.name}`,
+        closable: true,
+        component: LAYOUT_TABS.SERVICE_CALLER,
+        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        config: {
+          reactNode: (
+            <ServiceCallerPanel
+              serviceName={service.name}
+              serviceType={service.srvType}
+              providerId={service.nodeProviders[0]?.providerId}
+            />
+          ),
+        },
+      });
     },
     []
   );

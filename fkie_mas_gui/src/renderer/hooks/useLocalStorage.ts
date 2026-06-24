@@ -1,6 +1,4 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from "react";
-
-// See: https://usehooks-ts.com/react-hook/use-event-listener
 import useEventListener from "./useEventListener";
 
 declare global {
@@ -9,9 +7,70 @@ declare global {
   }
 }
 
+/**
+ *  Example usage:
+  const [layoutJsonString, setLayoutJsonString] = useLocalStorage<string, string>(
+    storageKey,
+    "",
+    {
+      version: 3,
+      migrate: (oldValue, oldVersion) => {
+        try {
+          const oldLayout = JSON.parse(oldValue);
+
+          // oldVersion === undefined → legacy (stored as plain string)
+          // oldVersion === 1 / 2 → previously wrapped formats
+          if (oldVersion === undefined) {
+            // migrate from very old format
+          } else if (oldVersion === 1) {
+            // migrate from v1 → v3
+          } else if (oldVersion === 2) {
+            // migrate from v2 → v3
+          }
+
+          const newLayout = {
+            ...oldLayout,
+            // your migration logic here
+          };
+
+          return JSON.stringify(newLayout);
+        } catch {
+          // On failure, fall back to initialValue
+          return undefined;
+        }
+      },
+    }
+  );
+ */
+
 type SetValue<T> = Dispatch<SetStateAction<T>>;
 
-// A wrapper for "JSON.parse()"" to support "undefined" value
+type UseLocalStorageOptions<T, TOld = unknown> = {
+  /**
+   * Current schema/version for the stored value.
+   */
+  version?: number | string;
+
+  /**
+   * Called when:
+   * - the stored version does not match the current version, or
+   * - a legacy value (without version wrapper) is found.
+   *
+   * oldVersion is:
+   * - the stored version for wrapped values
+   * - undefined for legacy values stored without version wrapper
+   *
+   * If it returns undefined, initialValue will be used instead.
+   */
+  migrate?: (oldValue: TOld, oldVersion: number | string | undefined) => T | undefined;
+};
+
+type StoredValue<T> = {
+  version?: number | string;
+  value: T;
+};
+
+// A wrapper for JSON.parse() to support "undefined" value
 function parseJSON<T>(value: string | null): T | undefined {
   try {
     return value === "undefined" ? undefined : JSON.parse(value || "");
@@ -21,51 +80,115 @@ function parseJSON<T>(value: string | null): T | undefined {
   }
 }
 
-export default function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T>] {
-  // Get from local storage then
-  // parse stored json or return initialValue
+function isStoredValue(value: unknown): value is StoredValue<unknown> {
+  return typeof value === "object" && value !== null && "value" in value;
+}
+
+export default function useLocalStorage<T, TOld = unknown>(
+  key: string,
+  initialValue: T,
+  options?: UseLocalStorageOptions<T, TOld>
+): [T, SetValue<T>] {
+  const { version, migrate } = options || {};
+
+  // Freeze the initial value like useState does: only first render wins
+  const initialRef = useRef<T>(initialValue);
+
+  // Keep latest migrate function in a ref so readValue can be stable
+  const migrateRef = useRef<UseLocalStorageOptions<T, TOld>["migrate"] | undefined>(migrate);
+
+  useEffect(() => {
+    migrateRef.current = migrate;
+  }, [migrate]);
+
   const readValue = useCallback((): T => {
-    // Prevent build error "window is undefined" but keep keep working
+    // Avoid issues during SSR
     if (typeof window === "undefined") {
-      return initialValue;
+      return initialRef.current;
     }
 
     try {
       const item = window.localStorage.getItem(key);
-      return item ? (parseJSON(item) as T) : initialValue;
-    } catch (error) {
-      const msg = `Error reading localStorage key "${key}": ${error}`
-      console.warn(msg);
-      return initialValue;
-    }
-  }, [initialValue, key]);
+      if (item == null) return initialRef.current;
 
-  // State to store our value
-  // Pass initial state function to useState so logic is only executed once
-  const [storedValue, setStoredValue] = useState<T>(readValue);
+      const parsed = parseJSON<unknown>(item);
+
+      // If no versioning is configured, behave like the original hook
+      if (version === undefined) {
+        return (parsed as T) ?? initialRef.current;
+      }
+
+      const migrateFn = migrateRef.current;
+
+      // New format: { version?, value }
+      if (isStoredValue(parsed)) {
+        const stored = parsed as StoredValue<unknown>;
+        const storedVersion = stored.version;
+
+        // Version matches → return as is
+        if (storedVersion === version) {
+          return (stored.value as T) ?? initialRef.current;
+        }
+
+        // Version does not match → try migration
+        if (migrateFn) {
+          const migrated = migrateFn(stored.value as TOld, storedVersion);
+          if (migrated !== undefined) {
+            const wrapped: StoredValue<T> = { version, value: migrated };
+            window.localStorage.setItem(key, JSON.stringify(wrapped));
+            return migrated;
+          }
+        }
+
+        // Migration not provided or failed → reset
+        window.localStorage.removeItem(key);
+        return initialRef.current;
+      }
+
+      // Legacy format: value stored directly, without version wrapper
+      if (migrateFn) {
+        const migrated = migrateFn(parsed as TOld, undefined);
+        if (migrated !== undefined) {
+          const wrapped: StoredValue<T> = { version, value: migrated };
+          window.localStorage.setItem(key, JSON.stringify(wrapped));
+          return migrated;
+        }
+      }
+
+      // Legacy value and no migration → reset to initial
+      window.localStorage.removeItem(key);
+      return initialRef.current;
+    } catch (error) {
+      const msg = `Error reading localStorage key "${key}": ${error}`;
+      console.warn(msg);
+      return initialRef.current;
+    }
+  }, [key, version]); // independent of initialValue + migrate
+
+  const [storedValue, setStoredValue] = useState<T>(() => readValue());
 
   const setValueRef = useRef<SetValue<T>>();
 
   setValueRef.current = (value): void => {
-    // Prevent build error "window is undefined" but keeps working
+    // Avoid issues during SSR
     if (typeof window === "undefined") {
       const msg = `Tried setting localStorage key "${key}" even though environment is not a client`;
       console.warn(msg);
+      return;
     }
 
     try {
-      // Allow value to be a function so we have the same API as useState
+      // Support functional updates (same API as useState)
       const newValue = value instanceof Function ? value(storedValue) : value;
 
-      // Save to local storage
-      window.localStorage.setItem(key, JSON.stringify(newValue));
+      // With version configured, always wrap the value
+      const toStore = version === undefined ? newValue : ({ version, value: newValue } as StoredValue<T>);
 
-      // Save state
+      window.localStorage.setItem(key, JSON.stringify(toStore));
       setStoredValue(newValue);
 
+      // Notify other hook instances
       const keyEvent = new CustomEvent("local-storage", { detail: key });
-
-      // We dispatch a custom event so every useLocalStorage hook are notified
       window.dispatchEvent(keyEvent);
     } catch (error) {
       const msg = `Error setting localStorage key "${key}": ${error}`;
@@ -73,13 +196,12 @@ export default function useLocalStorage<T>(key: string, initialValue: T): [T, Se
     }
   };
 
-  // Return a wrapped version of useState's setter function that ...
-  // ... persists the new value to localStorage.
   const setValue: SetValue<T> = useCallback((value) => setValueRef.current?.(value), []);
 
+  // Re-read from localStorage when key or version changes
   useEffect(() => {
     setStoredValue(readValue());
-  }, []);
+  }, [readValue]);
 
   const handleStorageChange = useCallback(
     (data: CustomEvent) => {
@@ -91,11 +213,7 @@ export default function useLocalStorage<T>(key: string, initialValue: T): [T, Se
     [key, readValue]
   );
 
-  // this only works for other documents, not the current one
-  // useEventListener('storage', handleStorageChange);
-
-  // this is a custom event, triggered in writeValueToLocalStorage
-  // See: useLocalStorage()
+  // Custom event, fired when this hook writes to localStorage
   useEventListener("local-storage", handleStorageChange);
 
   return [storedValue, setValue];

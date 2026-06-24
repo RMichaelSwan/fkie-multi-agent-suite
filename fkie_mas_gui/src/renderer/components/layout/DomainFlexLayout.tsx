@@ -1,10 +1,11 @@
 import * as FlexLayout from "flexlayout-react";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
+import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { EVENT_SELECT_TAB } from "@/renderer/pages/NodeManager/layout/events";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useCustomEventListener } from "react-custom-events";
 
 /**
@@ -13,6 +14,7 @@ import { useCustomEventListener } from "react-custom-events";
 
  */
 type JsonNode = {
+  id: string;
   type: string;
   children?: JsonNode[];
   name?: string;
@@ -54,6 +56,10 @@ export interface DomainFlexLayoutResult {
   model: FlexLayout.Model | null;
   setModel: (model: FlexLayout.Model | null) => void;
   handleModelChange: (model: FlexLayout.Model) => void;
+  handleRenderTabSet: (
+    node: FlexLayout.TabSetNode | FlexLayout.BorderNode,
+    renderValues: FlexLayout.ITabSetRenderValues
+  ) => void;
 }
 
 /**
@@ -79,11 +85,6 @@ export default function useDomainFlexLayout<TId extends string | number>(
 ): DomainFlexLayoutResult {
   const { storageKey, ids, componentName, configKey } = options;
 
-  const [layoutJsonString, setLayoutJsonString] = useLocalStorage<string>(storageKey, "");
-  const [model, setModel] = useState<FlexLayout.Model | null>(null);
-  const initializedRef = useRef(false);
-  const logCtx = useLoggingContext();
-
   /**
    * Create a tab JSON node for a given id.
    * The tab name is formatted as "Domain <id>" to provide a descriptive label.
@@ -91,11 +92,10 @@ export default function useDomainFlexLayout<TId extends string | number>(
    */
   const createTabForId = useCallback(
     (id: TId): JsonNode => ({
+      id: `${LAYOUT_TABS.NODES}-${id}`,
       type: "tab",
       name: `Domain ${id}`,
       component: componentName,
-      enableClose: false,
-      enableMaximize: false,
       config: { [configKey]: id },
     }),
     [componentName, configKey]
@@ -106,25 +106,46 @@ export default function useDomainFlexLayout<TId extends string | number>(
 
    */
   const createDefaultLayoutJson = useCallback(
-    (idList: TId[]): FlexLayout.IJsonModel => ({
-      global: { tabSetEnableMaximize: false },
-      borders: [],
-      layout: {
+    (idList: TId[]): FlexLayout.IJsonModel => {
+      const tabset: FlexLayout.IJsonTabSetNode = {
+        type: "tabset",
+        weight: 100,
+        children: idList.map((id) => createTabForId(id)),
+      };
+      const rowNode: FlexLayout.IJsonRowNode = {
         type: "row",
         weight: 100,
-        children: [
-          {
-            type: "tabset",
-            weight: 100,
-            enableClose: false,
-            enableMaximize: false,
-            children: idList.map((id) => createTabForId(id)),
-          } as FlexLayout.IJsonTabSetNode,
-        ],
-      } as FlexLayout.IJsonRowNode,
-    }),
+        children: [tabset],
+      };
+      return {
+        global: {
+          tabEnableClose: false,
+          tabEnableDrag: false,
+          tabEnableRename: false,
+          tabSetEnableSingleTabStretch: true,
+          tabSetEnableTabStrip: true,
+          tabSetEnableTabWrap: true,
+          tabSetEnableMaximize: true,
+          tabSetTabLocation: "bottom",
+        },
+        borders: [],
+        layout: rowNode,
+      };
+    },
     [createTabForId]
   );
+
+  const defaultLayout = useMemo(
+    () => createDefaultLayoutJson([]),
+    [createDefaultLayoutJson] // oder [createDefaultLayoutJson], wenn das stabil ist
+  );
+
+  const [layoutJson, setLayoutJson] = useLocalStorage<FlexLayout.IJsonModel>(storageKey, defaultLayout, {
+    version: 5,
+  });
+  const [model, setModel] = useState<FlexLayout.Model | null>(null);
+  const initializedRef = useRef(false);
+  const logCtx = useLoggingContext();
 
   /**
    * Merge a saved layout JSON with the current ids:
@@ -230,13 +251,20 @@ export default function useDomainFlexLayout<TId extends string | number>(
     (nextModel: FlexLayout.Model): void => {
       try {
         const json = nextModel.toJson();
-        setLayoutJsonString(JSON.stringify(json));
+        setLayoutJson(json);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         logCtx.warn("Failed to serialize layout model", message, "layout not saved");
       }
     },
-    [setLayoutJsonString, logCtx]
+    [setLayoutJson, logCtx]
+  );
+
+  const handleRenderTabSet = useCallback(
+    (node: FlexLayout.TabSetNode | FlexLayout.BorderNode, renderValues: FlexLayout.ITabSetRenderValues) => {
+      // renderValues.leading = <Typography>Domains</Typography>;
+    },
+    []
   );
 
   /**
@@ -245,9 +273,9 @@ export default function useDomainFlexLayout<TId extends string | number>(
 
    *
    * Important:
-   * - We intentionally do NOT depend on `layoutJsonString` or `model` here,
+   * - We intentionally do NOT depend on `layoutJson` or `model` here,
    *   so the model is not recreated on every user interaction.
-   * - `layoutJsonString` is read once during initialization via closure.
+   * - `layoutJson` is read once during initialization via closure.
 
    */
   useEffect(() => {
@@ -263,9 +291,9 @@ export default function useDomainFlexLayout<TId extends string | number>(
       initializedRef.current = true;
 
       let baseJson: FlexLayout.IJsonModel | null = null;
-      if (layoutJsonString) {
+      if (layoutJson) {
         try {
-          baseJson = JSON.parse(layoutJsonString) as FlexLayout.IJsonModel;
+          baseJson = layoutJson;
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           logCtx.warn("Failed to parse saved layout, using default layout", message, "layout restore failed");
@@ -301,11 +329,11 @@ export default function useDomainFlexLayout<TId extends string | number>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids, mergeLayoutJson, createDefaultLayoutJson, logCtx.warn]);
   // Note:
-  // - We intentionally omit `layoutJsonString` and `model` from dependencies
+  // - We intentionally omit `layoutJson` and `model` from dependencies
   //   to avoid recreating the model on every storage update or model change.
   //   This keeps tab contents (e.g. expanded tree nodes) stable.
 
-  return { model, setModel, handleModelChange };
+  return { model, setModel, handleModelChange, handleRenderTabSet };
 }
 
 /**
@@ -331,7 +359,7 @@ export function DomainFlexLayout<TId extends string | number>(props: DomainFlexL
   const { ids, storageKey, componentName, configKey, insideTabId, factory } = props;
 
   const [forceUpdate, setForceUpdate] = useReducer((x) => x + 1, 0);
-  const { model, handleModelChange } = useDomainFlexLayout<TId>({
+  const { model, handleModelChange, handleRenderTabSet } = useDomainFlexLayout<TId>({
     storageKey,
     ids,
     componentName,
@@ -392,7 +420,12 @@ export function DomainFlexLayout<TId extends string | number>(props: DomainFlexL
         position: "relative", // <- important: anchor for absolute FlexLayout
       }}
     >
-      <FlexLayout.Layout model={model} factory={nodeFactory} onModelChange={handleModelChange} />
+      <FlexLayout.Layout
+        model={model}
+        factory={nodeFactory}
+        onModelChange={handleModelChange}
+        onRenderTabSet={handleRenderTabSet}
+      />
     </Box>
   );
 }

@@ -3,7 +3,7 @@ import { Button, IconButton, Stack, Typography } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { alpha } from "@mui/material/styles";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
@@ -11,7 +11,7 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosService, RosTopicId, ServiceExtendedInfo, TServiceNodeInfo } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "@/renderer/pages/NodeManager/layout";
-import { EVENT_OPEN_COMPONENT, eventOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import ServiceCallerPanel from "@/renderer/pages/NodeManager/panels/ServiceCallerPanel";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { generateUniqueId, removeDDSuid } from "@/renderer/utils";
@@ -40,17 +40,18 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
   }, [settingsCtx.changed]);
 
   function onServiceCallClick(service: ServiceExtendedInfo): void {
-    emitCustomEvent(
-      EVENT_OPEN_COMPONENT,
-      eventOpenComponent(
-        `call-service-${generateUniqueId()}`,
-        service.name,
-        <ServiceCallerPanel serviceName={service.name} serviceType={service.srvType} providerId={providerId || ""} />,
-        true,
-        LAYOUT_TAB_SETS.BORDER_RIGHT,
-        new LayoutTabConfig(false, LAYOUT_TABS.SERVICES)
-      )
-    );
+    sendOpenComponent({
+      id: `call-service-${generateUniqueId()}`,
+      title: service.name,
+      closable: true,
+      component: LAYOUT_TABS.SERVICE_CALLER,
+      toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+      config: {
+        reactNode: (
+          <ServiceCallerPanel serviceName={service.name} serviceType={service.srvType} providerId={providerId || ""} />
+        ),
+      },
+    });
   }
 
   function updateServiceList(): void {
@@ -191,7 +192,13 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
                   const id: string = `${item.providerId}${item.nodeId.replaceAll("/", "#")}`;
                   navCtx.setSelected("service-panel", [id], true);
                   // inform details panel tab about selected nodes by user
-                  emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.DETAILS, "default"));
+                  sendOpenComponent({
+                    id: LAYOUT_TABS.DETAILS,
+                    title: "Details",
+                    component: LAYOUT_TABS.DETAILS,
+                    closable: false,
+                    toNodeId: "details-set",
+                  });
                 }}
               >
                 {provNodeName}
@@ -200,35 +207,6 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
             </Stack>
           );
         })}
-        {/* <Typography fontWeight="500" fontStyle="italic" fontSize="small">
-              Requester [{rs.nodeRequester.length || 0}]:
-            </Typography>
-            {rs.nodeRequester.map((item: TServiceNodeInfo) => {
-              const pubNodeName = removeDDSuid(item.nodeId);
-              return (
-                <Stack key={item.nodeId} paddingLeft={"1em"} direction="row">
-                  <Button
-                    size="small"
-                    style={{
-                      marginLeft: 1,
-                      textTransform: "none",
-                      justifyContent: "left",
-                      padding: 0,
-                      color: "#6c50e9ff",
-                    }}
-                    onClick={() => {
-                      // ${item.providerId}
-                      const id: string = `${rs.providerId}${item.nodeId.replaceAll("/", "#")}`;
-                      navCtx.setSelected("service-panel", [id], true);
-                      // inform details panel tab about selected nodes by user
-                      emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.DETAILS, "default"));
-                    }}
-                  >
-                    {pubNodeName}
-                  </Button>
-                </Stack>
-              );
-            })} */}
       </Stack>
     );
   }, [serviceInfo]);

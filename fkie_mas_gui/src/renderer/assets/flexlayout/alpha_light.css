@@ -777,7 +777,7 @@
 }
 .flexlayout__tab_button {
   border-bottom: 2px solid transparent;
-  padding: 1px 6px;
+  padding: 1px 12px;
 }
 .flexlayout__tab_button--selected:hover {
   background-color: var(--color-background);

@@ -22,7 +22,7 @@ import MuiAccordionSummary from "@mui/material/AccordionSummary";
 import { styled } from "@mui/material/styles";
 import { useDebounceCallback } from "@react-hook/debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 
 import ConfirmModal from "@/renderer/components/SelectionModal/ConfirmModal";
 import { DraggablePaper } from "@/renderer/components/UI";
@@ -35,8 +35,8 @@ import { ProviderLaunchConfiguration } from "@/renderer/models";
 import { TProviderLaunchParams, ZenohEnvSelection } from "@/renderer/models/ProviderLaunchConfiguration";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import Provider from "@/renderer/providers/Provider";
-import { LAYOUT_TAB_SETS } from "../layout";
-import { EVENT_OPEN_COMPONENT, eventOpenComponent } from "../layout/events";
+import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
+import { sendOpenComponent } from "../layout/events";
 import ProviderLaunchConfigPanel from "./ProviderLaunchConfigPanel";
 import ProviderPanelRow from "./ProviderPanelRow";
 import ProviderPanelRowCfg from "./ProviderPanelRowCfg";
@@ -270,25 +270,27 @@ export default function ProviderPanel(): JSX.Element {
 
   const editLaunchConfiguration = useCallback(
     (config: ProviderLaunchConfiguration, title?: string) => {
-      emitCustomEvent(
-        EVENT_OPEN_COMPONENT,
-        eventOpenComponent(
-          config.params.id,
-          title || `${config.params.host} start configuration`,
-          <ProviderLaunchConfigPanel
-            config={config}
-            onDelete={(configId) => {
-              deleteLaunchConfiguration(configId);
-            }}
-            onSave={(config) => {
-              saveLaunchConfiguration(config);
-            }}
-          />,
-          true,
-          LAYOUT_TAB_SETS.CENTER,
-          undefined
-        )
-      );
+      console.log(`CREATE ${config.params.id}`);
+      sendOpenComponent({
+        id: config.params.id,
+        title: title || `${config.params.host} start configuration`,
+        closable: true,
+        component: LAYOUT_TABS.PROVIDER_LAUNCH_CONTROL,
+        toNodeId: LAYOUT_TAB_SETS.DOMAINS,
+        config: {
+          reactNode: (
+            <ProviderLaunchConfigPanel
+              config={config}
+              onDelete={(configId) => {
+                deleteLaunchConfiguration(configId);
+              }}
+              onSave={(config) => {
+                saveLaunchConfiguration(config);
+              }}
+            />
+          ),
+        },
+      });
     },
     [deleteLaunchConfiguration, saveLaunchConfiguration]
   );

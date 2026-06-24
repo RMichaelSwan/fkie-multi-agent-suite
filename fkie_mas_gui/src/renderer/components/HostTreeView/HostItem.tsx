@@ -24,15 +24,14 @@ import {
   UseTreeItemIconContainerSlotOwnProps,
 } from "@mui/x-tree-view";
 import React, { useCallback, useEffect, useState } from "react";
-import { emitCustomEvent } from "react-custom-events";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosNode, RosNodeStatus } from "@/renderer/models";
-import { LAYOUT_TAB_SETS } from "@/renderer/pages/NodeManager/layout";
-import { EVENT_OPEN_COMPONENT, eventOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
+import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import SingleTerminalPanel from "@/renderer/pages/NodeManager/panels/SingleTerminalPanel";
 import { CmdType } from "@/renderer/providers";
 import Provider from "@/renderer/providers/Provider";
@@ -314,16 +313,16 @@ export default function HostItem(props: HostItemProps): JSX.Element {
                     if (value) {
                       // execute the command in own terminal
                       const id = `cmd-${generateUniqueId()}`;
-                      emitCustomEvent(
-                        EVENT_OPEN_COMPONENT,
-                        eventOpenComponent(
-                          id,
-                          `${provider?.name()}`,
-                          <SingleTerminalPanel id={id} type={CmdType.CMD} provider={provider} cmd={value} />,
-                          true,
-                          LAYOUT_TAB_SETS.BORDER_BOTTOM
-                        )
-                      );
+                      sendOpenComponent({
+                        id: id,
+                        title: `${provider?.name()}`,
+                        closable: true,
+                        component: LAYOUT_TABS.TERMINAL,
+                        toNodeId: LAYOUT_TAB_SETS.BORDER_BOTTOM,
+                        config: {
+                          reactNode: <SingleTerminalPanel id={id} type={CmdType.CMD} provider={provider} cmd={value} />,
+                        },
+                      });
                     }
                     setOpenNtpdateDialog(false);
                   }}

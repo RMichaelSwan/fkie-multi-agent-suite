@@ -5,7 +5,7 @@ import { Button, Stack, Tooltip, Typography } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { alpha } from "@mui/material/styles";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
@@ -15,7 +15,7 @@ import { RosTopic, RosTopicId, TopicExtendedInfo } from "@/renderer/models";
 import { durabilityToString, livelinessToString, reliabilityToString } from "@/renderer/models/RosQos";
 import { EndpointExtendedInfo } from "@/renderer/models/TopicExtendedInfo";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import { EVENT_OPEN_COMPONENT, eventOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { EVENT_PROVIDER_ROS_TOPICS } from "@/renderer/providers/eventTypes";
 import { removeDDSuid } from "@/renderer/utils";
 import { CopyButton } from "../UI";
@@ -265,18 +265,10 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
           <LongPressChip
             size="small"
             onClick={(event) => {
-              onPublishClick(
-                topicInfo,
-                event.nativeEvent.shiftKey,
-                event.nativeEvent.ctrlKey
-              );
+              onPublishClick(topicInfo, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey);
             }}
             onLongPress={() => {
-              onPublishClick(
-                topicInfo,
-                true,
-                false
-              );
+              onPublishClick(topicInfo, true, false);
             }}
             avatar={
               <Tooltip
@@ -320,18 +312,10 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
           <LongPressChip
             size="small"
             onClick={(event) => {
-              onEchoClick(
-                topicInfo,
-                event.nativeEvent.shiftKey,
-                event.nativeEvent.ctrlKey
-              );
+              onEchoClick(topicInfo, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey);
             }}
             onLongPress={() => {
-              onEchoClick(
-                topicInfo,
-                true,
-                false
-              );
+              onEchoClick(topicInfo, true, false);
             }}
             avatar={
               <Tooltip
@@ -449,7 +433,13 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
                   const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                   navCtx.setSelected("topics-panel", [id], true);
                   // inform details panel tab about selected nodes by user
-                  emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.DETAILS, "default"));
+                  sendOpenComponent({
+                    id: LAYOUT_TABS.DETAILS,
+                    title: "Details",
+                    component: LAYOUT_TABS.DETAILS,
+                    closable: false,
+                    toNodeId: "details-set",
+                  });
                 }}
               >
                 {pubNodeName}
@@ -495,7 +485,13 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
                   const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                   navCtx.setSelected("topics-panel", [id], true);
                   // inform details panel tab about selected nodes by user
-                  emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.DETAILS, "default"));
+                  sendOpenComponent({
+                    id: LAYOUT_TABS.DETAILS,
+                    title: "Details",
+                    component: LAYOUT_TABS.DETAILS,
+                    closable: false,
+                    toNodeId: "details-set",
+                  });
                 }}
               >
                 {subNodeName}

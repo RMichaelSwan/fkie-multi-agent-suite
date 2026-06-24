@@ -40,6 +40,7 @@ import {
   ITabRenderValues,
   ITabSetRenderValues,
   Layout,
+  Node as LayoutNode,
   Model,
   TabNode,
   TabSetNode,
@@ -67,17 +68,18 @@ import { EventProviderAuthRequest } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_AUTH_REQUEST } from "@/renderer/providers/eventTypes";
 import { basename } from "@/renderer/utils";
 import { TInfoState } from "@/types";
-
 import { DEFAULT_LAYOUT, LAYOUT_TAB_LIST, LAYOUT_TAB_SETS, LAYOUT_TABS } from "./layout";
 import {
   EVENT_CLOSE_COMPONENT,
   EVENT_INFO_STATE,
   EVENT_OPEN_COMPONENT,
   EVENT_SELECT_TAB,
-  eventOpenComponent,
+  EVENT_TOGGLE_COMPONENT,
+  sendToggleComponent,
   TEventId,
   TEventInfoState,
   TEventOpenComponent,
+  TEventToggleComponent,
 } from "./layout/events";
 import { IExtTerminalConfig } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
@@ -86,6 +88,7 @@ import DetailsPanel from "./panels/DetailsPanel";
 import HostTreeViewPanel from "./panels/HostTreeViewPanel";
 import LoggingPanel from "./panels/LoggingPanel";
 // import OverflowMenuNodeDetails from "./panels/OverflowMenuNodeDetails";
+import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
 import PackageExplorerPanel from "./panels/PackageExplorerPanel";
 import ParameterPanel from "./panels/ParameterPanel";
@@ -101,7 +104,7 @@ type TPanelId = {
 };
 
 interface ITabAttributesExt extends ITabAttributes {
-  panelGroup: string;
+  toNodeId: string;
 }
 
 export default function NodeManager(): JSX.Element {
@@ -113,11 +116,11 @@ export default function NodeManager(): JSX.Element {
   const navCtx = useNavigationContext();
   const settingsCtx = useSettingsContext();
 
-  const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT);
+  const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 2 });
   const [model, setModel] = useState<Model>(() => Model.fromJson(layoutJson));
   const layoutRef = useRef<Layout | null>(null);
 
-  const [layoutComponents] = useState<Record<string, React.ReactNode>>({});
+  // const [layoutComponents] = useState<Record<string, React.ReactNode>>({});
   const [addToLayout, setAddToLayout] = useState<ITabAttributesExt[]>([]);
   const [dirtyTabs, setDirtyTabs] = useState<string[]>([]);
   const [passwordRequests, setPasswordRequests] = useState<React.ReactNode[]>([]);
@@ -133,6 +136,8 @@ export default function NodeManager(): JSX.Element {
   const [enablePopout, setEnablePopout] = useState<boolean>(
     !window.commandExecutor && window.location.href.indexOf(":6275") === -1
   );
+
+  const layoutComponentsRef = useRef<Record<string, React.ReactNode>>({});
 
   // sync settings dependent state
   useEffect(() => {
@@ -238,6 +243,7 @@ export default function NodeManager(): JSX.Element {
   }, [layoutJson]);
 
   useEffect(() => {
+    return;
     const needsReset =
       settingsCtx.get("resetLayout") ||
       !hasTab(layoutJson.layout, LAYOUT_TABS.NODES) ||
@@ -301,6 +307,36 @@ export default function NodeManager(): JSX.Element {
     [model, monacoCtx, setDirtyTabs]
   );
 
+  // // close all tabs with panelGroup === sidebar
+  // // Wa assume only one tab can be open
+  // function deleteSidebarTabs(node?: LayoutNode): boolean {
+  //   if (node === undefined) {
+  //     const found = model
+  //       .getBorderSet()
+  //       .getBorders()
+  //       .filter((b) => {
+  //         return deleteSidebarTabs(b);
+  //       });
+  //     if (found.length > 0) return true;
+  //   }
+  //   const root = node ? node : model.getRoot();
+  //   const sidebarTabs = root
+  //     .getChildren()
+  //     .filter((child) => child.getType() === "tab" && SIDEBAR_TABS.includes(child.getId()));
+  //   if (sidebarTabs.length > 0) {
+  //     sidebarTabs.map((tab) => {
+  //       model.doAction(Actions.deleteTab(tab.getId()));
+  //     });
+  //     return true;
+  //   }
+  //   // recursive search
+  //   const tabSets = root.getChildren().filter((child) => ["tabset", "row"].includes(child.getType()));
+  //   tabSets.filter((item) => {
+  //     return deleteSidebarTabs(item);
+  //   });
+  //   return tabSets.length > 0;
+  // }
+
   useCustomEventListener(
     EVENT_OPEN_COMPONENT,
     (data: TEventOpenComponent) => {
@@ -333,18 +369,23 @@ export default function NodeManager(): JSX.Element {
           id: data.id,
           type: "tab",
           name: data.title,
-          component: data.id,
-          panelGroup: data.panelGroup,
+          component: data.component,
+          toNodeId: data.toNodeId,
           enableClose: data.closable,
           enablePopout,
           config: data.config,
         };
-        layoutComponents[data.id] = data.component;
+        console.log(`${data.component} ---- data.config: ${JSON.stringify(data.config)}`);
+        if (data.config?.reactNode) {
+          console.log(`STORE TO ${data.id}`);
+          layoutComponentsRef.current[data.id] = data.config.reactNode;
+        }
         // store tab in state; will be added in a later effect
+
         setAddToLayout((prev) => [tab, ...prev]);
       }
     },
-    [layoutComponents, model, enablePopout]
+    [layoutComponentsRef, model, enablePopout]
   );
 
   /** Close tabs on signals from the tab itself (e.g. ctrl+d) */
@@ -352,6 +393,38 @@ export default function NodeManager(): JSX.Element {
     EVENT_CLOSE_COMPONENT,
     (data: TEventId) => {
       deleteTab(data.id);
+    },
+    [deleteTab]
+  );
+
+  useCustomEventListener(
+    EVENT_TOGGLE_COMPONENT,
+    (data: TEventToggleComponent) => {
+      const tab = model.getNodeById(data.id);
+      const createTab = tab === undefined;
+      if (tab && !(tab as TabNode)?.isVisible()) {
+        model.doAction(Actions.selectTab(data.id));
+        return;
+      }
+      deleteTab(data.id);
+      if (createTab) {
+        // create a new tab
+        const tab: ITabAttributesExt = {
+          id: data.id,
+          type: "tab",
+          name: data.title,
+          component: data.component,
+          toNodeId: data.toNodeId,
+          enableClose: data.closable,
+          enablePopout: enablePopout,
+          config: data.config,
+        };
+        if (data.config?.reactNode) {
+          layoutComponentsRef.current[data.id] = data.config.reactNode;
+        }
+        // store new tabs using useEffect so dockMove() can create panels if events comes to fast
+        setAddToLayout((oldValue) => [tab, ...oldValue]);
+      }
     },
     [deleteTab]
   );
@@ -375,14 +448,14 @@ export default function NodeManager(): JSX.Element {
     []
   );
 
-  function getPanelId(id: string, panelGroup: string): TPanelId {
+  function getPanelId(id: string, toNodeId: string): TPanelId {
     const result: TPanelId = {
-      id: panelGroup,
+      id: toNodeId,
       isBorder: false,
       location: DockLocation.CENTER,
     };
 
-    switch (panelGroup) {
+    switch (toNodeId) {
       case LAYOUT_TAB_SETS.BORDER_TOP:
         result.isBorder = true;
         result.location = DockLocation.TOP;
@@ -408,8 +481,8 @@ export default function NodeManager(): JSX.Element {
           .find((b) => b.getLocation() === result.location)
           ?.getId() || id;
     } else {
-      const nodeBId = model.getNodeById(panelGroup);
-      if (panelGroup === LAYOUT_TAB_SETS.CENTER && !nodeBId) {
+      const nodeBId = model.getNodeById(toNodeId);
+      if (toNodeId === LAYOUT_TAB_SETS.DOMAINS && !nodeBId) {
         // no center panel group found, reset layout
         setLayoutJson(DEFAULT_LAYOUT);
       }
@@ -423,12 +496,19 @@ export default function NodeManager(): JSX.Element {
 
   // Add tabs to layout after EVENT_OPEN_COMPONENT was received
   useEffect(() => {
+    console.log(`setAddToLayoutsetAddToLayout_: ${setAddToLayout.length}`);
     if (addToLayout.length > 0) {
       const newAddToLayout = [...addToLayout];
       const tab = newAddToLayout.pop();
-      if (tab) {
-        const panelId = getPanelId(tab.id || "", tab.panelGroup);
-        const action = Actions.addNode(tab, panelId.id, DockLocation.CENTER, -1);
+      if (tab?.id) {
+        const node = model.getNodeById(tab.id);
+        if (node) {
+          console.log(`  found: ${tab?.id}`);
+          return;
+        }
+        const panelId = getPanelId(tab.id || "", tab.toNodeId);
+        console.log(`PANEL ID: ${panelId.id}`);
+        const action = Actions.addTab(tab, panelId.id, DockLocation.CENTER, -1);
         model.doAction(action);
 
         if (panelId.isBorder) {
@@ -450,14 +530,22 @@ export default function NodeManager(): JSX.Element {
     }
   }, [addToLayout, model]);
 
-  function factory(node: TabNode): JSX.Element {
+  function factory(node: TabNode, domainId?: number): JSX.Element {
     const component = node.getComponent();
-    if (component && layoutComponents[component]) {
-      return layoutComponents[component] as React.ReactElement;
+    const config = node.getConfig();
+    console.log(`node.getId(): ${node.getId()}`);
+    const custom = layoutComponentsRef.current[node.getId()];
+    if (custom) {
+      console.log("render custom node for", node.getId());
+      return custom as React.ReactElement;
     }
+    // if (layoutComponentsRef.current[node.getId()]) {
+    //   return layoutComponentsRef.current[node.getId()] as React.ReactElement;
+    // }
 
+    console.log(`FACTORY: ${component}`);
     switch (component) {
-      case LAYOUT_TABS.NODES:
+      case `${LAYOUT_TABS.NODES}-${domainId}`:
         return <HostTreeViewPanel key="nodes-panel" />;
       case LAYOUT_TABS.HOSTS:
         return <ProviderPanel key="hosts-panel" />;
@@ -477,6 +565,34 @@ export default function NodeManager(): JSX.Element {
         return <AboutPanel key="about-panel" />;
       case LAYOUT_TABS.PARAMETER:
         return <ParameterPanel key="parameter-panel" nodes={[]} providers={[]} />;
+      case LAYOUT_TABS.DOMAIN:
+        return <>node.id</>;
+        return (
+          <DomainFlexLayout
+            key="domain-host-layout"
+            storageKey="layoutHostDomains"
+            ids={[3, 6]}
+            componentName="domainHostTree"
+            configKey="domainId"
+            insideTabId={LAYOUT_TAB_SETS.CENTER}
+            factory={(node, domainId) => {
+              console.log(`DFL ${node.getId()}, domainId: ${domainId}`);
+              return factory(node, domainId);
+              // const nodesForDomain = domainVisibleNodes[domainId] ?? [];
+              // return (
+              //   <HostTreeView
+              //     key={`host-tree-${domainId}`}
+              //     triggerId={`host-tree-${domainId}`}
+              //     visibleNodes={nodesForDomain}
+              //     isFiltered={filterText.length > 0}
+              //     showLoggers={createLoggerPanelFromId}
+              //     startNodes={startNodesFromId}
+              //     stopNodes={stopNodesFromId}
+              //   />
+              // );
+            }}
+          />
+        );
       default:
         return <></>;
     }
@@ -687,7 +803,7 @@ export default function NodeManager(): JSX.Element {
     container: React.ReactNode[],
     id: string,
     title: string,
-    component: React.ReactNode,
+    reactNode: React.ReactNode,
     setId: string,
     icon: React.ReactNode,
     tooltipLoc:
@@ -718,9 +834,16 @@ export default function NodeManager(): JSX.Element {
         >
           <span>
             <IconButton
-              onClick={() =>
-                emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(id, title, component, true, setId))
-              }
+              onClick={() => {
+                sendToggleComponent({
+                  id: id,
+                  title: title,
+                  closable: true,
+                  component: id,
+                  toNodeId: setId,
+                  config: { reactNode: reactNode },
+                });
+              }}
             >
               {icon}
             </IconButton>
@@ -731,6 +854,10 @@ export default function NodeManager(): JSX.Element {
   }
 
   function onRenderTabSet(node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues): void {
+    console.log(`TAB SET: ${node.getId()}`);
+    if (node.getId() === LAYOUT_TAB_SETS.DOMAINS) {
+      // return ...
+    }
     const children = node.getChildren();
 
     for (const child of children) {
@@ -780,12 +907,13 @@ export default function NodeManager(): JSX.Element {
       }
 
       // add settings tab button in bottom border
+      console.log(`ADD BUTTON`);
       pAddTabStickyButton(
         renderValues.buttons,
         LAYOUT_TABS.SETTINGS,
         "Settings",
         <SettingsPanel />,
-        LAYOUT_TABS.NODES,
+        LAYOUT_TAB_SETS.BORDER_RIGHT,
         <SettingsIcon sx={{ fontSize: "inherit" }} />,
         "top",
         true
@@ -797,7 +925,7 @@ export default function NodeManager(): JSX.Element {
         LAYOUT_TABS.ABOUT,
         "About",
         <AboutPanel />,
-        LAYOUT_TABS.NODES,
+        LAYOUT_TAB_SETS.BORDER_RIGHT,
         <InfoOutlinedIcon sx={{ fontSize: "inherit" }} />,
         "top",
         true
@@ -814,10 +942,13 @@ export default function NodeManager(): JSX.Element {
             <Button
               style={{ textTransform: "none" }}
               onClick={() => {
-                emitCustomEvent(
-                  EVENT_OPEN_COMPONENT,
-                  eventOpenComponent(LAYOUT_TABS.ABOUT, "About", <AboutPanel />, true, LAYOUT_TABS.NODES)
-                );
+                sendToggleComponent({
+                  id: LAYOUT_TABS.ABOUT,
+                  title: "About",
+                  component: LAYOUT_TABS.ABOUT,
+                  closable: true,
+                  toNodeId: LAYOUT_TABS.NODES,
+                });
               }}
               variant="text"
               color="info"
@@ -997,7 +1128,7 @@ export default function NodeManager(): JSX.Element {
         onRenderTabSet={onRenderTabSet}
         onModelChange={(_model, _action) => {
           if (![Actions.SELECT_TAB, Actions.SET_ACTIVE_TABSET].includes(_action.type)) {
-            cleanAndSaveLayout();
+            // cleanAndSaveLayout();
           }
         }}
         onContextMenu={(node) => {

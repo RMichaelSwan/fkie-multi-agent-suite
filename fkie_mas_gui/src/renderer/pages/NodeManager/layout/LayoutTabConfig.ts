@@ -1,7 +1,7 @@
 import { CmdType } from "@/renderer/providers";
 import { TFileRange, TLaunchArg } from "@/types";
 
-export interface IExtTerminalConfig {
+export type IExtTerminalConfig = {
   type: CmdType;
   providerId: string;
   nodeName: string;
@@ -9,9 +9,9 @@ export interface IExtTerminalConfig {
   screen: string;
   cmd: string;
   env: string[];
-}
+};
 
-export interface IEditorConfig {
+export type IEditorConfig = {
   id: string;
   host: string;
   port: number;
@@ -19,26 +19,26 @@ export interface IEditorConfig {
   path: string;
   fileRange: TFileRange | null;
   launchArgs: TLaunchArg[];
-}
+};
 
-export interface IPublisherConfig {
+export type IPublisherConfig = {
   id: string;
   host: string;
   port: number;
   topicName: string;
   topicType: string;
-}
+};
 
-export interface ISubscriberConfig {
+export type ISubscriberConfig = {
   id: string;
   host: string;
   port: number;
   topic: string;
   showOptions: boolean;
   noData: boolean;
-}
+};
 
-export interface ITerminalConfig {
+export type ITerminalConfig = {
   id: string;
   host: string;
   port: number;
@@ -46,43 +46,27 @@ export interface ITerminalConfig {
   node: string;
   screen: string;
   cmd: string;
-  env: string[]
-}
+  env: string[];
+};
 
-export default class LayoutTabConfig {
-  openExternal: boolean;
+export type TLayoutTabConfig = {
+  reactNode?: React.ReactNode;
 
-  tabType: CmdType;
+  domainId?: number;
 
-  extTerminalConfig: IExtTerminalConfig | null;
+  openExternal?: boolean;
 
-  editorConfig: IEditorConfig | null;
+  tabType?: CmdType;
 
-  publisherConfig: IPublisherConfig | null;
+  extTerminalConfig?: IExtTerminalConfig;
 
-  subscriberConfig: ISubscriberConfig | null;
+  editorConfig?: IEditorConfig;
 
-  terminalConfig: ITerminalConfig | null;
+  publisherConfig?: IPublisherConfig;
 
-  filterText: string;
+  subscriberConfig?: ISubscriberConfig;
 
-  constructor(
-    openExternal: boolean = false,
-    tabType: CmdType = "",
-    extTerminalConfig: IExtTerminalConfig | null = null,
-    editorConfig: IEditorConfig | null = null,
-    subscriberConfig: ISubscriberConfig | null = null,
-    terminalConfig: ITerminalConfig | null = null,
-    publisherConfig: IPublisherConfig | null = null,
-    filterText: string = ""
-  ) {
-    this.openExternal = openExternal;
-    this.tabType = tabType;
-    this.extTerminalConfig = extTerminalConfig;
-    this.editorConfig = editorConfig;
-    this.publisherConfig = publisherConfig;
-    this.subscriberConfig = subscriberConfig;
-    this.terminalConfig = terminalConfig;
-    this.filterText = filterText;
-  }
-}
+  terminalConfig?: ITerminalConfig;
+
+  filterText?: string;
+};

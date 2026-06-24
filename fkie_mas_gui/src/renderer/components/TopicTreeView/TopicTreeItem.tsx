@@ -3,7 +3,6 @@ import { Box, Chip, Menu, MenuItem, Stack, Tooltip, Typography } from "@mui/mate
 import { grey } from "@mui/material/colors";
 import { alpha } from "@mui/material/styles";
 import { useCallback, useEffect, useState } from "react";
-import { emitCustomEvent } from "react-custom-events";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
@@ -13,7 +12,7 @@ import { IncompatibleQos, TopicExtendedInfo } from "@/renderer/models";
 import { durabilityToString, livelinessToString, reliabilityToString } from "@/renderer/models/RosQos";
 import { EndpointExtendedInfo } from "@/renderer/models/TopicExtendedInfo";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import { EVENT_OPEN_COMPONENT, eventOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
+import { sendOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { removeDDSuid } from "@/renderer/utils/index";
 
 interface TopicTreeItemProps {
@@ -348,7 +347,13 @@ export default function TopicTreeItem({
                       event.stopPropagation();
                       const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                       navCtx.setSelected("topics-tree", [id], false);
-                      emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.DETAILS, "default"));
+                      sendOpenComponent({
+                        id: LAYOUT_TABS.DETAILS,
+                        title: "Details",
+                        component: LAYOUT_TABS.DETAILS,
+                        closable: false,
+                        toNodeId: "details-set",
+                      });
                     }}
                   >
                     {pubNodeName}
@@ -374,7 +379,13 @@ export default function TopicTreeItem({
                       event.stopPropagation();
                       const id: string = `${item.providerId}${item.info.node_id.replaceAll("/", "#")}`;
                       navCtx.setSelected("topics-tree", [id], false);
-                      emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.DETAILS, "default"));
+                      sendOpenComponent({
+                        id: LAYOUT_TABS.DETAILS,
+                        title: "Details",
+                        component: LAYOUT_TABS.DETAILS,
+                        closable: false,
+                        toNodeId: "details-set",
+                      });
                     }}
                   >
                     {subNodeName}

@@ -51,6 +51,8 @@ import {
 } from "@/renderer/providers/events";
 import { TResult, TRosInfo, TSystemInfo } from "@/types";
 import { TProviderLaunchParams } from "../models/ProviderLaunchConfiguration";
+import { LAYOUT_TABS, LAYOUT_TAB_SETS, LayoutTabConfig } from "../pages/NodeManager/layout";
+import { sendOpenComponent } from "../pages/NodeManager/layout/events";
 import { LAUNCH_FILE_EXTENSIONS, getDefaultPortFromRos } from "./SettingsContext";
 
 // ─────────────────────────────────────────────
@@ -1088,7 +1090,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
     []
   );
 
-
   useCustomEventListener(
     EVENT_PROVIDER_STATE,
     (data: EventProviderState) => {
@@ -1096,6 +1097,17 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
       switch (newState) {
         case ConnectionState.STATES.CONNECTED:
           provider.triggeredByAutoConnect = false;
+          if (provider.connection.domainId !== -1) {
+            console.log(`ADD TAB: ${LAYOUT_TABS.DOMAIN}, id: ${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}`);
+            sendOpenComponent({
+              id: `${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}`,
+              title: `Domain ${provider.connection.domainId}`,
+              component: LAYOUT_TABS.DOMAIN,
+              closable: false,
+              toNodeId: LAYOUT_TAB_SETS.DOMAINS, // panel or tab id where to place the new tab
+              config: { domainId: provider.connection.domainId },
+            });
+          }
           clearProviders();
           break;
         case ConnectionState.STATES.CLOSED:

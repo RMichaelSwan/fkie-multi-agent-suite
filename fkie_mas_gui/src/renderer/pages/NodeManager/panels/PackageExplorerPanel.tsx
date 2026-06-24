@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import CircularProgress from "@mui/material/CircularProgress";
 import { HTMLAttributes, useCallback, useEffect, useMemo, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 
 import LaunchFileModal from "@/renderer/components/LaunchFileModal/LaunchFileModal";
 import TreeDirectory from "@/renderer/components/PackageExplorer/TreeDirectory";
@@ -35,8 +35,8 @@ import { ConnectionState } from "@/renderer/providers";
 import { EventProviderState } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import { grey } from "@mui/material/colors";
-import { LAYOUT_TABS } from "../layout";
-import { EVENT_OPEN_COMPONENT, eventOpenComponent } from "../layout/events";
+import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
+import { sendOpenComponent } from "../layout/events";
 
 /**
  * Sorting function used for comparing two package items (files/directories)
@@ -441,7 +441,13 @@ export default function PackageExplorerPanel(): JSX.Element {
     });
 
     // Notify other components that a launch file has been opened
-    emitCustomEvent(EVENT_OPEN_COMPONENT, eventOpenComponent(LAYOUT_TABS.NODES, "default"));
+    sendOpenComponent({
+      id: LAYOUT_TABS.NODES,
+      title: "Nodes",
+      component: LAYOUT_TABS.NODES,
+      closable: false,
+      toNodeId: LAYOUT_TAB_SETS.DOMAINS,
+    });
   }, [rosCtx, selectedLaunchFile, settingsCtx]);
 
   useEffect(() => {

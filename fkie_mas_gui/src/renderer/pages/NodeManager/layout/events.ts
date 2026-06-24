@@ -1,10 +1,11 @@
 import { RosNode } from "@/renderer/models";
 import { InfoStateLevel, TFileRange, TInfoState, TLaunchArg } from "@/types";
 import { emitCustomEvent } from "react-custom-events";
-import LayoutTabConfig from "./LayoutTabConfig";
+import { TLayoutTabConfig } from "./LayoutTabConfig";
 
 export const EVENT_CLOSE_COMPONENT = "EVENT_CLOSE_COMPONENT" as const;
 export const EVENT_OPEN_COMPONENT = "EVENT_OPEN_COMPONENT" as const;
+export const EVENT_TOGGLE_COMPONENT = "EVENT_TOGGLE_COMPONENT" as const;
 export const EVENT_OPEN_SETTINGS = "EVENT_OPEN_SETTINGS" as const;
 export const EVENT_EDITOR_SELECT_RANGE = "EVENT_EDITOR_SELECT_RANGE" as const;
 export const EVENT_FILTER_NODES = "EVENT_FILTER_NODES" as const;
@@ -26,10 +27,10 @@ export type TFilterText = {
 export type TEventOpenComponent = {
   id: string;
   title: string;
-  component: React.ReactNode | undefined;
   closable: boolean;
-  panelGroup: string; // panel or tab id where to place the new tab
-  config: LayoutTabConfig; // a place to hold json config for the hosted component
+  toNodeId: string; // panel or tab id where to place the new tab
+  component: string;
+  config?: TLayoutTabConfig; // a place to hold json config for the hosted component
 };
 
 export type TEventEditorSelectRange = {
@@ -57,7 +58,6 @@ export type TEventShowScreens = {
   nodes: RosNode[];
 };
 
-
 export function sendStateSuccess(message: string) {
   emitCustomEvent(EVENT_INFO_STATE, { level: InfoStateLevel.SUCCESS, message: `✅ ${message}` } as TInfoState);
 }
@@ -74,23 +74,11 @@ export function sendStateError(message: string) {
   emitCustomEvent(EVENT_INFO_STATE, { level: InfoStateLevel.ERROR, message: `❌ ${message}` } as TInfoState);
 }
 
-
-export function eventOpenComponent(
-  id: string,
-  title: string,
-  component: React.ReactNode | undefined = undefined,
-  closable: boolean = true,
-  panelGroup: string = "", // panel or tab id where to place the new tab
-  config: LayoutTabConfig = new LayoutTabConfig(false, panelGroup) // a place to hold json config for the hosted component
-): TEventOpenComponent {
-  return {
-    id,
-    title,
-    closable,
-    component,
-    panelGroup,
-    config,
-  } as TEventOpenComponent;
+export function sendOpenComponent(props: TEventOpenComponent) {
+  emitCustomEvent(EVENT_OPEN_COMPONENT, props);
+}
+export function sendToggleComponent(props: TEventOpenComponent) {
+  emitCustomEvent(EVENT_TOGGLE_COMPONENT, props);
 }
 
 export class SETTING extends String {
@@ -132,7 +120,6 @@ export function eventFilterServices(data: string): TFilterText {
 export function emitKillNodes(event: TEventKillNodes) {
   emitCustomEvent(EVENT_KILL_NODES, event);
 }
-
 
 export function emitShowScreens(event: TEventShowScreens) {
   emitCustomEvent(EVENT_SHOW_SCREENS, event);

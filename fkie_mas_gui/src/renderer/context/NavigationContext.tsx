@@ -7,16 +7,15 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { getBaseName } from "@/renderer/models";
 import {
   EVENT_EDITOR_SELECT_RANGE,
-  EVENT_OPEN_COMPONENT,
   eventEditorSelectRange,
-  eventOpenComponent,
+  sendOpenComponent,
 } from "@/renderer/pages/NodeManager/layout/events";
 import FileEditorPanel from "@/renderer/pages/NodeManager/panels/FileEditorPanel";
 import { xor } from "@/renderer/utils/index";
 import { TFileRange, TLaunchArg } from "@/types";
 import { emitCustomEvent } from "react-custom-events";
 import { createEditorId } from "../monaco/utils";
-import { LAYOUT_TAB_SETS, LayoutTabConfig } from "../pages/NodeManager/layout";
+import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../pages/NodeManager/layout";
 import SingleTerminalPanel from "../pages/NodeManager/panels/SingleTerminalPanel";
 import TopicEchoPanel from "../pages/NodeManager/panels/TopicEchoPanel";
 import TopicPublishPanel from "../pages/NodeManager/panels/TopicPublishPanel";
@@ -174,23 +173,27 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
       emitCustomEvent(EVENT_EDITOR_SELECT_RANGE, eventEditorSelectRange(id, path, fileRange, launchArgs));
-      emitCustomEvent(
-        EVENT_OPEN_COMPONENT,
-        eventOpenComponent(
-          id,
-          getBaseName(rootLaunch),
-          <FileEditorPanel
-            editorId={id}
-            provider={provider}
-            currentFilePath={path}
-            rootFilePath={rootLaunch}
-            fileRange={fileRange}
-            launchArgs={launchArgs}
-            topLevelLaunchArgs={topLevelLaunchArgs}
-          />,
-          true,
-          LAYOUT_TAB_SETS[settingsCtx.get("editorOpenLocation") as string],
-          new LayoutTabConfig(true, "editor", null, {
+      sendOpenComponent({
+        id: id,
+        title: getBaseName(rootLaunch),
+        closable: true,
+        component: LAYOUT_TABS.EDITOR,
+        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("editorOpenLocation") as string],
+        config: {
+          reactNode: (
+            <FileEditorPanel
+              editorId={id}
+              provider={provider}
+              currentFilePath={path}
+              rootFilePath={rootLaunch}
+              fileRange={fileRange}
+              launchArgs={launchArgs}
+              topLevelLaunchArgs={topLevelLaunchArgs}
+            />
+          ),
+          openExternal: true,
+          tabType: "editor",
+          editorConfig: {
             id,
             host: provider.connection.host,
             port: provider.connection.port,
@@ -198,9 +201,9 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
             path,
             fileRange,
             launchArgs,
-          })
-        )
-      );
+          },
+        },
+      });
     },
     [rosCtx, settingsCtx, layoutModel]
   );
@@ -245,23 +248,25 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
-      emitCustomEvent(
-        EVENT_OPEN_COMPONENT,
-        eventOpenComponent(
-          id,
-          topic || "unknown",
-          <TopicPublishPanel topicName={topicName} topicType={topicType} providerId={providerId} />,
-          true,
-          LAYOUT_TAB_SETS[settingsCtx.get("publisherOpenLocation") as string],
-          new LayoutTabConfig(true, `${CmdType.PUB}`, null, null, null, null, {
+      sendOpenComponent({
+        id: id,
+        title: topic || "unknown",
+        closable: true,
+        component: LAYOUT_TABS.TOPIC_PUBLISHER,
+        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("publisherOpenLocation") as string],
+        config: {
+          reactNode: <TopicPublishPanel topicName={topicName} topicType={topicType} providerId={providerId} />,
+          openExternal: true,
+          tabType: `${CmdType.PUB}`,
+          publisherConfig: {
             id,
             host: provider.connection.host,
             port: provider.connection.port,
             topicName: topic,
             topicType: type,
-          })
-        )
-      );
+          },
+        },
+      });
     },
     [rosCtx, settingsCtx, layoutModel, logCtx]
   );
@@ -312,29 +317,33 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
-      emitCustomEvent(
-        EVENT_OPEN_COMPONENT,
-        eventOpenComponent(
-          id,
-          topic,
-          <TopicEchoPanel
-            showOptions={showOptions}
-            provider={provider}
-            defaultTopic={topic}
-            defaultNoData={defaultNoData}
-          />,
-          true,
-          LAYOUT_TAB_SETS[settingsCtx.get("subscriberOpenLocation") as string],
-          new LayoutTabConfig(true, `${CmdType.ECHO}`, null, null, {
+      sendOpenComponent({
+        id: id,
+        title: topic || "unknown",
+        closable: true,
+        component: LAYOUT_TABS.TOPIC_ECHO,
+        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("subscriberOpenLocation") as string],
+        config: {
+          reactNode: (
+            <TopicEchoPanel
+              showOptions={showOptions}
+              provider={provider}
+              defaultTopic={topic}
+              defaultNoData={defaultNoData}
+            />
+          ),
+          openExternal: true,
+          tabType: `${CmdType.ECHO}`,
+          subscriberConfig: {
             id,
             host: provider.connection.host,
             port: provider.connection.port,
             topic,
             showOptions,
             noData: defaultNoData,
-          })
-        )
-      );
+          },
+        },
+      });
     },
     [rosCtx, settingsCtx, layoutModel, logCtx]
   );
@@ -396,36 +405,38 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
-      emitCustomEvent(
-        EVENT_OPEN_COMPONENT,
-        eventOpenComponent(
-          id,
-          node || `${type}_${provider.connection.host}`,
-          <SingleTerminalPanel
-            id={id}
-            type={type}
-            provider={provider}
-            nodeName={node}
-            screen={screen}
-            cmd={cmd}
-            env={env}
-          />,
-          true,
-          LAYOUT_TAB_SETS.BORDER_BOTTOM,
-          noPopout
-            ? undefined
-            : new LayoutTabConfig(true, type, null, null, null, {
-                id,
-                host: provider.connection.host,
-                port: provider.connection.port,
-                cmdType: type,
-                node,
-                screen,
-                cmd,
-                env,
-              })
-        )
-      );
+      sendOpenComponent({
+        id: id,
+        title: node || `${type}_${provider.connection.host}`,
+        closable: true,
+        component: LAYOUT_TABS.TERMINAL,
+        toNodeId: LAYOUT_TAB_SETS.BORDER_BOTTOM,
+        config: {
+          reactNode: (
+            <SingleTerminalPanel
+              id={id}
+              type={type}
+              provider={provider}
+              nodeName={node}
+              screen={screen}
+              cmd={cmd}
+              env={env}
+            />
+          ),
+          openExternal: !noPopout,
+          tabType: type,
+          terminalConfig: {
+            id,
+            host: provider.connection.host,
+            port: provider.connection.port,
+            cmdType: type,
+            node,
+            screen,
+            cmd,
+            env,
+          },
+        },
+      });
     },
     [rosCtx, settingsCtx, layoutModel, logCtx]
   );

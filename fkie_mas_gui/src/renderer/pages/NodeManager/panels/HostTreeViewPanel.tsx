@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 
 import HostTreeView from "@/renderer/components/HostTreeView/HostTreeView";
 import HostTreeViewActions from "@/renderer/components/HostTreeView/HostTreeViewActions";
@@ -38,9 +38,8 @@ import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "@/renderer/pages/
 import {
   EVENT_FILTER_NODES,
   EVENT_KILL_NODES,
-  EVENT_OPEN_COMPONENT,
   EVENT_SHOW_SCREENS,
-  eventOpenComponent,
+  sendOpenComponent,
   TEventId,
   TEventKillNodes,
   TEventShowScreens,
@@ -271,6 +270,18 @@ export default function HostTreeViewPanel(): JSX.Element {
     return result;
   }, [domainGroups, visibleNodesGlobal, rosCtx.getProviderById]);
 
+  // useEffect(() => {
+  //   for (const domainId of domainGroups) {
+  //     sendOpenComponent({
+  //       id: `${LAYOUT_TABS.DOMAIN}-${domainId}`,
+  //       title: `Domain ${domainId}`,
+  //       closable: false,
+  //       toNodeId: LAYOUT_TAB_SETS.DOMAINS,
+  //       component: LAYOUT_TABS.DOMAIN,
+  //     });
+  //   }
+  // }, [domainGroups]);
+
   // Event listeners -----------------------------------------------------------------------------------
 
   const onProviderRestartNodes = useCallback(
@@ -321,17 +332,14 @@ export default function HostTreeViewPanel(): JSX.Element {
     (node: RosNode): void => {
       const id = `node-logger-${node.idGlobal}`;
       const title = node.name;
-      emitCustomEvent(
-        EVENT_OPEN_COMPONENT,
-        eventOpenComponent(
-          id,
-          title,
-          <NodeLoggerPanel node={node} />,
-          true,
-          LAYOUT_TAB_SETS[settingsCtx.get("nodeLoggerOpenLocation") as string],
-          new LayoutTabConfig(false, "node-logger")
-        )
-      );
+      sendOpenComponent({
+        id: id,
+        title: title,
+        closable: true,
+        component: LAYOUT_TABS.NODE_LOGGER,
+        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("nodeLoggerOpenLocation") as string],
+        config: { reactNode: <NodeLoggerPanel node={node} /> },
+      });
     },
     [settingsCtx]
   );
@@ -416,17 +424,14 @@ export default function HostTreeViewPanel(): JSX.Element {
         params.push({
           name: node.name,
           callback: () => {
-            emitCustomEvent(
-              EVENT_OPEN_COMPONENT,
-              eventOpenComponent(
-                `parameter-node-${node.idGlobal}`,
-                `${node.name}`,
-                <ParameterPanel nodes={[node]} providers={[]} />,
-                true,
-                openLocation,
-                new LayoutTabConfig(false, "parameter")
-              )
-            );
+            sendOpenComponent({
+              id: `parameter-node-${node.idGlobal}`,
+              title: `${node.name}`,
+              closable: true,
+              component: LAYOUT_TABS.PARAMETER,
+              toNodeId: openLocation,
+              config: { reactNode: <ParameterPanel nodes={[node]} providers={[]} /> },
+            });
           },
         });
       }
@@ -437,17 +442,14 @@ export default function HostTreeViewPanel(): JSX.Element {
           params.push({
             name: provider.name(),
             callback: () => {
-              emitCustomEvent(
-                EVENT_OPEN_COMPONENT,
-                eventOpenComponent(
-                  `parameter-provider-${provider}`,
-                  `${provider.name()}`,
-                  <ParameterPanel nodes={[]} providers={[providerId]} />,
-                  true,
-                  openLocation,
-                  new LayoutTabConfig(false, "parameter")
-                )
-              );
+              sendOpenComponent({
+                id: `parameter-provider-${provider}`,
+                title: `${provider.name()}`,
+                closable: true,
+                component: LAYOUT_TABS.PARAMETER,
+                toNodeId: openLocation,
+                config: { reactNode: <ParameterPanel nodes={[]} providers={[providerId]} /> },
+              });
             },
           });
         }
@@ -1573,7 +1575,15 @@ export default function HostTreeViewPanel(): JSX.Element {
         )}
         <Stack direction="row" height="100%" overflow="auto">
           {buttonLocation === BUTTON_LOCATIONS.LEFT && <Box height="100%">{createActions()}</Box>}
-          {domainGroups.length <= 1 ? (
+          <HostTreeView
+            triggerId={`host-tree-${domainGroups[0]?.domainId}`}
+            visibleNodes={visibleNodesGlobal}
+            isFiltered={filterText.length > 0}
+            showLoggers={createLoggerPanelFromId}
+            startNodes={startNodesFromId}
+            stopNodes={stopNodesFromId}
+          />
+          {/* {domainGroups.length <= 1 ? (
             // Single domain: keep current behavior, show all nodes in one tree
             <HostTreeView
               triggerId={`host-tree-${domainGroups[0]?.domainId}`}
@@ -1607,7 +1617,7 @@ export default function HostTreeViewPanel(): JSX.Element {
                 );
               }}
             />
-          )}
+          )} */}
 
           {buttonLocation === BUTTON_LOCATIONS.RIGHT && <Box height="100%">{createActions()}</Box>}
         </Stack>
