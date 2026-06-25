@@ -49,10 +49,24 @@ export type ITerminalConfig = {
   env: string[];
 };
 
+export type TContentId =
+  | {
+      domainId: number;
+      providerId?: never;
+    }
+  | {
+      providerId: string;
+      domainId?: never;
+    };
+
+export const contentToId: (contentId?: TContentId) => string | undefined = (contentId) => {
+  return contentId?.domainId ? String(contentId?.domainId) : contentId?.providerId;
+};
+
 export type TLayoutTabConfig = {
   reactNode?: React.ReactNode;
 
-  domainId?: number;
+  contentId?: TContentId;
 
   openExternal?: boolean;
 

@@ -52,7 +52,7 @@ import {
 import { TResult, TRosInfo, TSystemInfo } from "@/types";
 import { TProviderLaunchParams } from "../models/ProviderLaunchConfiguration";
 import { LAYOUT_TABS, LAYOUT_TAB_SETS } from "../pages/NodeManager/layout";
-import { emitOpenComponent } from "../pages/NodeManager/layout/events";
+import { emitCloseComponent, emitOpenComponent } from "../pages/NodeManager/layout/events";
 import { LAUNCH_FILE_EXTENSIONS, getDefaultPortFromRos } from "./SettingsContext";
 
 // ─────────────────────────────────────────────
@@ -142,6 +142,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const [mapProviderRosNodes, setMapProviderRosNodes] = useState(new Map<string, RosNode[]>());
 
   const providerColors = useRef<Map<string, string>>(new Map());
+  const [dedicatedTabsFor, setDedicatedTabsFor] = useState<string>(settingsCtx.get("dedicatedTabsFor") as string);
 
   // ── Stable refs (avoids stale-closure bugs in callbacks / event handlers) ──
   const logCtxRef = useAlwaysCurrentRef(logCtx);
@@ -504,7 +505,8 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
       const provider = getProviderByHosts(prov.hostnames, prov.connection.port, prov) as Provider;
 
       if (provider.connection.connected()) {
-        provider.setConnectionState(ConnectionState.STATES.CONNECTED, "");
+        // needs updateProviderList to get to connected state
+        await provider.updateProviderList();
         return true;
       }
 
@@ -516,7 +518,8 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         try {
           provider.setConnectionState(ConnectionState.STATES.CONNECTING, "");
           await provider.getDaemonVersion();
-          provider.setConnectionState(ConnectionState.STATES.CONNECTED, "");
+          // needs updateProviderList to get to connected state
+          await provider.updateProviderList();
           return true;
         } catch (error: unknown) {
           logCtx.debug(
@@ -985,6 +988,45 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
     [logCtxRef, settingsCtxRef, isLocalHost]
   );
 
+  const switchDedicatedTabs = useCallback(
+    (tabsFor: string) => {
+      if (tabsFor === "HOSTS") {
+        // remove all domain tabs
+        for (const prov of providers) {
+          emitCloseComponent({ id: `${LAYOUT_TABS.DOMAIN}-${prov.connection.domainId}` });
+          // add connected provider as host tab
+          if (prov.connectionState === ConnectionState.STATES.CONNECTED) {
+            emitOpenComponent({
+              id: `${LAYOUT_TABS.DOMAIN}-${prov.id}`,
+              title: `${prov.name()}`,
+              component: LAYOUT_TABS.DOMAIN,
+              closable: false,
+              toNodeId: LAYOUT_TAB_SETS.CENTER, // panel or tab id where to place the new tab
+              config: { contentId: { providerId: prov.id } },
+            });
+          }
+        }
+      } else {
+        // remove all host tabs
+        for (const prov of providers) {
+          emitCloseComponent({ id: `${LAYOUT_TABS.DOMAIN}-${prov.id}` });
+          // add connected provider as domain tab
+          if (prov.connectionState === ConnectionState.STATES.CONNECTED) {
+            emitOpenComponent({
+              id: `${LAYOUT_TABS.DOMAIN}-${prov.connection.domainId}`,
+              title: `Domain ${prov.connection.domainId}`,
+              component: LAYOUT_TABS.DOMAIN,
+              closable: false,
+              toNodeId: LAYOUT_TAB_SETS.CENTER, // panel or tab id where to place the new tab
+              config: { contentId: { domainId: prov.connection.domainId } },
+            });
+          }
+        }
+      }
+    },
+    [providers]
+  );
+
   // ─────────────────────────────────────────────
   // Initialization
   // ─────────────────────────────────────────────
@@ -999,6 +1041,14 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   useEffect(() => {
     init();
   }, [init]);
+
+  useEffect(() => {
+    setDedicatedTabsFor(settingsCtx.get("dedicatedTabsFor") as string);
+  }, [settingsCtx.changed]);
+
+  useEffect(() => {
+    switchDedicatedTabs(dedicatedTabsFor);
+  }, [dedicatedTabsFor, switchDedicatedTabs]);
 
   // ─────────────────────────────────────────────
   // Event listeners
@@ -1099,14 +1149,25 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
           provider.triggeredByAutoConnect = false;
           if (provider.connection.domainId !== -1) {
             console.log(`ADD TAB: ${LAYOUT_TABS.DOMAIN}, id: ${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}`);
-            emitOpenComponent({
-              id: `${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}`,
-              title: `Domain ${provider.connection.domainId}`,
-              component: LAYOUT_TABS.DOMAIN,
-              closable: false,
-              toNodeId: LAYOUT_TAB_SETS.CENTER, // panel or tab id where to place the new tab
-              config: { domainId: provider.connection.domainId },
-            });
+            if (dedicatedTabsFor === "HOSTS") {
+              emitOpenComponent({
+                id: `${LAYOUT_TABS.DOMAIN}-${provider.id}`,
+                title: `${provider.name()}`,
+                component: LAYOUT_TABS.DOMAIN,
+                closable: false,
+                toNodeId: LAYOUT_TAB_SETS.CENTER, // panel or tab id where to place the new tab
+                config: { contentId: { providerId: provider.id } },
+              });
+            } else {
+              emitOpenComponent({
+                id: `${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}`,
+                title: `Domain ${provider.connection.domainId}`,
+                component: LAYOUT_TABS.DOMAIN,
+                closable: false,
+                toNodeId: LAYOUT_TAB_SETS.CENTER, // panel or tab id where to place the new tab
+                config: { contentId: { domainId: provider.connection.domainId } },
+              });
+            }
           }
           clearProviders();
           break;

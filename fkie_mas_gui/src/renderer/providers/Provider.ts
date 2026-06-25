@@ -327,8 +327,8 @@ export default class Provider implements IProvider {
     this.getDaemonVersion()
       .then(async (dv) => {
         if (this.isAvailable()) {
-          this.setConnectionState(ConnectionState.STATES.CONNECTED, "");
           this.daemonVersion = dv;
+          await this.updateProviderList();
           await this.updateSystemWarnings();
           await this.updateTimeDiff();
           await this.getProviderSystemInfo();
@@ -340,7 +340,6 @@ export default class Provider implements IProvider {
           await this.updateLaunchContent();
           await this.updateScreens();
           await this.updateTimeDiff();
-          await this.updateProviderList();
           await this.updateDiagnostics(null);
           await this.getLifecycle();
           await this.getComposable();

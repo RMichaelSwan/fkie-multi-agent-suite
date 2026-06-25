@@ -232,6 +232,13 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     options: ["ASK", "DISMISS", "RELOAD"],
     description: "",
   },
+  dedicatedTabsFor: {
+    label: "Use a dedicated tab for each domain or host",
+    type: "string",
+    default: "DOMAINS",
+    options: ["DOMAINS", "HOSTS"],
+    description: "",
+  },
   editorOpenLocation: {
     label: "Location to open editor tab",
     type: "string",

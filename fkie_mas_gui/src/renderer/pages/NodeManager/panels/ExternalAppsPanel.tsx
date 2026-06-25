@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { Provider } from "@/renderer/providers";
+import { contentToId, TContentId } from "../layout/LayoutTabConfig";
 
 type RowType = {
   id: string;
@@ -86,11 +87,11 @@ const applicationRows: RowType[] = [
 ];
 
 interface ExternalAppsProps {
-  domainId?: number;
+  contentId?: TContentId;
 }
 
 export default function ExternalAppsPanel(props: ExternalAppsProps): JSX.Element {
-  const { domainId } = props;
+  const { contentId } = props;
   const rosCtx = useRosContext();
 
   const [localProvider, setLocalProvider] = useState<Provider | undefined>();
@@ -98,12 +99,16 @@ export default function ExternalAppsPanel(props: ExternalAppsProps): JSX.Element
   useEffect(() => {
     const localProviders = rosCtx.getLocalProvider();
     for (const prov of localProviders) {
-      if (prov.isAvailable() && prov.connection.domainId === domainId && prov.rosState !== undefined) {
+      if (
+        prov.isAvailable() &&
+        prov.rosState !== undefined &&
+        (prov.connection.domainId === contentId?.domainId || prov.id === contentId?.providerId)
+      ) {
         setLocalProvider(prov);
         return;
       }
     }
-  }, [domainId, rosCtx.providers, rosCtx.getLocalProvider]);
+  }, [contentId, rosCtx.providers, rosCtx.getLocalProvider]);
 
   const runApp = useCallback(
     async (command: RowType) => {
@@ -161,7 +166,7 @@ export default function ExternalAppsPanel(props: ExternalAppsProps): JSX.Element
                     <TableCell component="th" scope="row">
                       <Button
                         disabled={!localProvider}
-                        key={`${row.application}-${domainId}`}
+                        key={`${row.application}-${contentToId(contentId)}`}
                         sx={{ justifyContent: "flex-start", textTransform: "none" }}
                         color="inherit"
                         onClick={() => {

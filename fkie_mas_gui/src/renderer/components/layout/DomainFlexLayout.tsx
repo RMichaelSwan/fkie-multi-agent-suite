@@ -16,6 +16,7 @@ import {
   TEventOpenComponent,
 } from "@/renderer/pages/NodeManager/layout/events";
 import { pAddTabStickyButton } from "@/renderer/pages/NodeManager/layout/helpers";
+import { contentToId, TContentId } from "@/renderer/pages/NodeManager/layout/LayoutTabConfig";
 
 /**
  * Minimal JSON node shape used for manipulating the FlexLayout JSON model.
@@ -35,13 +36,14 @@ type JsonNode = {
 /**
  * Options for the persistent FlexLayout hook.
  */
-export interface DomainFlexLayoutOptions {
+
+interface DomainFlexLayoutOptions {
   /** Storage key used to persist the serialized layout JSON (e.g. localStorage) */
   storageKey: string;
-  /** the domain ID for this layout */
-  domainId: number;
   /** ID of the tab where this layout is located. It is used to update the content after the tab is selected again. */
   insideTabId: string;
+
+  contentId: TContentId;
 }
 
 /**
@@ -73,7 +75,7 @@ export interface DomainFlexLayoutResult {
 
  */
 export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): DomainFlexLayoutResult {
-  const { storageKey, domainId } = options;
+  const { storageKey, contentId } = options;
 
   /**
    * Create a tab JSON node for a given id.
@@ -81,13 +83,13 @@ export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): D
 
    */
   const createTabForId = useCallback(
-    (domainId: number): JsonNode => ({
-      id: `${LAYOUT_TABS.NODES}-${domainId}`,
+    (contentId: TContentId): JsonNode => ({
+      id: `${LAYOUT_TABS.NODES}-${contentToId(contentId)}`,
       type: "tab",
       name: "Nodes",
       enableClose: false,
       component: LAYOUT_TABS.NODES,
-      config: { domainId: domainId },
+      config: { contentId: contentId },
     }),
     []
   );
@@ -97,17 +99,17 @@ export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): D
 
    */
   const createDefaultLayoutJson = useCallback(
-    (domainId?: number): FlexLayout.IJsonModel => {
-      console.log("DomainFlexLayout: createDefaultLayoutJson called with domainId", domainId);
+    (contentId?: TContentId): FlexLayout.IJsonModel => {
+      console.log("DomainFlexLayout: createDefaultLayoutJson called with domainId", contentId);
       const rowNode: FlexLayout.IJsonRowNode = {
         type: "row",
         weight: 100,
-        children: domainId // add a single tabset with Nodes-Panel for the given domainId if provided, otherwise no children
+        children: contentId // add a single tabset with Nodes-Panel for the given domainId if provided, otherwise no children
           ? [
               {
                 type: "tabset",
                 weight: 100,
-                children: [createTabForId(domainId)],
+                children: [createTabForId(contentId)],
               },
             ]
           : [],
@@ -129,10 +131,10 @@ export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): D
     [createTabForId]
   );
 
-  const defaultLayout = useMemo(() => createDefaultLayoutJson(domainId), [createDefaultLayoutJson, domainId]);
+  const defaultLayout = useMemo(() => createDefaultLayoutJson(contentId), [createDefaultLayoutJson, contentId]);
 
   const [layoutJson, setLayoutJson] = useLocalStorage<FlexLayout.IJsonModel>(
-    `${storageKey}-${domainId}`,
+    `${storageKey}-${contentToId(contentId)}`,
     defaultLayout,
     {
       version: 1,
@@ -179,19 +181,19 @@ export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): D
     // restore from storage or create default layout
     if (!initializedRef.current) {
       const baseJson: FlexLayout.IJsonModel | null = layoutJson;
-      const finalJson = baseJson || createDefaultLayoutJson(domainId);
+      const finalJson = baseJson || createDefaultLayoutJson(contentId);
       try {
         setModel(FlexLayout.Model.fromJson(finalJson));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         logCtx.warn("Failed to set domain flex layout, recreating layout", message, "load flex layout failed");
-        const fallbackJson = createDefaultLayoutJson(domainId);
+        const fallbackJson = createDefaultLayoutJson(contentId);
         setModel(FlexLayout.Model.fromJson(fallbackJson));
       }
       initializedRef.current = true;
       return;
     }
-  }, [domainId, createDefaultLayoutJson, logCtx.warn]);
+  }, [contentId, createDefaultLayoutJson, logCtx.warn]);
   // Note:
   // - We intentionally omit `layoutJson` from dependencies
   //   to avoid recreating the model on every storage update.
@@ -199,12 +201,15 @@ export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): D
 
   useEffect(() => {
     if (initializedRef.current) {
-      console.log("DomainFlexLayout: domainId changed, selecting tab", `${LAYOUT_TABS.NODES}-${domainId}`);
+      console.log(
+        "DomainFlexLayout: domainId changed, selecting tab",
+        `${LAYOUT_TABS.NODES}-${contentToId(contentId)}`
+      );
       // When the layout is initialized and the domainId changes, select nodes tab
-      const selectTabAction = FlexLayout.Actions.selectTab(`${LAYOUT_TABS.NODES}-${domainId}`);
+      const selectTabAction = FlexLayout.Actions.selectTab(`${LAYOUT_TABS.NODES}-${contentToId(contentId)}`);
       model?.doAction(selectTabAction);
     }
-  }, [model, domainId]);
+  }, [model, contentId]);
 
   return { model, setModel, handleModelChange };
 }
@@ -212,14 +217,14 @@ export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): D
 /**
  * Props for the generic DomainFlexLayout component.
  */
-export interface DomainFlexLayoutProps extends DomainFlexLayoutOptions {
+type DomainFlexLayoutProps = DomainFlexLayoutOptions & {
   /**
    * Factory that renders the content for each tab.
    * The hook ensures that `domainId` matches the value stored.
    */
-  factory: (tabNode: FlexLayout.TabNode, domainId: number) => JSX.Element;
+  factory: (tabNode: FlexLayout.TabNode, contentId: TContentId) => JSX.Element;
   onCloseTab: (id: string) => void;
-}
+};
 
 /**
  * Generic FlexLayout wrapper that:
@@ -227,30 +232,30 @@ export interface DomainFlexLayoutProps extends DomainFlexLayoutOptions {
  * - Exposes a typed `factory` for rendering tab content
  */
 export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | null {
-  const { domainId, storageKey, insideTabId, factory, onCloseTab } = props;
+  const { contentId, storageKey, insideTabId, factory, onCloseTab } = props;
 
   const rosCtx = useRosContext();
   const [forceUpdate, setForceUpdate] = useReducer((x) => x + 1, 0);
   const { model, handleModelChange } = useDomainFlexLayout({
     storageKey,
-    domainId,
+    contentId,
     insideTabId,
   });
 
   const closeThisTab = useCallback(() => {
-    console.log(`DomainFlexLayout: all provider for this domain ${domainId} removed. Close this tab!`);
-    onCloseTab(`${LAYOUT_TABS.DOMAIN}-${domainId}`);
-  }, [domainId, onCloseTab]);
+    console.log(`DomainFlexLayout: all provider for this domain ${contentId} removed. Close this tab!`);
+    onCloseTab(`${LAYOUT_TABS.DOMAIN}-${contentToId(contentId)}`);
+  }, [contentId, onCloseTab]);
 
   useEffect(() => {
     // if no provider is available for this domain, close this tab.
     for (const p of rosCtx.providers) {
-      if (p.connection.domainId === domainId) {
+      if (p.connection.domainId === contentId.domainId || p.id === contentId.providerId) {
         return;
       }
     }
     closeThisTab();
-  }, [domainId, rosCtx.providers, closeThisTab]);
+  }, [contentId, rosCtx.providers, closeThisTab]);
 
   /**
    * Wrapper around the user-provided factory.
@@ -265,9 +270,9 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
       //     ? (configUnknown as Record<string, unknown>)
       //     : ({} as Record<string, unknown>);
       // now you can read the node configuration and use it if needed
-      return factory(tabNode, domainId);
+      return factory(tabNode, contentId);
     },
-    [factory, domainId]
+    [factory, contentId]
   );
 
   function onRenderTabSet(
@@ -277,23 +282,24 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
     const children = node.getChildren();
 
     for (const child of children) {
-      if (model && child.getId() === `${LAYOUT_TABS.NODES}-${domainId}`) {
+      console.log(`RENDER: ${child.getId()}`);
+      if (model && child.getId() === `${LAYOUT_TABS.NODES}-${contentToId(contentId)}`) {
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
-          id: `${LAYOUT_TABS.TOPICS}-${domainId}`,
+          id: `${LAYOUT_TABS.TOPICS}-${contentToId(contentId)}`,
           title: "Topics",
           component: LAYOUT_TABS.TOPICS,
-          domainId: domainId,
+          contentId: contentId,
           setId: node.getId(),
           icon: <TopicIcon sx={{ fontSize: "inherit" }} />,
         });
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
-          id: `${LAYOUT_TABS.SERVICES}-${domainId}`,
+          id: `${LAYOUT_TABS.SERVICES}-${contentToId(contentId)}`,
           title: "Services",
-          domainId: domainId,
+          contentId: contentId,
           component: LAYOUT_TABS.SERVICES,
           setId: node.getId(),
           icon: <FeaturedPlayListIcon sx={{ fontSize: "inherit" }} />,
@@ -301,9 +307,9 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
-          id: `${LAYOUT_TABS.APPS}-${domainId}`,
+          id: `${LAYOUT_TABS.APPS}-${contentToId(contentId)}`,
           title: "ROS Apps",
-          domainId: domainId,
+          contentId: contentId,
           component: LAYOUT_TABS.APPS,
           setId: node.getId(),
           icon: <AppsIcon sx={{ fontSize: "inherit" }} />,
@@ -323,7 +329,12 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
   useCustomEventListener(
     EVENT_TOGGLE_COMPONENT,
     (data: TEventOpenComponent) => {
-      if (!model || data.config?.domainId === undefined || data.config?.domainId !== domainId) {
+      if (
+        !model ||
+        data.config?.contentId === undefined ||
+        data.config?.contentId.domainId !== contentId.domainId ||
+        data.config?.contentId.providerId !== contentId.providerId
+      ) {
         return;
       }
       const tab = model.getNodeById(data.id);
@@ -333,7 +344,7 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
         return;
       }
       if (createTab) {
-        console.log("DomainFlexLayout: creating new tab", data.id, "for domainId", domainId);
+        console.log("DomainFlexLayout: creating new tab", data.id, "for domainId", contentId);
         const tab: FlexLayout.ITabAttributes = {
           id: data.id,
           type: "tab",
@@ -349,7 +360,7 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
         model.doAction(FlexLayout.Actions.deleteTab(data.id));
       }
     },
-    [model, domainId]
+    [model, contentId]
   );
 
   useEffect(() => {

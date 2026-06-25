@@ -1,6 +1,9 @@
 import { IconButton, Tooltip } from "@mui/material";
 import { Model } from "flexlayout-react";
 import { emitToggleComponent } from "./events";
+import { TContentId } from "./LayoutTabConfig";
+
+
 
 export function pAddTabStickyButton(props: {
   model: Model;
@@ -11,7 +14,7 @@ export function pAddTabStickyButton(props: {
   reactNode?: React.ReactNode;
   setId: string;
   icon: React.ReactNode;
-  domainId?: number;
+  contentId?: TContentId;
   tooltipLoc?:
     | "right"
     | "top"
@@ -45,7 +48,7 @@ export function pAddTabStickyButton(props: {
                 closable: true,
                 component: props.component,
                 toNodeId: props.setId,
-                config: { reactNode: props.reactNode, domainId: props.domainId },
+                config: { reactNode: props.reactNode, contentId: props.contentId },
               });
             }}
           >

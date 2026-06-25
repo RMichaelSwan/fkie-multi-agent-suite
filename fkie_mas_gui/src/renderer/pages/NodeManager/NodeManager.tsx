@@ -1,8 +1,9 @@
 import BorderColorIcon from "@mui/icons-material/BorderColor";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
 import DesktopWindowsOutlinedIcon from "@mui/icons-material/DesktopWindowsOutlined";
+import DomainIcon from "@mui/icons-material/Domain";
 import DvrIcon from "@mui/icons-material/Dvr";
-import FeaturedPlayListIcon from "@mui/icons-material/FeaturedPlayList";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import LaunchIcon from "@mui/icons-material/Launch";
 import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
@@ -10,7 +11,6 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import SettingsInputCompositeOutlinedIcon from "@mui/icons-material/SettingsInputCompositeOutlined";
 import SyncAltOutlinedIcon from "@mui/icons-material/SyncAltOutlined";
 import TerminalIcon from "@mui/icons-material/Terminal";
-import TopicIcon from "@mui/icons-material/Topic";
 import TuneIcon from "@mui/icons-material/Tune";
 import WysiwygIcon from "@mui/icons-material/Wysiwyg";
 import {
@@ -32,17 +32,14 @@ import {
   Actions,
   BorderNode,
   DockLocation,
-  IBorderAttributes,
   IJsonBorderNode,
   IJsonModel,
   IJsonRowNode,
-  IJsonTabNode,
   IJsonTabSetNode,
   ITabAttributes,
   ITabRenderValues,
   ITabSetRenderValues,
   Layout,
-  Node as LayoutNode,
   Model,
   TabNode,
   TabSetNode,
@@ -83,7 +80,7 @@ import {
   TEventInfoState,
   TEventOpenComponent,
 } from "./layout/events";
-import { IExtTerminalConfig } from "./layout/LayoutTabConfig";
+import { contentToId, IExtTerminalConfig, TContentId } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
 import AboutPanel from "./panels/AboutPanel";
 import DetailsPanel from "./panels/DetailsPanel";
@@ -184,7 +181,7 @@ export default function NodeManager(): JSX.Element {
 
   const hasTab = useCallback((layout: IJsonRowNode, editorId: string): boolean => {
     if (!layout.children) return false;
-    const found = layout.children.filter((item: any) => {
+    const found = layout.children.filter((item: IJsonRowNode) => {
       if (item.type === "tab" && item.id === editorId) {
         return true;
       }
@@ -247,11 +244,7 @@ export default function NodeManager(): JSX.Element {
   }, [layoutJson]);
 
   useEffect(() => {
-    return;
-    const needsReset =
-      settingsCtx.get("resetLayout") ||
-      !hasTab(layoutJson.layout, LAYOUT_TABS.NODES) ||
-      !hasTab(layoutJson.layout, LAYOUT_TABS.DETAILS);
+    const needsReset = settingsCtx.get("resetLayout") || !hasTab(layoutJson.layout, LAYOUT_TABS.DETAILS);
 
     if (needsReset) {
       setLayoutJson(DEFAULT_LAYOUT);
@@ -378,9 +371,7 @@ export default function NodeManager(): JSX.Element {
         console.log(`  found tab open: ${data.id}, toNodeId: ${data.toNodeId}`);
         if (data.toNodeId === LAYOUT_TAB_SETS.CENTER && data.id.startsWith(LAYOUT_TABS.DOMAIN)) {
           // hide info tab if domain tab was added
-          console.log(`  hide info tab if domain tab was added`);
           deleteTab(LAYOUT_TABS.NO_RUNNING_DAEMONS);
-          // emitCloseComponent({ id: LAYOUT_TABS.NO_RUNNING_DAEMONS });
         }
       } else {
         // create a new tab
@@ -419,7 +410,7 @@ export default function NodeManager(): JSX.Element {
   useCustomEventListener(
     EVENT_TOGGLE_COMPONENT,
     (data: TEventOpenComponent) => {
-      if (data.config?.domainId !== undefined) {
+      if (data.config?.contentId !== undefined) {
         return;
       }
       const tab = model.getNodeById(data.id);
@@ -531,7 +522,7 @@ export default function NodeManager(): JSX.Element {
           console.log(`  found: ${tab?.id}`);
           return;
         }
-        const panelId = getPanelId(tab.id || "", tab.toNodeId, tab.config?.domainId);
+        const panelId = getPanelId(tab.id || "", tab.toNodeId);
         console.log(`add TAB: ${tab.id} to PANEL ID: ${panelId.id}`);
         const action = Actions.addTab(tab, panelId.id, DockLocation.CENTER, -1);
         model.doAction(action);
@@ -550,19 +541,16 @@ export default function NodeManager(): JSX.Element {
             model.doAction(Actions.selectTab(editorId));
           }
         }
-        console.log(`  added: ${tab?.id} to PANEL ID: ${panelId.id}`);
         if (tab.toNodeId === LAYOUT_TAB_SETS.CENTER) {
           // hide info tab if domain tab was added
-          console.log(`  hide info tab after domain tab was added`);
           deleteTab(LAYOUT_TABS.NO_RUNNING_DAEMONS);
-          // emitCloseComponent({ id: LAYOUT_TABS.NO_RUNNING_DAEMONS });
         }
       }
       setAddToLayout(newAddToLayout);
     }
   }, [addToLayout, model, deleteTab]);
 
-  function factory(node: TabNode, domainId?: number): JSX.Element {
+  function factory(node: TabNode, contentId?: TContentId): JSX.Element {
     const component = node.getComponent();
     const config = node.getConfig();
     console.log(`node.getId(): ${node.getId()}`);
@@ -574,11 +562,12 @@ export default function NodeManager(): JSX.Element {
     // if (layoutComponentsRef.current[node.getId()]) {
     //   return layoutComponentsRef.current[node.getId()] as React.ReactElement;
     // }
+    const flexId = contentId?.domainId || contentId?.providerId;
 
     console.log(`FACTORY: ${component}`);
     switch (component) {
       case LAYOUT_TABS.NODES:
-        return <HostTreeViewPanel key={`nodes-panel-${domainId}`} />;
+        return <HostTreeViewPanel key={`nodes-panel-${flexId}`} />;
       case LAYOUT_TABS.HOSTS:
         return <ProviderPanel key="hosts-panel" />;
       case LAYOUT_TABS.PACKAGES:
@@ -588,9 +577,9 @@ export default function NodeManager(): JSX.Element {
       case LAYOUT_TABS.LOGGING:
         return <LoggingPanel key="logging-panel" />;
       case LAYOUT_TABS.TOPICS:
-        return <TopicsPanel key={`topics-panel-${domainId}`} />;
+        return <TopicsPanel key={`topics-panel-${flexId}`} />;
       case LAYOUT_TABS.SERVICES:
-        return <ServicesPanel key={`services-panel-${domainId}`} />;
+        return <ServicesPanel key={`services-panel-${flexId}`} />;
       case LAYOUT_TABS.SETTINGS:
         return <SettingsPanel key="settings-panel" />;
       case LAYOUT_TABS.ABOUT:
@@ -598,22 +587,22 @@ export default function NodeManager(): JSX.Element {
       case LAYOUT_TABS.PARAMETER:
         return <ParameterPanel key="parameter-panel" nodes={[]} providers={[]} />;
       case LAYOUT_TABS.APPS:
-        return <ExternalAppsPanel key={`apps-panel-${domainId}`} domainId={domainId}/>;
+        return <ExternalAppsPanel key={`apps-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.NO_RUNNING_DAEMONS:
         return <InfoNoRunningDaemons key="info-no-running-daemons" />;
       case LAYOUT_TABS.DOMAIN:
-        if (config?.domainId === undefined) {
+        if (config?.contentId === undefined) {
           return <InfoNoRunningDaemons key="info-no-running-daemons" />;
         }
         return (
           <DomainFlexLayout
-            key={`domain-flex-layout-${config.domainId}`}
+            key={`domain-flex-layout-${contentToId(config.contentId)}`}
             storageKey="layout-domain"
-            domainId={config.domainId}
+            contentId={config.contentId}
             insideTabId={node.getId()}
-            factory={(node, domainId) => {
-              console.log(`DFL ${node.getId()}, domainId: ${domainId}`);
-              return factory(node, domainId);
+            factory={(node, contentId) => {
+              console.log(`DFL ${node.getId()}, contentId: ${contentToId(contentId)}`);
+              return factory(node, contentId);
             }}
             onCloseTab={(id: string) => deleteTab(id)}
           />
@@ -826,7 +815,45 @@ export default function NodeManager(): JSX.Element {
   function onRenderTabSet(node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues): void {
     console.log(`TAB SET: ${node.getId()}`);
     if (node.getId() === LAYOUT_TAB_SETS.CENTER) {
-      // return ...
+      const dedicatedTabsFor = settingsCtx.get("dedicatedTabsFor") as string;
+      renderValues.leading =
+        dedicatedTabsFor === "HOSTS" ? (
+          <Tooltip
+            key="tooltip-log"
+            title="Use a dedicated tab for each host. Click to switch to domains."
+            disableInteractive
+          >
+            <IconButton
+              sx={{
+                padding: "0em",
+                color: settingsCtx.get("useDarkMode") ? "#fff" : "rgba(0, 0, 0, 0.54)",
+              }}
+              onClick={() => {
+                settingsCtx.set("dedicatedTabsFor", "DOMAINS");
+              }}
+            >
+              <DesktopWindowsIcon sx={{ fontSize: "inherit" }} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Tooltip
+            key="tooltip-log"
+            title="Use a dedicated tab for each domain. Click to switch to hosts."
+            disableInteractive
+          >
+            <IconButton
+              sx={{
+                padding: "0em",
+                color: settingsCtx.get("useDarkMode") ? "#fff" : "rgba(0, 0, 0, 0.54)",
+              }}
+              onClick={() => {
+                settingsCtx.set("dedicatedTabsFor", "HOSTS");
+              }}
+            >
+              <DomainIcon sx={{ fontSize: "inherit" }} />
+            </IconButton>
+          </Tooltip>
+        );
     }
 
     if (node.getId() === LAYOUT_TAB_SETS.BORDER_BOTTOM) {
