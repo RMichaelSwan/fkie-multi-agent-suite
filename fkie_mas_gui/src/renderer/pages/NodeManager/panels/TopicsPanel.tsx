@@ -9,7 +9,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 import { Virtuoso } from "react-virtuoso";
 
-import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import TopicGroupTreeItem from "@/renderer/components/TopicTreeView/TopicGroupTreeItem";
 import TopicTreeItem from "@/renderer/components/TopicTreeView/TopicTreeItem";
 import LongPressIconButton from "@/renderer/components/UI/LongPressIconButton";
@@ -684,201 +683,200 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
    * - Multi-domain: DomainFlexLayout with one Virtuoso per domain.
    */
   const treeView = useMemo(
-    () =>
-      domainIds.length <= 1 ? (
-        <Virtuoso
-          style={{ height: "100%" }}
-          totalCount={flatRows.length}
-          itemContent={(index) => {
-            const row = flatRows[index];
+    () => (
+      <Virtuoso
+        style={{ height: "100%" }}
+        totalCount={flatRows.length}
+        itemContent={(index) => {
+          const row = flatRows[index];
 
-            if (row.type === "group") {
-              const node = row.treeItem;
-              const isSelected = selected?.id === row.id && selected?.domainId === singleDomainId;
-
-              return (
-                <TopicGroupTreeItem
-                  key={row.id}
-                  itemId={row.id}
-                  rootPath={row.rootPath}
-                  groupName={node.groupName}
-                  countChildren={node.count}
-                  hasIncompatibleQos={node.hasIncompatibleQos}
-                  depth={row.depth}
-                  expanded={expandedItems.includes(row.id)}
-                  selected={isSelected}
-                  onToggle={() => toggleExpanded(row.id)}
-                  onSelect={() => handleSelect(row.id, singleDomainId)}
-                />
-              );
-            }
-
-            const topicInfo = row.treeItem.topicInfo;
-            if (!topicInfo) return null;
-            const id = row.id;
-            const isSelected = selected?.id === id && selected?.domainId === singleDomainId;
+          if (row.type === "group") {
+            const node = row.treeItem;
+            const isSelected = selected?.id === row.id && selected?.domainId === singleDomainId;
 
             return (
-              <TopicTreeItem
-                key={id}
-                itemId={id}
+              <TopicGroupTreeItem
+                key={row.id}
+                itemId={row.id}
                 rootPath={row.rootPath}
-                topicInfo={topicInfo}
-                selectedItem={selected?.id ?? ""} // light highlight by id
-                selected={isSelected} // only strong selection in this domain
+                groupName={node.groupName}
+                countChildren={node.count}
+                hasIncompatibleQos={node.hasIncompatibleQos}
                 depth={row.depth}
-                onSelect={() => handleSelect(id, singleDomainId)}
+                expanded={expandedItems.includes(row.id)}
+                selected={isSelected}
+                onToggle={() => toggleExpanded(row.id)}
+                onSelect={() => handleSelect(row.id, singleDomainId)}
               />
             );
-          }}
-        />
-      ) : (
-        <DomainFlexLayout
-          key="domain-topic-layout"
-          storageKey="layoutTopicDomains"
-          ids={domainIds}
-          componentName="domainTopicTree"
-          configKey="domainId"
-          insideTabId={LAYOUT_TABS.TOPICS}
-          factory={(_, domainId) => {
-            // topics which appear in this domain (based on publishers/subscribers)
-            const topicsInDomain = filteredTopics.filter((topic) => {
-              const providerIds = new Set<string>();
+          }
 
-              for (let i = 0; i < topic.publishers.length; i += 1) {
-                providerIds.add(topic.publishers[i].providerId);
-              }
-              for (let i = 0; i < topic.subscribers.length; i += 1) {
-                providerIds.add(topic.subscribers[i].providerId);
-              }
+          const topicInfo = row.treeItem.topicInfo;
+          if (!topicInfo) return null;
+          const id = row.id;
+          const isSelected = selected?.id === id && selected?.domainId === singleDomainId;
 
-              const arr = Array.from(providerIds.values());
-              for (let i = 0; i < arr.length; i += 1) {
-                const pid = arr[i];
-                if (providerDomainMap.get(pid) === domainId) {
-                  return true;
-                }
-              }
-              return false;
-            });
+          return (
+            <TopicTreeItem
+              key={id}
+              itemId={id}
+              rootPath={row.rootPath}
+              topicInfo={topicInfo}
+              selectedItem={selected?.id ?? ""} // light highlight by id
+              selected={isSelected} // only strong selection in this domain
+              depth={row.depth}
+              onSelect={() => handleSelect(id, singleDomainId)}
+            />
+          );
+        }}
+      />
+      // ) : (
+      //   <DomainFlexLayout
+      //     key="domain-topic-layout"
+      //     storageKey="layoutTopicDomains"
+      //     ids={domainIds}
+      //     componentName="domainTopicTree"
+      //     configKey="domainId"
+      //     insideTabId={LAYOUT_TABS.TOPICS}
+      //     factory={(_, domainId) => {
+      //       // topics which appear in this domain (based on publishers/subscribers)
+      //       const topicsInDomain = filteredTopics.filter((topic) => {
+      //         const providerIds = new Set<string>();
 
-            // IMPORTANT: no flattening here, we do it only in walkDomain
-            const treeResult = buildTree(topicsInDomain, false);
-            const roots = treeResult.topics;
+      //         for (let i = 0; i < topic.publishers.length; i += 1) {
+      //           providerIds.add(topic.publishers[i].providerId);
+      //         }
+      //         for (let i = 0; i < topic.subscribers.length; i += 1) {
+      //           providerIds.add(topic.subscribers[i].providerId);
+      //         }
 
-            const expandedSet = new Set(expandedItems);
-            const rows: FlatRow[] = [];
-            const avoidSingle = searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? settings.avoidGroupWithOneItem : false;
+      //         const arr = Array.from(providerIds.values());
+      //         for (let i = 0; i < arr.length; i += 1) {
+      //           const pid = arr[i];
+      //           if (providerDomainMap.get(pid) === domainId) {
+      //             return true;
+      //           }
+      //         }
+      //         return false;
+      //       });
 
-            const walkDomain = (node: TTreeItem, depth: number, rootPath: string) => {
-              // leaf topic
-              if (node.topicInfo) {
-                rows.push({
-                  id: genKey([node.topicInfo.name, node.topicInfo.msgType]),
-                  type: "topic",
-                  depth,
-                  treeItem: node,
-                  rootPath,
-                });
-                return;
-              }
+      //       // IMPORTANT: no flattening here, we do it only in walkDomain
+      //       const treeResult = buildTree(topicsInDomain, false);
+      //       const roots = treeResult.topics;
 
-              // optional single-child group flattening for display only
-              if (avoidSingle && node.topics.length === 1) {
-                const nextRoot = rootPath ? `${rootPath}/${node.groupName}` : node.groupName;
-                walkDomain(node.topics[0], depth, nextRoot);
-                return;
-              }
+      //       const expandedSet = new Set(expandedItems);
+      //       const rows: FlatRow[] = [];
+      //       const avoidSingle = searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? settings.avoidGroupWithOneItem : false;
 
-              // group entry
-              rows.push({
-                id: node.groupKey,
-                type: "group",
-                depth,
-                treeItem: node,
-                rootPath,
-              });
+      //       const walkDomain = (node: TTreeItem, depth: number, rootPath: string) => {
+      //         // leaf topic
+      //         if (node.topicInfo) {
+      //           rows.push({
+      //             id: genKey([node.topicInfo.name, node.topicInfo.msgType]),
+      //             type: "topic",
+      //             depth,
+      //             treeItem: node,
+      //             rootPath,
+      //           });
+      //           return;
+      //         }
 
-              if (expandedSet.has(node.groupKey)) {
-                const sortedChildren = [...node.topics].sort((a, b) => {
-                  const aIsGroup = !a.topicInfo;
-                  const bIsGroup = !b.topicInfo;
-                  if (aIsGroup && !bIsGroup) return -1;
-                  if (!aIsGroup && bIsGroup) return 1;
-                  return a.groupName.localeCompare(b.groupName);
-                });
+      //         // optional single-child group flattening for display only
+      //         if (avoidSingle && node.topics.length === 1) {
+      //           const nextRoot = rootPath ? `${rootPath}/${node.groupName}` : node.groupName;
+      //           walkDomain(node.topics[0], depth, nextRoot);
+      //           return;
+      //         }
 
-                for (let i = 0; i < sortedChildren.length; i += 1) {
-                  const child = sortedChildren[i];
-                  walkDomain(child, depth + 1, "");
-                }
-              }
-            };
+      //         // group entry
+      //         rows.push({
+      //           id: node.groupKey,
+      //           type: "group",
+      //           depth,
+      //           treeItem: node,
+      //           rootPath,
+      //         });
 
-            const sortedRoots = [...roots].sort((a, b) => {
-              const aIsGroup = !a.topicInfo;
-              const bIsGroup = !b.topicInfo;
-              if (aIsGroup && !bIsGroup) return -1;
-              if (!aIsGroup && bIsGroup) return 1;
-              return a.groupName.localeCompare(b.groupName);
-            });
+      //         if (expandedSet.has(node.groupKey)) {
+      //           const sortedChildren = [...node.topics].sort((a, b) => {
+      //             const aIsGroup = !a.topicInfo;
+      //             const bIsGroup = !b.topicInfo;
+      //             if (aIsGroup && !bIsGroup) return -1;
+      //             if (!aIsGroup && bIsGroup) return 1;
+      //             return a.groupName.localeCompare(b.groupName);
+      //           });
 
-            for (let i = 0; i < sortedRoots.length; i += 1) {
-              walkDomain(sortedRoots[i], 0, "");
-            }
+      //           for (let i = 0; i < sortedChildren.length; i += 1) {
+      //             const child = sortedChildren[i];
+      //             walkDomain(child, depth + 1, "");
+      //           }
+      //         }
+      //       };
 
-            return (
-              <Virtuoso
-                key={`topics-panel-${domainId}`}
-                style={{ height: "100%" }}
-                totalCount={rows.length}
-                itemContent={(index) => {
-                  const row = rows[index];
+      //       const sortedRoots = [...roots].sort((a, b) => {
+      //         const aIsGroup = !a.topicInfo;
+      //         const bIsGroup = !b.topicInfo;
+      //         if (aIsGroup && !bIsGroup) return -1;
+      //         if (!aIsGroup && bIsGroup) return 1;
+      //         return a.groupName.localeCompare(b.groupName);
+      //       });
 
-                  if (row.type === "group") {
-                    const node = row.treeItem;
-                    const isSelected = selected?.id === row.id && selected?.domainId === domainId;
+      //       for (let i = 0; i < sortedRoots.length; i += 1) {
+      //         walkDomain(sortedRoots[i], 0, "");
+      //       }
 
-                    return (
-                      <TopicGroupTreeItem
-                        key={row.id}
-                        itemId={row.id}
-                        rootPath={row.rootPath}
-                        groupName={node.groupName}
-                        countChildren={node.count}
-                        hasIncompatibleQos={node.hasIncompatibleQos}
-                        depth={row.depth}
-                        expanded={expandedItems.includes(row.id)}
-                        selected={isSelected}
-                        onToggle={() => toggleExpanded(row.id)}
-                        onSelect={() => handleSelect(row.id, domainId)}
-                      />
-                    );
-                  }
+      //       return (
+      //         <Virtuoso
+      //           key={`topics-panel-${domainId}`}
+      //           style={{ height: "100%" }}
+      //           totalCount={rows.length}
+      //           itemContent={(index) => {
+      //             const row = rows[index];
 
-                  const topicInfo = row.treeItem.topicInfo;
-                  if (!topicInfo) return null;
-                  const id = row.id;
-                  const isSelected = selected?.id === id && selected?.domainId === domainId;
+      //             if (row.type === "group") {
+      //               const node = row.treeItem;
+      //               const isSelected = selected?.id === row.id && selected?.domainId === domainId;
 
-                  return (
-                    <TopicTreeItem
-                      key={id}
-                      itemId={id}
-                      rootPath={row.rootPath}
-                      topicInfo={topicInfo}
-                      selectedItem={selected?.id ?? ""} // light highlight for same id in other domains
-                      selected={isSelected} // strong selection only in this domain
-                      depth={row.depth}
-                      onSelect={() => handleSelect(id, domainId)}
-                    />
-                  );
-                }}
-              />
-            );
-          }}
-        />
-      ),
+      //               return (
+      //                 <TopicGroupTreeItem
+      //                   key={row.id}
+      //                   itemId={row.id}
+      //                   rootPath={row.rootPath}
+      //                   groupName={node.groupName}
+      //                   countChildren={node.count}
+      //                   hasIncompatibleQos={node.hasIncompatibleQos}
+      //                   depth={row.depth}
+      //                   expanded={expandedItems.includes(row.id)}
+      //                   selected={isSelected}
+      //                   onToggle={() => toggleExpanded(row.id)}
+      //                   onSelect={() => handleSelect(row.id, domainId)}
+      //                 />
+      //               );
+      //             }
+
+      //             const topicInfo = row.treeItem.topicInfo;
+      //             if (!topicInfo) return null;
+      //             const id = row.id;
+      //             const isSelected = selected?.id === id && selected?.domainId === domainId;
+
+      //             return (
+      //               <TopicTreeItem
+      //                 key={id}
+      //                 itemId={id}
+      //                 rootPath={row.rootPath}
+      //                 topicInfo={topicInfo}
+      //                 selectedItem={selected?.id ?? ""} // light highlight for same id in other domains
+      //                 selected={isSelected} // strong selection only in this domain
+      //                 depth={row.depth}
+      //                 onSelect={() => handleSelect(id, domainId)}
+      //               />
+      //             );
+      //           }}
+      //         />
+      //       );
+      //     }}
+      // />
+    ),
     [
       domainIds,
       flatRows,

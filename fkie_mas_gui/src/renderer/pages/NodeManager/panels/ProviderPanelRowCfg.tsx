@@ -113,7 +113,8 @@ export default function ProviderPanelRowCfg(props: ProviderPanelRowCfgProps): JS
                 title={
                   <div>
                     <Typography fontWeight="bold" fontSize="inherit">
-                      Start provider if the provider is not running yet. If the provider is already running, it will be connected to.
+                      Starts mas daemon nodes if they are not running yet. If they are already running, a connection
+                      will be established with them.
                     </Typography>
                     <Stack direction="row" spacing={"0.2em"}>
                       <Typography fontWeight="bold" fontSize="inherit">

@@ -274,7 +274,7 @@ export default function ProviderPanel(): JSX.Element {
         title: title || `${config.params.host} start configuration`,
         closable: true,
         component: LAYOUT_TABS.PROVIDER_LAUNCH_CONTROL,
-        toNodeId: LAYOUT_TAB_SETS.DOMAINS,
+        toNodeId: LAYOUT_TAB_SETS.CENTER,
         config: {
           reactNode: (
             <ProviderLaunchConfigPanel

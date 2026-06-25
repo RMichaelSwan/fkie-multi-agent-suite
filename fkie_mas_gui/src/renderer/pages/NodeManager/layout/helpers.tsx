@@ -7,9 +7,11 @@ export function pAddTabStickyButton(props: {
   container: React.ReactNode[];
   id: string;
   title: string;
-  reactNode: React.ReactNode;
+  component: string;
+  reactNode?: React.ReactNode;
   setId: string;
   icon: React.ReactNode;
+  domainId?: number;
   tooltipLoc?:
     | "right"
     | "top"
@@ -41,9 +43,9 @@ export function pAddTabStickyButton(props: {
                 id: props.id,
                 title: props.title,
                 closable: true,
-                component: props.id,
+                component: props.component,
                 toNodeId: props.setId,
-                config: { reactNode: props.reactNode },
+                config: { reactNode: props.reactNode, domainId: props.domainId },
               });
             }}
           >

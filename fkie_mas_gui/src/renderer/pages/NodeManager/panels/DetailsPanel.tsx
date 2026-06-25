@@ -887,7 +887,7 @@ export default function DetailsPanel(): JSX.Element {
 
       {!nodeShow && (
         <Alert severity="info" style={{ minWidth: 0 }}>
-          <AlertTitle>Please select a node or provider</AlertTitle>
+          <AlertTitle>Please select a node or host</AlertTitle>
         </Alert>
       )}
     </Box>

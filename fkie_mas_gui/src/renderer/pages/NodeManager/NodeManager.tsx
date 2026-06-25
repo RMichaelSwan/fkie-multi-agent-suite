@@ -32,9 +32,11 @@ import {
   Actions,
   BorderNode,
   DockLocation,
+  IBorderAttributes,
   IJsonBorderNode,
   IJsonModel,
   IJsonRowNode,
+  IJsonTabNode,
   IJsonTabSetNode,
   ITabAttributes,
   ITabRenderValues,
@@ -91,6 +93,8 @@ import LoggingPanel from "./panels/LoggingPanel";
 import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
 import { pAddTabStickyButton } from "./layout/helpers";
+import { LAYOUT_DOMAIN_TAB_SET, LAYOUT_NO_RUNNING_DAEMONS } from "./layout/LayoutJson";
+import ExternalAppsPanel from "./panels/ExternalAppsPanel";
 import InfoNoRunningDaemons from "./panels/InfoNoRunningDaemons";
 import PackageExplorerPanel from "./panels/PackageExplorerPanel";
 import ParameterPanel from "./panels/ParameterPanel";
@@ -118,7 +122,7 @@ export default function NodeManager(): JSX.Element {
   const navCtx = useNavigationContext();
   const settingsCtx = useSettingsContext();
 
-  const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 1 });
+  const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 2 });
   const [model, setModel] = useState<Model>(() => Model.fromJson(layoutJson));
   const layoutRef = useRef<Layout | null>(null);
 
@@ -278,8 +282,8 @@ export default function NodeManager(): JSX.Element {
 
       // handle tabs in bottom border
       const nodeBId = model.getNodeById(editorId);
+      if (!nodeBId) return;
       if (
-        nodeBId &&
         nodeBId.getParent()?.getType() === "border" &&
         (nodeBId.getParent() as BorderNode)?.getLocation().getName() === DockLocation.BOTTOM.getName()
       ) {
@@ -290,21 +294,29 @@ export default function NodeManager(): JSX.Element {
         if (shouldSelectNewTab) {
           model.doAction(Actions.selectTab(editorId));
         }
-      } else {
-        // select "Nodes" tab if it is in the same tabset as the closed tab
-        const tabNode = model.getNodeById(editorId);
-        if (tabNode) {
-          for (const tab of tabNode.getParent()?.getChildren() || []) {
-            if (tab.getId() === LAYOUT_TABS.NODES) {
-              model.doAction(Actions.selectTab(tab.getId()));
-            }
-          }
+        return;
+      }
+      const parentNode = nodeBId.getParent();
+      if (parentNode) {
+        if (
+          parentNode.getId() === LAYOUT_TAB_SETS.CENTER &&
+          parentNode.getChildren().length === 1 &&
+          parentNode.getChildren()[0].getId() !== LAYOUT_TABS.NO_RUNNING_DAEMONS
+        ) {
+          // if closing last domain tab, select info tab first to hide border
+          model.doAction(Actions.addTab(LAYOUT_NO_RUNNING_DAEMONS, LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0));
+        }
+      }
+      // select "Nodes" tab if it is in the same tabset as the closed tab
+      for (const tab of nodeBId.getParent()?.getChildren() || []) {
+        if (tab.getId() === LAYOUT_TABS.NODES) {
+          model.doAction(Actions.selectTab(tab.getId()));
         }
       }
 
       model.doAction(Actions.deleteTab(editorId));
     },
-    [model, monacoCtx, setDirtyTabs]
+    [model, monacoCtx]
   );
 
   // // close all tabs with panelGroup === sidebar
@@ -359,9 +371,16 @@ export default function NodeManager(): JSX.Element {
           } else {
             model.doAction(Actions.selectTab(data.id));
           }
-        } else {
+        } else if (!node.getId().startsWith(`${LAYOUT_TABS.DOMAIN}-`)) {
           // normal tab: just select it
           model.doAction(Actions.selectTab(data.id));
+        }
+        console.log(`  found tab open: ${data.id}, toNodeId: ${data.toNodeId}`);
+        if (data.toNodeId === LAYOUT_TAB_SETS.CENTER && data.id.startsWith(LAYOUT_TABS.DOMAIN)) {
+          // hide info tab if domain tab was added
+          console.log(`  hide info tab if domain tab was added`);
+          deleteTab(LAYOUT_TABS.NO_RUNNING_DAEMONS);
+          // emitCloseComponent({ id: LAYOUT_TABS.NO_RUNNING_DAEMONS });
         }
       } else {
         // create a new tab
@@ -382,10 +401,6 @@ export default function NodeManager(): JSX.Element {
         }
         // store tab in state; will be added in a later effect
         setAddToLayout((prev) => [tab, ...prev]);
-        if (data.component === LAYOUT_TABS.DOMAIN) {
-          // hide info tab if domain tab was added
-          emitCloseComponent({ id: LAYOUT_TABS.NO_RUNNING_DAEMONS });
-        }
       }
     },
     [layoutComponentsRef, model, enablePopout]
@@ -395,6 +410,7 @@ export default function NodeManager(): JSX.Element {
   useCustomEventListener(
     EVENT_CLOSE_COMPONENT,
     (data: TEventId) => {
+      console.log(`EVENT_CLOSE_COMPONENT: ${data.id}`);
       deleteTab(data.id);
     },
     [deleteTab]
@@ -403,6 +419,9 @@ export default function NodeManager(): JSX.Element {
   useCustomEventListener(
     EVENT_TOGGLE_COMPONENT,
     (data: TEventOpenComponent) => {
+      if (data.config?.domainId !== undefined) {
+        return;
+      }
       const tab = model.getNodeById(data.id);
       const createTab = tab === undefined;
       if (tab && !(tab as TabNode)?.isVisible()) {
@@ -451,7 +470,7 @@ export default function NodeManager(): JSX.Element {
     []
   );
 
-  function getPanelId(id: string, toNodeId: string, domainId?: number): TPanelId {
+  function getPanelId(id: string, toNodeId: string): TPanelId {
     const result: TPanelId = {
       id: toNodeId,
       isBorder: false,
@@ -461,9 +480,6 @@ export default function NodeManager(): JSX.Element {
     switch (toNodeId) {
       case LAYOUT_TAB_SETS.CENTER:
         result.isBorder = false;
-        if (domainId !== undefined) {
-          result.id = `${LAYOUT_TABS.DOMAIN}-${domainId}`;
-        }
         break;
       case LAYOUT_TAB_SETS.BORDER_TOP:
         result.isBorder = true;
@@ -491,7 +507,7 @@ export default function NodeManager(): JSX.Element {
           ?.getId() || id;
     } else {
       const nodeBId = model.getNodeById(toNodeId);
-      if (toNodeId === LAYOUT_TAB_SETS.DOMAINS && !nodeBId) {
+      if (toNodeId === LAYOUT_TAB_SETS.CENTER && !nodeBId) {
         // no center panel group found, reset layout
         setLayoutJson(DEFAULT_LAYOUT);
       }
@@ -534,10 +550,17 @@ export default function NodeManager(): JSX.Element {
             model.doAction(Actions.selectTab(editorId));
           }
         }
+        console.log(`  added: ${tab?.id} to PANEL ID: ${panelId.id}`);
+        if (tab.toNodeId === LAYOUT_TAB_SETS.CENTER) {
+          // hide info tab if domain tab was added
+          console.log(`  hide info tab after domain tab was added`);
+          deleteTab(LAYOUT_TABS.NO_RUNNING_DAEMONS);
+          // emitCloseComponent({ id: LAYOUT_TABS.NO_RUNNING_DAEMONS });
+        }
       }
       setAddToLayout(newAddToLayout);
     }
-  }, [addToLayout, model]);
+  }, [addToLayout, model, deleteTab]);
 
   function factory(node: TabNode, domainId?: number): JSX.Element {
     const component = node.getComponent();
@@ -554,8 +577,8 @@ export default function NodeManager(): JSX.Element {
 
     console.log(`FACTORY: ${component}`);
     switch (component) {
-      case `${LAYOUT_TABS.NODES}-${domainId}`:
-        return <HostTreeViewPanel key="nodes-panel" />;
+      case LAYOUT_TABS.NODES:
+        return <HostTreeViewPanel key={`nodes-panel-${domainId}`} />;
       case LAYOUT_TABS.HOSTS:
         return <ProviderPanel key="hosts-panel" />;
       case LAYOUT_TABS.PACKAGES:
@@ -565,42 +588,34 @@ export default function NodeManager(): JSX.Element {
       case LAYOUT_TABS.LOGGING:
         return <LoggingPanel key="logging-panel" />;
       case LAYOUT_TABS.TOPICS:
-        return <TopicsPanel key="topics-panel" />;
+        return <TopicsPanel key={`topics-panel-${domainId}`} />;
       case LAYOUT_TABS.SERVICES:
-        return <ServicesPanel key="services-panel" />;
+        return <ServicesPanel key={`services-panel-${domainId}`} />;
       case LAYOUT_TABS.SETTINGS:
         return <SettingsPanel key="settings-panel" />;
       case LAYOUT_TABS.ABOUT:
         return <AboutPanel key="about-panel" />;
       case LAYOUT_TABS.PARAMETER:
         return <ParameterPanel key="parameter-panel" nodes={[]} providers={[]} />;
+      case LAYOUT_TABS.APPS:
+        return <ExternalAppsPanel key={`apps-panel-${domainId}`} domainId={domainId}/>;
       case LAYOUT_TABS.NO_RUNNING_DAEMONS:
         return <InfoNoRunningDaemons key="info-no-running-daemons" />;
       case LAYOUT_TABS.DOMAIN:
+        if (config?.domainId === undefined) {
+          return <InfoNoRunningDaemons key="info-no-running-daemons" />;
+        }
         return (
           <DomainFlexLayout
-            key="domain-host-layout"
-            storageKey="layoutHostDomains"
-            ids={[3, 6]}
-            componentName="domainHostTree"
-            configKey="domainId"
+            key={`domain-flex-layout-${config.domainId}`}
+            storageKey="layout-domain"
+            domainId={config.domainId}
             insideTabId={node.getId()}
             factory={(node, domainId) => {
               console.log(`DFL ${node.getId()}, domainId: ${domainId}`);
               return factory(node, domainId);
-              // const nodesForDomain = domainVisibleNodes[domainId] ?? [];
-              // return (
-              //   <HostTreeView
-              //     key={`host-tree-${domainId}`}
-              //     triggerId={`host-tree-${domainId}`}
-              //     visibleNodes={nodesForDomain}
-              //     isFiltered={filterText.length > 0}
-              //     showLoggers={createLoggerPanelFromId}
-              //     startNodes={startNodesFromId}
-              //     stopNodes={stopNodesFromId}
-              //   />
-              // );
             }}
+            onCloseTab={(id: string) => deleteTab(id)}
           />
         );
       default:
@@ -810,7 +825,7 @@ export default function NodeManager(): JSX.Element {
 
   function onRenderTabSet(node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues): void {
     console.log(`TAB SET: ${node.getId()}`);
-    if (node.getId() === LAYOUT_TAB_SETS.DOMAINS) {
+    if (node.getId() === LAYOUT_TAB_SETS.CENTER) {
       // return ...
     }
 
@@ -826,14 +841,13 @@ export default function NodeManager(): JSX.Element {
       }
 
       // add settings tab button in bottom border
-      console.log(`ADD BUTTON`);
       pAddTabStickyButton({
         model: model,
         container: renderValues.buttons,
         id: LAYOUT_TABS.SETTINGS,
         title: "Settings",
-        reactNode: <SettingsPanel />,
-        setId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        component: LAYOUT_TABS.SETTINGS,
+        setId: LAYOUT_TAB_SETS.CENTER,
         icon: <SettingsIcon sx={{ fontSize: "inherit" }} />,
         force: true,
       });
@@ -844,8 +858,8 @@ export default function NodeManager(): JSX.Element {
         container: renderValues.buttons,
         id: LAYOUT_TABS.ABOUT,
         title: "About",
-        reactNode: <AboutPanel />,
-        setId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        component: LAYOUT_TABS.ABOUT,
+        setId: LAYOUT_TAB_SETS.CENTER,
         icon: <InfoOutlinedIcon sx={{ fontSize: "inherit" }} />,
         force: true,
       });
@@ -866,7 +880,7 @@ export default function NodeManager(): JSX.Element {
                   title: "About",
                   component: LAYOUT_TABS.ABOUT,
                   closable: true,
-                  toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+                  toNodeId: LAYOUT_TAB_SETS.CENTER,
                 });
               }}
               variant="text"
@@ -883,7 +897,7 @@ export default function NodeManager(): JSX.Element {
     }
   }
 
-  function removeGenericTabs(parent: any): IJsonRowNode {
+  function removeGenericTabs(parent: { children?: IJsonRowNode[]; selected?: number }): IJsonRowNode {
     if (!parent.children) return parent;
 
     // if tabs are removed, selection index may become invalid
@@ -891,23 +905,29 @@ export default function NodeManager(): JSX.Element {
       parent.selected = undefined;
     }
 
-    parent.children = parent.children.filter((item: any) => {
-      // do not store Settings, About and Parameter tabs
-      if (
-        item.type === "tab" &&
-        item.id !== LAYOUT_TABS.ABOUT &&
-        item.id !== LAYOUT_TABS.SETTINGS &&
-        item.id !== LAYOUT_TABS.PARAMETER &&
-        LAYOUT_TAB_LIST.includes(item.id)
-      ) {
-        return true;
+    parent.children = parent.children.filter(
+      (item: { children?: IJsonRowNode[]; selected?: number; type?: string; id?: string }) => {
+        // do not store Settings, About and Parameter tabs
+        if (
+          item.type === "tab" &&
+          item.id !== LAYOUT_TABS.ABOUT &&
+          item.id !== LAYOUT_TABS.SETTINGS &&
+          item.id !== LAYOUT_TABS.PARAMETER &&
+          LAYOUT_TAB_LIST.includes(item.id)
+          // (LAYOUT_TAB_LIST.includes(item.id) || item.id?.startsWith(LAYOUT_TABS.DOMAIN))
+        ) {
+          return true;
+        }
+        if (item.children) {
+          removeGenericTabs(item);
+          if (item.id === LAYOUT_TAB_SETS.CENTER && (item.children?.length || 0) === 0) {
+            item.children?.push(LAYOUT_NO_RUNNING_DAEMONS);
+          }
+          return true;
+        }
+        return false;
       }
-      if (item.children) {
-        removeGenericTabs(item);
-        return true;
-      }
-      return false;
-    });
+    );
 
     return parent;
   }
@@ -922,6 +942,16 @@ export default function NodeManager(): JSX.Element {
     }
 
     modelJson.layout = removeGenericTabs(modelJson.layout);
+    let foundDomainSet = false;
+    for (const item of modelJson.layout.children || []) {
+      if (item.type === "tabset" && item.id === LAYOUT_TAB_SETS.CENTER) {
+        foundDomainSet = true;
+        break;
+      }
+    }
+    if (!foundDomainSet) {
+      modelJson.layout.children?.push(LAYOUT_DOMAIN_TAB_SET);
+    }
     setLayoutJson(modelJson);
   }, 500);
 
@@ -1041,13 +1071,31 @@ export default function NodeManager(): JSX.Element {
             const tabId = action.data.tabNode as string;
             emitCustomEvent(EVENT_SELECT_TAB, { tabId: tabId });
           }
+          model.visitNodes((node) => {
+            if (node.getType() === "tabset") {
+              console.log(
+                node.getId(),
+                "children:",
+                node.getChildren().length,
+                "childs:" +
+                  node
+                    .getChildren()
+                    .map((c) => c.getId())
+                    .join(",")
+              );
+            }
+          });
           return action;
         }}
         onRenderTab={onRenderTab}
         onRenderTabSet={onRenderTabSet}
         onModelChange={(_model, _action) => {
+          // if (!_model.getNodeById(LAYOUT_TAB_SETS.CENTER)) {
+          //   console.log(`add ${LAYOUT_TAB_SETS.CENTER} tabset`);
+          //   _model.doAction(Actions.addTab(LAYOUT_DOMAIN_TAB_SET, "rootRow", DockLocation.CENTER, -1));
+          // }
           if (![Actions.SELECT_TAB, Actions.SET_ACTIVE_TABSET].includes(_action.type)) {
-            // cleanAndSaveLayout();
+            cleanAndSaveLayout();
           }
         }}
         onContextMenu={(node) => {

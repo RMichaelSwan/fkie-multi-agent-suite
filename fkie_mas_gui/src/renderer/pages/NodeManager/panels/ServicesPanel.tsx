@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 import { Virtuoso } from "react-virtuoso";
 
-import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import ServiceTreeItem from "@/renderer/components/ServiceTreeView/ServiceTreeItem";
 import TopicGroupTreeItem from "@/renderer/components/TopicTreeView/TopicGroupTreeItem";
 import SearchBar from "@/renderer/components/UI/SearchBar";
@@ -590,199 +589,198 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
 
    */
   const treeView = useMemo(
-    () =>
-      domainIds.length <= 1 ? (
-        <Virtuoso
-          style={{ height: "100%" }}
-          totalCount={flatRows.length}
-          itemContent={(index: number) => {
-            const row = flatRows[index];
+    () => (
+      <Virtuoso
+        style={{ height: "100%" }}
+        totalCount={flatRows.length}
+        itemContent={(index: number) => {
+          const row = flatRows[index];
 
-            if (row.type === "group") {
-              const node = row.treeItem;
-              const isSelected = selected?.id === row.id && selected?.domainId === singleDomainId;
-
-              return (
-                <TopicGroupTreeItem
-                  key={row.id}
-                  itemId={row.id}
-                  rootPath={row.rootPath}
-                  groupName={node.groupName}
-                  countChildren={node.count}
-                  hasIncompatibleQos={false}
-                  depth={row.depth}
-                  expanded={expandedItems.includes(row.id)}
-                  selected={isSelected}
-                  onToggle={() => toggleExpanded(row.id)}
-                  onSelect={() => handleSelect(row.id, singleDomainId)}
-                />
-              );
-            }
-
-            const serviceInfo = row.treeItem.serviceInfo;
-            if (!serviceInfo) return null;
-
-            const id = row.id;
-            const isSelected = selected?.id === id && selected?.domainId === singleDomainId;
+          if (row.type === "group") {
+            const node = row.treeItem;
+            const isSelected = selected?.id === row.id && selected?.domainId === singleDomainId;
 
             return (
-              <ServiceTreeItem
-                key={id}
-                itemId={id}
+              <TopicGroupTreeItem
+                key={row.id}
+                itemId={row.id}
                 rootPath={row.rootPath}
-                serviceInfo={serviceInfo}
-                selectedItem={selected?.id ?? ""}
-                selected={isSelected}
+                groupName={node.groupName}
+                countChildren={node.count}
+                hasIncompatibleQos={false}
                 depth={row.depth}
-                onSelect={() => handleSelect(id, singleDomainId)}
+                expanded={expandedItems.includes(row.id)}
+                selected={isSelected}
+                onToggle={() => toggleExpanded(row.id)}
+                onSelect={() => handleSelect(row.id, singleDomainId)}
               />
             );
-          }}
-        />
-      ) : (
-        <DomainFlexLayout
-          key="domain-service-layout"
-          storageKey="layoutServiceDomains"
-          ids={domainIds}
-          componentName="domainServiceTree"
-          configKey="domainId"
-          insideTabId={LAYOUT_TABS.SERVICES}
-          factory={(_, domainId) => {
-            // services which appear in this domain, based on provider/requester providerId
-            const servicesInDomain = filteredServices.filter((service) => {
-              const providerIds = new Set<string>();
+          }
 
-              for (const item of service.nodeProviders) {
-                providerIds.add(item.providerId);
-              }
-              for (const item of service.nodeRequester) {
-                providerIds.add(item.providerId);
-              }
+          const serviceInfo = row.treeItem.serviceInfo;
+          if (!serviceInfo) return null;
 
-              const ids = Array.from(providerIds.values());
-              for (const pid of ids) {
-                if (providerDomainMap.get(pid) === domainId) {
-                  return true;
-                }
-              }
-              return false;
-            });
+          const id = row.id;
+          const isSelected = selected?.id === id && selected?.domainId === singleDomainId;
 
-            // build tree for this domain's services
-            const treeResult = buildTree(servicesInDomain, false);
-            const roots = treeResult.services;
+          return (
+            <ServiceTreeItem
+              key={id}
+              itemId={id}
+              rootPath={row.rootPath}
+              serviceInfo={serviceInfo}
+              selectedItem={selected?.id ?? ""}
+              selected={isSelected}
+              depth={row.depth}
+              onSelect={() => handleSelect(id, singleDomainId)}
+            />
+          );
+        }}
+      />
+      // ) : (
+      //   <DomainFlexLayout
+      //     key="domain-service-layout"
+      //     storageKey="layoutServiceDomains"
+      //     ids={domainIds}
+      //     componentName="domainServiceTree"
+      //     configKey="domainId"
+      //     insideTabId={LAYOUT_TABS.SERVICES}
+      //     factory={(_, domainId) => {
+      //       // services which appear in this domain, based on provider/requester providerId
+      //       const servicesInDomain = filteredServices.filter((service) => {
+      //         const providerIds = new Set<string>();
 
-            const expandedSet = new Set(expandedItems);
-            const rows: FlatRow[] = [];
-            const avoidSingle = searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? settings.avoidGroupWithOneItem : false;
+      //         for (const item of service.nodeProviders) {
+      //           providerIds.add(item.providerId);
+      //         }
+      //         for (const item of service.nodeRequester) {
+      //           providerIds.add(item.providerId);
+      //         }
 
-            const walkDomain = (node: TTreeItem, depth: number, rootPath: string) => {
-              if (node.serviceInfo) {
-                rows.push({
-                  id: genKey([node.serviceInfo.name, node.serviceInfo.srvType]),
-                  type: "service",
-                  depth,
-                  treeItem: node,
-                  rootPath,
-                });
-                return;
-              }
+      //         const ids = Array.from(providerIds.values());
+      //         for (const pid of ids) {
+      //           if (providerDomainMap.get(pid) === domainId) {
+      //             return true;
+      //           }
+      //         }
+      //         return false;
+      //       });
 
-              // optional flattening for display
-              if (avoidSingle && node.services.length === 1) {
-                const nextRoot = rootPath ? `${rootPath}/${node.groupName}` : node.groupName;
-                walkDomain(node.services[0], depth, nextRoot);
-                return;
-              }
+      //       // build tree for this domain's services
+      //       const treeResult = buildTree(servicesInDomain, false);
+      //       const roots = treeResult.services;
 
-              rows.push({
-                id: node.groupKey,
-                type: "group",
-                depth,
-                treeItem: node,
-                rootPath,
-              });
+      //       const expandedSet = new Set(expandedItems);
+      //       const rows: FlatRow[] = [];
+      //       const avoidSingle = searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? settings.avoidGroupWithOneItem : false;
 
-              if (expandedSet.has(node.groupKey)) {
-                const sortedChildren = [...node.services].sort((a, b) => {
-                  const aIsGroup = !a.serviceInfo;
-                  const bIsGroup = !b.serviceInfo;
-                  if (aIsGroup && !bIsGroup) return -1;
-                  if (!aIsGroup && bIsGroup) return 1;
-                  return a.groupName.localeCompare(b.groupName);
-                });
+      //       const walkDomain = (node: TTreeItem, depth: number, rootPath: string) => {
+      //         if (node.serviceInfo) {
+      //           rows.push({
+      //             id: genKey([node.serviceInfo.name, node.serviceInfo.srvType]),
+      //             type: "service",
+      //             depth,
+      //             treeItem: node,
+      //             rootPath,
+      //           });
+      //           return;
+      //         }
 
-                for (const child of sortedChildren) {
-                  walkDomain(child, depth + 1, "");
-                }
-              }
-            };
+      //         // optional flattening for display
+      //         if (avoidSingle && node.services.length === 1) {
+      //           const nextRoot = rootPath ? `${rootPath}/${node.groupName}` : node.groupName;
+      //           walkDomain(node.services[0], depth, nextRoot);
+      //           return;
+      //         }
 
-            const sortedRoots = [...roots].sort((a, b) => {
-              const aIsGroup = !a.serviceInfo;
-              const bIsGroup = !b.serviceInfo;
-              if (aIsGroup && !bIsGroup) return -1;
-              if (!aIsGroup && bIsGroup) return 1;
-              return a.groupName.localeCompare(b.groupName);
-            });
+      //         rows.push({
+      //           id: node.groupKey,
+      //           type: "group",
+      //           depth,
+      //           treeItem: node,
+      //           rootPath,
+      //         });
 
-            for (const root of sortedRoots) {
-              walkDomain(root, 0, "");
-            }
+      //         if (expandedSet.has(node.groupKey)) {
+      //           const sortedChildren = [...node.services].sort((a, b) => {
+      //             const aIsGroup = !a.serviceInfo;
+      //             const bIsGroup = !b.serviceInfo;
+      //             if (aIsGroup && !bIsGroup) return -1;
+      //             if (!aIsGroup && bIsGroup) return 1;
+      //             return a.groupName.localeCompare(b.groupName);
+      //           });
 
-            return (
-              <Virtuoso
-                key={`services-panel-${domainId}`}
-                style={{ height: "100%" }}
-                totalCount={rows.length}
-                itemContent={(index: number) => {
-                  const row = rows[index];
+      //           for (const child of sortedChildren) {
+      //             walkDomain(child, depth + 1, "");
+      //           }
+      //         }
+      //       };
 
-                  if (row.type === "group") {
-                    const node = row.treeItem;
-                    const isSelected = selected?.id === row.id && selected?.domainId === domainId;
+      //       const sortedRoots = [...roots].sort((a, b) => {
+      //         const aIsGroup = !a.serviceInfo;
+      //         const bIsGroup = !b.serviceInfo;
+      //         if (aIsGroup && !bIsGroup) return -1;
+      //         if (!aIsGroup && bIsGroup) return 1;
+      //         return a.groupName.localeCompare(b.groupName);
+      //       });
 
-                    return (
-                      <TopicGroupTreeItem
-                        key={row.id}
-                        itemId={row.id}
-                        rootPath={row.rootPath}
-                        groupName={node.groupName}
-                        countChildren={node.count}
-                        hasIncompatibleQos={false}
-                        depth={row.depth}
-                        expanded={expandedItems.includes(row.id)}
-                        selected={isSelected}
-                        onToggle={() => toggleExpanded(row.id)}
-                        onSelect={() => handleSelect(row.id, domainId)}
-                      />
-                    );
-                  }
+      //       for (const root of sortedRoots) {
+      //         walkDomain(root, 0, "");
+      //       }
 
-                  const serviceInfo = row.treeItem.serviceInfo;
-                  if (!serviceInfo) return null;
+      //       return (
+      //         <Virtuoso
+      //           key={`services-panel-${domainId}`}
+      //           style={{ height: "100%" }}
+      //           totalCount={rows.length}
+      //           itemContent={(index: number) => {
+      //             const row = rows[index];
 
-                  const id = row.id;
-                  const isSelected = selected?.id === id && selected?.domainId === domainId;
+      //             if (row.type === "group") {
+      //               const node = row.treeItem;
+      //               const isSelected = selected?.id === row.id && selected?.domainId === domainId;
 
-                  return (
-                    <ServiceTreeItem
-                      key={id}
-                      itemId={id}
-                      rootPath={row.rootPath}
-                      serviceInfo={serviceInfo}
-                      selectedItem={selected?.id ?? ""}
-                      selected={isSelected}
-                      depth={row.depth}
-                      onSelect={() => handleSelect(id, domainId)}
-                    />
-                  );
-                }}
-              />
-            );
-          }}
-        />
-      ),
+      //               return (
+      //                 <TopicGroupTreeItem
+      //                   key={row.id}
+      //                   itemId={row.id}
+      //                   rootPath={row.rootPath}
+      //                   groupName={node.groupName}
+      //                   countChildren={node.count}
+      //                   hasIncompatibleQos={false}
+      //                   depth={row.depth}
+      //                   expanded={expandedItems.includes(row.id)}
+      //                   selected={isSelected}
+      //                   onToggle={() => toggleExpanded(row.id)}
+      //                   onSelect={() => handleSelect(row.id, domainId)}
+      //                 />
+      //               );
+      //             }
+
+      //             const serviceInfo = row.treeItem.serviceInfo;
+      //             if (!serviceInfo) return null;
+
+      //             const id = row.id;
+      //             const isSelected = selected?.id === id && selected?.domainId === domainId;
+
+      //             return (
+      //               <ServiceTreeItem
+      //                 key={id}
+      //                 itemId={id}
+      //                 rootPath={row.rootPath}
+      //                 serviceInfo={serviceInfo}
+      //                 selectedItem={selected?.id ?? ""}
+      //                 selected={isSelected}
+      //                 depth={row.depth}
+      //                 onSelect={() => handleSelect(id, domainId)}
+      //               />
+      //             );
+      //           }}
+      //         />
+      //       );
+      //     }}
+      //   />
+    ),
     [
       domainIds,
       flatRows,

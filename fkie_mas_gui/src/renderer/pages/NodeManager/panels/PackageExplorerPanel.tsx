@@ -443,7 +443,7 @@ export default function PackageExplorerPanel(): JSX.Element {
       title: "Nodes",
       component: LAYOUT_TABS.NODES,
       closable: false,
-      toNodeId: LAYOUT_TAB_SETS.DOMAINS,
+      toNodeId: LAYOUT_TAB_SETS.CENTER,
     });
   }, [rosCtx, selectedLaunchFile, settingsCtx]);
 

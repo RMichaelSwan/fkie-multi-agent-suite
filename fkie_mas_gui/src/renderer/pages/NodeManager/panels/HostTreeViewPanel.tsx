@@ -274,7 +274,7 @@ export default function HostTreeViewPanel(): JSX.Element {
   //       id: `${LAYOUT_TABS.DOMAIN}-${domainId}`,
   //       title: `Domain ${domainId}`,
   //       closable: false,
-  //       toNodeId: LAYOUT_TAB_SETS.DOMAINS,
+  //       toNodeId: LAYOUT_TAB_SETS.CENTER,
   //       component: LAYOUT_TABS.DOMAIN,
   //     });
   //   }

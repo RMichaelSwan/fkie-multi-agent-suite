@@ -8,7 +8,26 @@ interface IJsonBorderNodeExt extends IJsonBorderNode {
 
 const enablePopout = !window.commandExecutor && window.location.href.indexOf(":6275") === -1;
 
-const DEFAULT_LAYOUT = {
+export const LAYOUT_NO_RUNNING_DAEMONS = {
+  id: LAYOUT_TABS.NO_RUNNING_DAEMONS,
+  type: "tab",
+  name: "Info",
+  component: LAYOUT_TABS.NO_RUNNING_DAEMONS,
+  enableClose: false,
+  enablePopout: enablePopout,
+};
+
+export const LAYOUT_DOMAIN_TAB_SET = {
+  id: LAYOUT_TAB_SETS.CENTER,
+  type: "tabset",
+  weight: 75,
+  tabLocation: "top",
+  enableDeleteWhenEmpty: false,
+  enableClose: true,
+  children: [LAYOUT_NO_RUNNING_DAEMONS],
+};
+
+export const DEFAULT_LAYOUT = {
   global: {
     splitterSize: 5,
     tabEnablePopout: true,
@@ -16,7 +35,6 @@ const DEFAULT_LAYOUT = {
     tabSetMinHeight: 100,
     borderMinSize: 100,
     tabEnableRename: false,
-    tabSetEnableClose: false,
     enableRotateBorderIcons: false,
     tabSetEnableDeleteWhenEmpty: true,
     tabEnableRenderOnDemand: false,
@@ -74,6 +92,7 @@ const DEFAULT_LAYOUT = {
     } as IJsonBorderNodeExt,
   ],
   layout: {
+    id: "rootRow",
     type: "row",
     weight: 100,
     children: [
@@ -124,26 +143,7 @@ const DEFAULT_LAYOUT = {
           },
         ],
       },
-      {
-        id: LAYOUT_TAB_SETS.DOMAINS,
-        type: "tabset",
-        weight: 75,
-        enableDeleteWhenEmpty: false,
-        enableDivide: false,
-        // enableTabStrip: false,
-        tabLocation: "bottom",
-        children: [
-          {
-            id: LAYOUT_TABS.NO_RUNNING_DAEMONS,
-            type: "tab",
-            name: "Info",
-            component: LAYOUT_TABS.NO_RUNNING_DAEMONS,
-            enableClose: false,
-            enablePopout: enablePopout,
-          },
-        ],
-      },
+      LAYOUT_DOMAIN_TAB_SET,
     ],
   },
 } as IJsonModel;
-export { DEFAULT_LAYOUT };

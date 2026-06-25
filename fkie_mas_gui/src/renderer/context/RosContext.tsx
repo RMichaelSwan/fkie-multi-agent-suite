@@ -4,54 +4,54 @@ import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
 import { ConnectConfig } from "ssh2";
 
 import {
-    ErrorAlertComponent,
-    ReloadFileAlertComponent,
-    RestartNodesAlertComponent,
-    colorFromHostname,
+  ErrorAlertComponent,
+  ReloadFileAlertComponent,
+  RestartNodesAlertComponent,
+  colorFromHostname,
 } from "@/renderer/components/UI";
 import { useAlwaysCurrentRef } from "@/renderer/hooks/useAlwaysCurrentRef";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import {
-    LaunchArgument,
-    LaunchLoadReply,
-    LaunchLoadRequest,
-    PATH_EVENT_TYPE,
-    ProviderLaunchConfiguration,
-    RosNode,
-    RosQos,
-    SubscriberFilter,
-    SubscriberNode,
-    URI,
-    getFileName,
+  LaunchArgument,
+  LaunchLoadReply,
+  LaunchLoadRequest,
+  PATH_EVENT_TYPE,
+  ProviderLaunchConfiguration,
+  RosNode,
+  RosQos,
+  SubscriberFilter,
+  SubscriberNode,
+  URI,
+  getFileName,
 } from "@/renderer/models";
 import ConnectionState from "@/renderer/providers/ConnectionState";
 import Provider from "@/renderer/providers/Provider";
 import {
-    EVENT_PROVIDER_AUTH_REQUEST,
-    EVENT_PROVIDER_DISCOVERED,
-    EVENT_PROVIDER_NODE_BINARY_MODIFIED,
-    EVENT_PROVIDER_PATH_EVENT,
-    EVENT_PROVIDER_REMOVED,
-    EVENT_PROVIDER_RESTART_NODES,
-    EVENT_PROVIDER_ROS_NODES,
-    EVENT_PROVIDER_STATE,
-    EVENT_PROVIDER_WARNINGS,
+  EVENT_PROVIDER_AUTH_REQUEST,
+  EVENT_PROVIDER_DISCOVERED,
+  EVENT_PROVIDER_NODE_BINARY_MODIFIED,
+  EVENT_PROVIDER_PATH_EVENT,
+  EVENT_PROVIDER_REMOVED,
+  EVENT_PROVIDER_RESTART_NODES,
+  EVENT_PROVIDER_ROS_NODES,
+  EVENT_PROVIDER_STATE,
+  EVENT_PROVIDER_WARNINGS,
 } from "@/renderer/providers/eventTypes";
 import {
-    EventProviderAuthRequest,
-    EventProviderDiscovered,
-    EventProviderNodeBinaryModified,
-    EventProviderPathEvent,
-    EventProviderRemoved,
-    EventProviderRestartNodes,
-    EventProviderRosNodes,
-    EventProviderState,
-    EventProviderWarnings,
+  EventProviderAuthRequest,
+  EventProviderDiscovered,
+  EventProviderNodeBinaryModified,
+  EventProviderPathEvent,
+  EventProviderRemoved,
+  EventProviderRestartNodes,
+  EventProviderRosNodes,
+  EventProviderState,
+  EventProviderWarnings,
 } from "@/renderer/providers/events";
 import { TResult, TRosInfo, TSystemInfo } from "@/types";
 import { TProviderLaunchParams } from "../models/ProviderLaunchConfiguration";
-import { LAYOUT_TABS, LAYOUT_TAB_SETS, LayoutTabConfig } from "../pages/NodeManager/layout";
+import { LAYOUT_TABS, LAYOUT_TAB_SETS } from "../pages/NodeManager/layout";
 import { emitOpenComponent } from "../pages/NodeManager/layout/events";
 import { LAUNCH_FILE_EXTENSIONS, getDefaultPortFromRos } from "./SettingsContext";
 
@@ -1104,7 +1104,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
               title: `Domain ${provider.connection.domainId}`,
               component: LAYOUT_TABS.DOMAIN,
               closable: false,
-              toNodeId: LAYOUT_TAB_SETS.DOMAINS, // panel or tab id where to place the new tab
+              toNodeId: LAYOUT_TAB_SETS.CENTER, // panel or tab id where to place the new tab
               config: { domainId: provider.connection.domainId },
             });
           }

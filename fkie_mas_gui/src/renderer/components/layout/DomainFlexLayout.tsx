@@ -1,17 +1,21 @@
+import AppsIcon from "@mui/icons-material/Apps";
 import FeaturedPlayListIcon from "@mui/icons-material/FeaturedPlayList";
 import TopicIcon from "@mui/icons-material/Topic";
-import { Box, Typography } from "@mui/material";
+import { Box } from "@mui/material";
 import * as FlexLayout from "flexlayout-react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
+import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import { EVENT_SELECT_TAB } from "@/renderer/pages/NodeManager/layout/events";
+import {
+  EVENT_SELECT_TAB,
+  EVENT_TOGGLE_COMPONENT,
+  TEventOpenComponent,
+} from "@/renderer/pages/NodeManager/layout/events";
 import { pAddTabStickyButton } from "@/renderer/pages/NodeManager/layout/helpers";
-import ServicesPanel from "@/renderer/pages/NodeManager/panels/ServicesPanel";
-import TopicsPanel from "@/renderer/pages/NodeManager/panels/TopicsPanel";
 
 /**
  * Minimal JSON node shape used for manipulating the FlexLayout JSON model.
@@ -30,23 +34,12 @@ type JsonNode = {
 
 /**
  * Options for the persistent FlexLayout hook.
- * TId is the identifier type used to distinguish tabs (e.g. domainId, workspaceId).
-
  */
-export interface DomainFlexLayoutOptions<TId extends string | number> {
+export interface DomainFlexLayoutOptions {
   /** Storage key used to persist the serialized layout JSON (e.g. localStorage) */
   storageKey: string;
-  /** List of all ids that should have a corresponding tab in the layout */
-  ids: TId[];
-  /** Name of the FlexLayout component used for these tabs (e.g. "domainHostTree") */
-  componentName: string;
-  /**
-   * Key name under `tab.config` where the id is stored.
-   * Example: "domainId", "workspaceId", ...
-
-   */
-  configKey: string;
-
+  /** the domain ID for this layout */
+  domainId: number;
   /** ID of the tab where this layout is located. It is used to update the content after the tab is selected again. */
   insideTabId: string;
 }
@@ -79,10 +72,8 @@ export interface DomainFlexLayoutResult {
  *   whenever the user switches tabs or drags them.
 
  */
-export default function useDomainFlexLayout<TId extends string | number>(
-  options: DomainFlexLayoutOptions<TId>
-): DomainFlexLayoutResult {
-  const { storageKey, ids, componentName, configKey } = options;
+export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): DomainFlexLayoutResult {
+  const { storageKey, domainId } = options;
 
   /**
    * Create a tab JSON node for a given id.
@@ -90,14 +81,15 @@ export default function useDomainFlexLayout<TId extends string | number>(
 
    */
   const createTabForId = useCallback(
-    (id: TId): JsonNode => ({
-      id: `${LAYOUT_TABS.NODES}-${id}`,
+    (domainId: number): JsonNode => ({
+      id: `${LAYOUT_TABS.NODES}-${domainId}`,
       type: "tab",
-      name: `Domain ${id}`,
-      component: componentName,
-      config: { [configKey]: id },
+      name: "Nodes",
+      enableClose: false,
+      component: LAYOUT_TABS.NODES,
+      config: { domainId: domainId },
     }),
-    [componentName, configKey]
+    []
   );
 
   /**
@@ -105,27 +97,30 @@ export default function useDomainFlexLayout<TId extends string | number>(
 
    */
   const createDefaultLayoutJson = useCallback(
-    (idList: TId[]): FlexLayout.IJsonModel => {
-      const tabset: FlexLayout.IJsonTabSetNode = {
-        type: "tabset",
-        weight: 100,
-        children: idList.map((id) => createTabForId(id)),
-      };
+    (domainId?: number): FlexLayout.IJsonModel => {
+      console.log("DomainFlexLayout: createDefaultLayoutJson called with domainId", domainId);
       const rowNode: FlexLayout.IJsonRowNode = {
         type: "row",
         weight: 100,
-        children: [tabset],
+        children: domainId // add a single tabset with Nodes-Panel for the given domainId if provided, otherwise no children
+          ? [
+              {
+                type: "tabset",
+                weight: 100,
+                children: [createTabForId(domainId)],
+              },
+            ]
+          : [],
       };
       return {
         global: {
-          tabEnableClose: false,
-          tabEnableDrag: false,
+          // tabEnableClose: false,
+          // tabEnableDrag: false,
           tabEnableRename: false,
-          tabSetEnableSingleTabStretch: true,
+          tabSetEnableSingleTabStretch: false,
           tabSetEnableTabStrip: true,
-          tabSetEnableTabWrap: true,
+          tabSetEnableTabWrap: false,
           tabSetEnableMaximize: true,
-          tabSetTabLocation: "bottom",
         },
         borders: [],
         layout: rowNode,
@@ -134,107 +129,19 @@ export default function useDomainFlexLayout<TId extends string | number>(
     [createTabForId]
   );
 
-  const defaultLayout = useMemo(
-    () => createDefaultLayoutJson([]),
-    [createDefaultLayoutJson] // oder [createDefaultLayoutJson], wenn das stabil ist
+  const defaultLayout = useMemo(() => createDefaultLayoutJson(domainId), [createDefaultLayoutJson, domainId]);
+
+  const [layoutJson, setLayoutJson] = useLocalStorage<FlexLayout.IJsonModel>(
+    `${storageKey}-${domainId}`,
+    defaultLayout,
+    {
+      version: 1,
+    }
   );
 
-  const [layoutJson, setLayoutJson] = useLocalStorage<FlexLayout.IJsonModel>(storageKey, defaultLayout, {
-    version: 5,
-  });
   const [model, setModel] = useState<FlexLayout.Model | null>(null);
   const initializedRef = useRef(false);
   const logCtx = useLoggingContext();
-
-  /**
-   * Merge a saved layout JSON with the current ids:
-   * - keep tabs whose id still exists
-   * - add tabs for new ids
-   * - remove tabs for ids that no longer exist
-   * - normalize tab properties (name, component, flags, config)
-
-   */
-  const mergeLayoutJson = useCallback(
-    (savedJson: FlexLayout.IJsonModel, idList: TId[]): FlexLayout.IJsonModel => {
-      // Deep copy to avoid mutating the original object
-      const json: FlexLayout.IJsonModel = JSON.parse(JSON.stringify(savedJson));
-      const idSet = new Set(idList.map((id) => String(id)));
-      const existingIds = new Set<string>();
-
-      const processNode = (node: JsonNode | undefined): void => {
-        if (!node || !node.children) {
-          return;
-        }
-
-        // Process children first
-        node.children.forEach(processNode);
-
-        // Filter and normalize tab children with the configured id
-        node.children = node.children.filter((child) => {
-          if (child.type === "tab" && child.config && configKey in child.config) {
-            const raw = child.config[configKey];
-            const idStr = String(raw);
-
-            if (!idSet.has(idStr)) {
-              // Id is no longer present -> drop this tab
-              return false;
-            }
-
-            // Id still exists -> normalize and keep
-            existingIds.add(idStr);
-            child.name = `Domain ${raw}`;
-            child.component = componentName;
-            child.enableClose = false;
-            child.enableMaximize = false;
-            child.config = { [configKey]: raw };
-            return true;
-          }
-
-          // Keep non-matching children as they are
-          return true;
-        });
-      };
-
-      processNode(json.layout as JsonNode);
-
-      // Add missing ids as new tabs
-      const missing = idList.filter((id) => !existingIds.has(String(id)));
-      if (missing.length === 0) {
-        return json;
-      }
-
-      const findFirstTabset = (node: JsonNode | undefined): JsonNode | null => {
-        if (!node) return null;
-        if (node.type === "tabset") return node;
-
-        if (node.children) {
-          for (const child of node.children) {
-            const result = findFirstTabset(child);
-            if (result) return result;
-          }
-        }
-
-        return null;
-      };
-
-      const tabset = findFirstTabset(json.layout as JsonNode);
-      if (!tabset) {
-        // As a fallback, rebuild a simple default layout
-        return createDefaultLayoutJson(idList);
-      }
-
-      if (!tabset.children) {
-        tabset.children = [];
-      }
-
-      for (const id of missing) {
-        tabset.children.push(createTabForId(id));
-      }
-
-      return json;
-    },
-    [componentName, configKey, createDefaultLayoutJson, createTabForId]
-  );
 
   /**
    * Handler for FlexLayout.Layout.onModelChange.
@@ -244,7 +151,6 @@ export default function useDomainFlexLayout<TId extends string | number>(
    *
    * The model instance remains the same while the user interacts
    * (switches tabs, drags tabs, resizes, ...).
-
    */
   const handleModelChange = useCallback(
     (nextModel: FlexLayout.Model): void => {
@@ -268,121 +174,100 @@ export default function useDomainFlexLayout<TId extends string | number>(
    * - We intentionally do NOT depend on `layoutJson` or `model` here,
    *   so the model is not recreated on every user interaction.
    * - `layoutJson` is read once during initialization via closure.
-
    */
   useEffect(() => {
-    if (ids.length === 0) {
-      setModel(null);
-      return;
-    }
-
-    const idList = [...ids];
-
-    // First initialization: restore from storage or create default layout
+    // restore from storage or create default layout
     if (!initializedRef.current) {
-      initializedRef.current = true;
-
-      let baseJson: FlexLayout.IJsonModel | null = null;
-      if (layoutJson) {
-        try {
-          baseJson = layoutJson;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          logCtx.warn("Failed to parse saved layout, using default layout", message, "layout restore failed");
-        }
-      }
-
-      const finalJson = baseJson ? mergeLayoutJson(baseJson, idList) : createDefaultLayoutJson(idList);
-      setModel(FlexLayout.Model.fromJson(finalJson));
-      return;
-    }
-
-    // Subsequent updates: ids changed after initialization
-    // We want to merge the current layout with the new ids
-    // without losing user-defined layout (tab order, sizes, ...).
-    if (model) {
+      const baseJson: FlexLayout.IJsonModel | null = layoutJson;
+      const finalJson = baseJson || createDefaultLayoutJson(domainId);
       try {
-        const currentJson = model.toJson();
-        const mergedJson = mergeLayoutJson(currentJson, idList);
-        setModel(FlexLayout.Model.fromJson(mergedJson));
+        setModel(FlexLayout.Model.fromJson(finalJson));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        logCtx.warn("Failed to merge layout, recreating layout", message, "layout merge failed");
-        const fallbackJson = createDefaultLayoutJson(idList);
+        logCtx.warn("Failed to set domain flex layout, recreating layout", message, "load flex layout failed");
+        const fallbackJson = createDefaultLayoutJson(domainId);
         setModel(FlexLayout.Model.fromJson(fallbackJson));
       }
-    } else {
-      // Model was null (e.g. after ids were empty before)
-      // -> create a fresh model
-      const fallbackJson = createDefaultLayoutJson(idList);
-      setModel(FlexLayout.Model.fromJson(fallbackJson));
+      initializedRef.current = true;
+      return;
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ids, mergeLayoutJson, createDefaultLayoutJson, logCtx.warn]);
+  }, [domainId, createDefaultLayoutJson, logCtx.warn]);
   // Note:
-  // - We intentionally omit `layoutJson` and `model` from dependencies
-  //   to avoid recreating the model on every storage update or model change.
+  // - We intentionally omit `layoutJson` from dependencies
+  //   to avoid recreating the model on every storage update.
   //   This keeps tab contents (e.g. expanded tree nodes) stable.
+
+  useEffect(() => {
+    if (initializedRef.current) {
+      console.log("DomainFlexLayout: domainId changed, selecting tab", `${LAYOUT_TABS.NODES}-${domainId}`);
+      // When the layout is initialized and the domainId changes, select nodes tab
+      const selectTabAction = FlexLayout.Actions.selectTab(`${LAYOUT_TABS.NODES}-${domainId}`);
+      model?.doAction(selectTabAction);
+    }
+  }, [model, domainId]);
 
   return { model, setModel, handleModelChange };
 }
 
 /**
  * Props for the generic DomainFlexLayout component.
-
  */
-export interface DomainFlexLayoutProps<TId extends string | number> extends DomainFlexLayoutOptions<TId> {
+export interface DomainFlexLayoutProps extends DomainFlexLayoutOptions {
   /**
    * Factory that renders the content for each tab.
-   * The hook ensures that `id` matches the value stored under `configKey`.
-
+   * The hook ensures that `domainId` matches the value stored.
    */
-  factory: (tabNode: FlexLayout.TabNode, id: TId) => JSX.Element;
+  factory: (tabNode: FlexLayout.TabNode, domainId: number) => JSX.Element;
+  onCloseTab: (id: string) => void;
 }
 
 /**
  * Generic FlexLayout wrapper that:
  * - Uses useDomainFlexLayout to manage model + persistence
  * - Exposes a typed `factory` for rendering tab content
-
  */
-export function DomainFlexLayout<TId extends string | number>(props: DomainFlexLayoutProps<TId>): JSX.Element | null {
-  const { ids, storageKey, componentName, configKey, insideTabId, factory } = props;
+export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | null {
+  const { domainId, storageKey, insideTabId, factory, onCloseTab } = props;
 
+  const rosCtx = useRosContext();
   const [forceUpdate, setForceUpdate] = useReducer((x) => x + 1, 0);
-  const { model, handleModelChange } = useDomainFlexLayout<TId>({
+  const { model, handleModelChange } = useDomainFlexLayout({
     storageKey,
-    ids,
-    componentName,
-    configKey,
+    domainId,
     insideTabId,
   });
 
+  const closeThisTab = useCallback(() => {
+    console.log(`DomainFlexLayout: all provider for this domain ${domainId} removed. Close this tab!`);
+    onCloseTab(`${LAYOUT_TABS.DOMAIN}-${domainId}`);
+  }, [domainId, onCloseTab]);
+
+  useEffect(() => {
+    // if no provider is available for this domain, close this tab.
+    for (const p of rosCtx.providers) {
+      if (p.connection.domainId === domainId) {
+        return;
+      }
+    }
+    closeThisTab();
+  }, [domainId, rosCtx.providers, closeThisTab]);
+
   /**
    * Wrapper around the user-provided factory.
-   * It extracts the id from the tab config using `configKey`
+   * It extracts the domainId from the tab config
    * and passes it as a typed argument to the factory.
-
    */
   const nodeFactory = useCallback(
     (tabNode: FlexLayout.TabNode): JSX.Element => {
-      const configUnknown = tabNode.getConfig() as unknown;
-
-      const config =
-        typeof configUnknown === "object" && configUnknown !== null
-          ? (configUnknown as Record<string, unknown>)
-          : ({} as Record<string, unknown>);
-
-      const rawId = config[configKey];
-
-      // Fallback: if the config does not contain the id, use the tab id as string
-      const idValue =
-        typeof rawId === "string" || typeof rawId === "number" ? (rawId as TId) : (String(tabNode.getId()) as TId);
-
-      return factory(tabNode, idValue);
+      // const configUnknown = tabNode.getConfig() as unknown;
+      // const config =
+      //   typeof configUnknown === "object" && configUnknown !== null
+      //     ? (configUnknown as Record<string, unknown>)
+      //     : ({} as Record<string, unknown>);
+      // now you can read the node configuration and use it if needed
+      return factory(tabNode, domainId);
     },
-    [factory, configKey]
+    [factory, domainId]
   );
 
   function onRenderTabSet(
@@ -392,36 +277,37 @@ export function DomainFlexLayout<TId extends string | number>(props: DomainFlexL
     const children = node.getChildren();
 
     for (const child of children) {
-      if (model && child.getId() === LAYOUT_TABS.NODES) {
+      if (model && child.getId() === `${LAYOUT_TABS.NODES}-${domainId}`) {
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
-          id: LAYOUT_TABS.TOPICS,
+          id: `${LAYOUT_TABS.TOPICS}-${domainId}`,
           title: "Topics",
-          reactNode: <TopicsPanel />,
+          component: LAYOUT_TABS.TOPICS,
+          domainId: domainId,
           setId: node.getId(),
           icon: <TopicIcon sx={{ fontSize: "inherit" }} />,
         });
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
-          id: LAYOUT_TABS.SERVICES,
+          id: `${LAYOUT_TABS.SERVICES}-${domainId}`,
           title: "Services",
-          reactNode: <ServicesPanel />,
+          domainId: domainId,
+          component: LAYOUT_TABS.SERVICES,
           setId: node.getId(),
           icon: <FeaturedPlayListIcon sx={{ fontSize: "inherit" }} />,
         });
-        // pAddTabStickyButton(
-        //   renderValues.stickyButtons,
-        //   LAYOUT_TABS.PARAMETER,
-        //   "Parameter",
-        //   <ParameterPanel nodes={[]} providers={[]} />,
-        //   node.getId(),
-        //   <TuneIcon sx={{ fontSize: "inherit" }} />
-        // );
-        // if (window.commandExecutor) {
-        //   renderValues.stickyButtons.push(<ExternalAppsModal key="external-apps-dialog" />);
-        // }
+        pAddTabStickyButton({
+          model: model,
+          container: renderValues.stickyButtons,
+          id: `${LAYOUT_TABS.APPS}-${domainId}`,
+          title: "ROS Apps",
+          domainId: domainId,
+          component: LAYOUT_TABS.APPS,
+          setId: node.getId(),
+          icon: <AppsIcon sx={{ fontSize: "inherit" }} />,
+        });
       }
     }
   }
@@ -434,12 +320,44 @@ export function DomainFlexLayout<TId extends string | number>(props: DomainFlexL
     }
   });
 
+  useCustomEventListener(
+    EVENT_TOGGLE_COMPONENT,
+    (data: TEventOpenComponent) => {
+      if (!model || data.config?.domainId === undefined || data.config?.domainId !== domainId) {
+        return;
+      }
+      const tab = model.getNodeById(data.id);
+      const createTab = tab === undefined;
+      if (tab && !(tab as FlexLayout.TabNode)?.isVisible()) {
+        model.doAction(FlexLayout.Actions.selectTab(data.id));
+        return;
+      }
+      if (createTab) {
+        console.log("DomainFlexLayout: creating new tab", data.id, "for domainId", domainId);
+        const tab: FlexLayout.ITabAttributes = {
+          id: data.id,
+          type: "tab",
+          name: data.title,
+          component: data.component,
+          enableClose: data.closable,
+          enablePopout: false,
+          config: data.config,
+        };
+        const action = FlexLayout.Actions.addTab(tab, data.toNodeId, FlexLayout.DockLocation.CENTER, -1);
+        model.doAction(action);
+      } else {
+        model.doAction(FlexLayout.Actions.deleteTab(data.id));
+      }
+    },
+    [model, domainId]
+  );
+
   useEffect(() => {
     window.dispatchEvent(new Event("resize"));
   }, [forceUpdate]);
 
   if (!model) {
-    // If there is no model (e.g. no ids), render nothing
+    // If there is no model (e.g. no domainId), render nothing
     return null;
   }
 

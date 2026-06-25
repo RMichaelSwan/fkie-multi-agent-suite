@@ -1,3 +1,4 @@
+import { EventProviderActivity, EventProviderDelay, EventProviderWarnings } from "@/renderer/providers/events";
 import CheckIcon from "@mui/icons-material/Check";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
@@ -19,8 +20,6 @@ import {
   Typography,
 } from "@mui/material";
 import { useDebounceCallback } from "@react-hook/debounce";
-
-import { EventProviderActivity, EventProviderDelay, EventProviderWarnings } from "@/renderer/providers/events";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 import semver from "semver";
@@ -396,7 +395,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
           sx={getHostStyle(provider)}
         >
           <Stack direction="row" spacing="0.2em" alignItems="center" flexGrow={1}>
-            {provider.isLocalHost && <OverflowMenuExternalApps provider={provider} />}
+            {/* {provider.isLocalHost && <OverflowMenuExternalApps provider={provider} />} */}
             <Tooltip
               title={
                 <div>
@@ -437,19 +436,11 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
                     {provider.name()}
                   </Typography>
                 </Link>
-                {/* {provider.isLocalHost && (
-              <Typography variant="body2" color="grey">
-                &gt;localhost&lt;
-              </Typography>
-            )} */}
-
-                {/* {provider.connection.domainId !== undefined && Number.parseInt(provider.connection.domainId) > 0 && (
-              <Tooltip title={provider.rosVersion === "2" ? "ROS_DOMAIN_ID" : "Network ID"} placement="right">
-                <Typography color="grey" variant="body2">
-                  [{provider.connection.domainId}]
-                </Typography>
-              </Tooltip>
-            )} */}
+                {provider.isLocalHost && (
+                  <Typography variant="body2" color="grey">
+                    - localhost
+                  </Typography>
+                )}
                 {providersActivity && (
                   <Stack minWidth="2em">
                     <LinearProgress sx={{ marginTop: "0.3em" }} variant="query" color="inherit" />
