@@ -553,6 +553,7 @@ export default function NodeManager(): JSX.Element {
   function factory(node: TabNode, contentId?: TContentId): JSX.Element {
     const component = node.getComponent();
     const config = node.getConfig();
+    console.log(`CONFIG: ${JSON.stringify(config)}`);
     console.log(`node.getId(): ${node.getId()}`);
     const custom = layoutComponentsRef.current[node.getId()];
     if (custom) {
@@ -567,7 +568,7 @@ export default function NodeManager(): JSX.Element {
     console.log(`FACTORY: ${component}`);
     switch (component) {
       case LAYOUT_TABS.NODES:
-        return <HostTreeViewPanel key={`nodes-panel-${flexId}`} />;
+        return <HostTreeViewPanel key={`nodes-panel-${flexId}`} contentId={contentId}/>;
       case LAYOUT_TABS.HOSTS:
         return <ProviderPanel key="hosts-panel" />;
       case LAYOUT_TABS.PACKAGES:
@@ -577,15 +578,15 @@ export default function NodeManager(): JSX.Element {
       case LAYOUT_TABS.LOGGING:
         return <LoggingPanel key="logging-panel" />;
       case LAYOUT_TABS.TOPICS:
-        return <TopicsPanel key={`topics-panel-${flexId}`} />;
+        return <TopicsPanel key={`topics-panel-${flexId}`} contentId={contentId}/>;
       case LAYOUT_TABS.SERVICES:
-        return <ServicesPanel key={`services-panel-${flexId}`} />;
+        return <ServicesPanel key={`services-panel-${flexId}`} contentId={contentId}/>;
       case LAYOUT_TABS.SETTINGS:
         return <SettingsPanel key="settings-panel" />;
       case LAYOUT_TABS.ABOUT:
         return <AboutPanel key="about-panel" />;
       case LAYOUT_TABS.PARAMETER:
-        return <ParameterPanel key="parameter-panel" nodes={[]} providers={[]} />;
+        return <ParameterPanel key="parameter-panel" nodes={config.nodes} providers={config.providers} />;
       case LAYOUT_TABS.APPS:
         return <ExternalAppsPanel key={`apps-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.NO_RUNNING_DAEMONS:

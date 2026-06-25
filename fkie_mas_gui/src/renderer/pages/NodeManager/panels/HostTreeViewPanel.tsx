@@ -21,7 +21,6 @@ import { useCustomEventListener } from "react-custom-events";
 
 import HostTreeView from "@/renderer/components/HostTreeView/HostTreeView";
 import HostTreeViewActions from "@/renderer/components/HostTreeView/HostTreeViewActions";
-import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import ConfirmModal from "@/renderer/components/SelectionModal/ConfirmModal";
 import ListSelectionModal from "@/renderer/components/SelectionModal/ListSelectionModal";
 import MapSelectionModal, { MapSelectionItem } from "@/renderer/components/SelectionModal/MapSelectionModal";
@@ -34,7 +33,7 @@ import useQueue from "@/renderer/hooks/useQueue";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { Result, RosNode, RosNodeStatus } from "@/renderer/models";
-import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "@/renderer/pages/NodeManager/layout";
+import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import {
   emitOpenComponent,
   EVENT_FILTER_NODES,
@@ -44,12 +43,13 @@ import {
   TEventKillNodes,
   TEventShowScreens,
 } from "@/renderer/pages/NodeManager/layout/events";
-import { CmdType, Provider } from "@/renderer/providers";
+import { CmdType } from "@/renderer/providers";
 import { ConnectionState, EventProviderRestartNodes } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_RESTART_NODES } from "@/renderer/providers/eventTypes";
 import { TResultClearPath } from "@/renderer/providers/ProviderConnection";
-import { areArraysEqual, findIn } from "@/renderer/utils/index";
+import { findIn } from "@/renderer/utils/index";
 import { TFileRange } from "@/types";
+import { contentToId, TContentId } from "../layout/LayoutTabConfig";
 import NodeLoggerPanel from "./NodeLoggerPanel";
 import ParameterPanel from "./ParameterPanel";
 
@@ -97,11 +97,6 @@ type TPendingRestart = {
   notBefore: number; // timestamp in ms since epoch
 };
 
-type TDomainGroup = {
-  domainId: string; // stringified domainId
-  providers: Provider[];
-};
-
 const queueActionMeta: Record<QueueActionType, { successText: string }> = {
   STOP: { successText: "stopped" },
   START: { successText: "started" },
@@ -111,7 +106,12 @@ const queueActionMeta: Record<QueueActionType, { successText: string }> = {
   DYNAMIC_RECONFIGURE: { successText: "dynamic reconfigure started" },
 };
 
-export default function HostTreeViewPanel(): JSX.Element {
+interface HostTreeViewPanelProps {
+  contentId?: TContentId;
+}
+
+export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.Element {
+  const { contentId } = props;
   // context objects
   const rosCtx = useRosContext();
   const settingsCtx = useSettingsContext();
@@ -130,7 +130,6 @@ export default function HostTreeViewPanel(): JSX.Element {
   const [nodesToStart, setNodesToStart] = useState<RosNode[]>();
   const [progressQueueMain, setProgressQueueMain] = useState<number>(0);
   const queue = useQueue<TQueueAction>(setProgressQueueMain);
-  const [domainIds, setDomainIds] = useState<string[]>([]);
 
   // variables with show dialog actions
   const [shutdownRos, setShutdownRos] = useState<"" | "only nodes" | "kill ros2">("");
@@ -221,64 +220,6 @@ export default function HostTreeViewPanel(): JSX.Element {
       countFilteredNodes: nodeCount - nodeFilteredCount,
     };
   }, [providerNodes, filterText]);
-
-  const domainGroups = useMemo<TDomainGroup[]>(() => {
-    const map = new Map<string, TDomainGroup>();
-
-    for (const provider of rosCtx.providers) {
-      // adapt this line if your Provider type stores domainId differently
-      const raw = provider.connection?.domainId ?? "default";
-      const key = String(raw);
-
-      if (!map.has(key)) {
-        map.set(key, { domainId: key, providers: [] });
-      }
-      map.get(key)?.providers.push(provider);
-    }
-
-    // changes on domain ids causes refactoring in flex layout
-    if (!areArraysEqual(Array.from(map.keys()), domainIds)) {
-      setDomainIds(Array.from(map.keys()));
-    }
-
-    return Array.from(map.values());
-  }, [rosCtx.providers]);
-
-  const domainVisibleNodes = useMemo<Record<string, RosNode[]>>(() => {
-    // if there is only one domain group, per-domain mapping is not needed
-    if (domainGroups.length <= 1) {
-      return {};
-    }
-
-    const result: Record<string, RosNode[]> = {};
-    for (const group of domainGroups) {
-      result[group.domainId] = [];
-    }
-
-    for (const node of visibleNodesGlobal) {
-      const provider = rosCtx.getProviderById(node.providerId);
-      const raw = provider?.connection?.domainId ?? "default";
-      const key = String(raw);
-      if (!result[key]) {
-        result[key] = [];
-      }
-      result[key].push(node);
-    }
-
-    return result;
-  }, [domainGroups, visibleNodesGlobal, rosCtx.getProviderById]);
-
-  // useEffect(() => {
-  //   for (const domainId of domainGroups) {
-  //     emitOpenComponent({
-  //       id: `${LAYOUT_TABS.DOMAIN}-${domainId}`,
-  //       title: `Domain ${domainId}`,
-  //       closable: false,
-  //       toNodeId: LAYOUT_TAB_SETS.CENTER,
-  //       component: LAYOUT_TABS.DOMAIN,
-  //     });
-  //   }
-  // }, [domainGroups]);
 
   // Event listeners -----------------------------------------------------------------------------------
 
@@ -416,6 +357,7 @@ export default function HostTreeViewPanel(): JSX.Element {
   const createParameterPanel = useCallback(
     (nodes: RosNode[], providers: string[]): void => {
       const openLocation: string = LAYOUT_TAB_SETS[settingsCtx.get("nodeParamOpenLocation") as string];
+      console.log(`openLocation: ${openLocation}`);
       const params: TMenuOptionsParam[] = [];
 
       for (const node of nodes) {
@@ -428,7 +370,7 @@ export default function HostTreeViewPanel(): JSX.Element {
               closable: true,
               component: LAYOUT_TABS.PARAMETER,
               toNodeId: openLocation,
-              config: { reactNode: <ParameterPanel nodes={[node]} providers={[]} /> },
+              config: { nodes: [node], providers: [] },
             });
           },
         });
@@ -1079,7 +1021,21 @@ export default function HostTreeViewPanel(): JSX.Element {
    */
   useEffect(() => {
     const newProviderNodes: TProviderNodes[] = [];
+    const selectedDomainId = contentId?.domainId;
+    const selectedProviderId = contentId?.providerId;
     for (const [providerId, nodes] of rosCtx.mapProviderRosNodes) {
+      if (selectedProviderId !== undefined) {
+        if (providerId !== selectedProviderId) {
+          continue;
+        }
+      } else if (selectedDomainId !== undefined) {
+        // Otherwise filter by domainId if set
+        const provider = rosCtx.getProviderById(providerId);
+        const providerDomainId = provider?.connection?.domainId;
+        if (providerDomainId !== selectedDomainId) {
+          continue;
+        }
+      }
       newProviderNodes.push({ providerId, nodes });
     }
     setProviderNodes(newProviderNodes);
@@ -1561,48 +1517,13 @@ export default function HostTreeViewPanel(): JSX.Element {
         <Stack direction="row" height="100%" overflow="auto">
           {buttonLocation === BUTTON_LOCATIONS.LEFT && <Box height="100%">{createActions()}</Box>}
           <HostTreeView
-            triggerId={`host-tree-${domainGroups[0]?.domainId}`}
+            triggerId={`host-tree-${contentToId(contentId)}`}
             visibleNodes={visibleNodesGlobal}
             isFiltered={filterText.length > 0}
             showLoggers={createLoggerPanelFromId}
             startNodes={startNodesFromId}
             stopNodes={stopNodesFromId}
           />
-          {/* {domainGroups.length <= 1 ? (
-            // Single domain: keep current behavior, show all nodes in one tree
-            <HostTreeView
-              triggerId={`host-tree-${domainGroups[0]?.domainId}`}
-              visibleNodes={visibleNodesGlobal}
-              isFiltered={filterText.length > 0}
-              showLoggers={createLoggerPanelFromId}
-              startNodes={startNodesFromId}
-              stopNodes={stopNodesFromId}
-            />
-          ) : (
-            // Multiple domains: one tab per domain with its own HostTreeView
-            <DomainFlexLayout
-              key="domain-host-layout"
-              storageKey="layoutHostDomains"
-              ids={domainIds}
-              componentName="domainHostTree"
-              configKey="domainId"
-              insideTabId={LAYOUT_TABS.NODES}
-              factory={(_, domainId) => {
-                const nodesForDomain = domainVisibleNodes[domainId] ?? [];
-                return (
-                  <HostTreeView
-                    key={`host-tree-${domainId}`}
-                    triggerId={`host-tree-${domainId}`}
-                    visibleNodes={nodesForDomain}
-                    isFiltered={filterText.length > 0}
-                    showLoggers={createLoggerPanelFromId}
-                    startNodes={startNodesFromId}
-                    stopNodes={stopNodesFromId}
-                  />
-                );
-              }}
-            />
-          )} */}
 
           {buttonLocation === BUTTON_LOCATIONS.RIGHT && <Box height="100%">{createActions()}</Box>}
         </Stack>

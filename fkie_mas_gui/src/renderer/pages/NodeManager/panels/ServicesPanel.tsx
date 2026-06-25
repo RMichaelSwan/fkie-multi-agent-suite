@@ -14,9 +14,10 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { ServiceExtendedInfo } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
-import { areArraysEqual, findIn } from "@/renderer/utils/index";
+import { findIn } from "@/renderer/utils/index";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
 import { emitOpenComponent, EVENT_FILTER_SERVICES, TFilterText } from "../layout/events";
+import { TContentId } from "../layout/LayoutTabConfig";
 import ServiceCallerPanel from "./ServiceCallerPanel";
 
 type TTreeItem = {
@@ -42,7 +43,8 @@ type TSettings = {
   buttonLocation: string;
 };
 
-type TSelected = { id: string; domainId: string } | null;
+// Selected item is now just the id (no domain tracking needed)
+type TSelected = string | null;
 
 type FlatRow = {
   id: string;
@@ -53,23 +55,23 @@ type FlatRow = {
 };
 
 interface ServicesPanelProps {
+  contentId?: TContentId;
   initialSearchTerm?: string;
 }
 
 const EXPAND_ON_SEARCH_MIN_CHARS = 2;
 
-export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelProps): JSX.Element {
+export default function ServicesPanel({ contentId, initialSearchTerm = "" }: ServicesPanelProps): JSX.Element {
   const rosCtx = useRosContext();
   const settingsCtx = useSettingsContext();
 
-  // services grouped by domainId
-  const [servicesByDomain, setServicesByDomain] = useState<Record<string, ServiceExtendedInfo[]>>({});
+  // Flat list of services for this panel (filtered by contentId)
+  const [services, setServices] = useState<ServiceExtendedInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [rootDataList, setRootDataList] = useState<TTreeItem[]>([]);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [selected, setSelected] = useState<TSelected>(null);
   const [serviceForSelected, setServiceForSelected] = useState<ServiceExtendedInfo | undefined>();
-  const [domainIds, setDomainIds] = useState<string[]>([]);
 
   const [settings, setSettings] = useState<TSettings>({
     avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
@@ -80,26 +82,33 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   const genKey = useCallback((items: string[]): string => items.join("#"), []);
 
   /**
-   * Build per-domain ServiceExtendedInfo lists.
-   * For each domainId we collect services from all providers in that domain.
-
+   * Build ServiceExtendedInfo list filtered by contentId.
+   * - If contentId.providerId is set: only services from that provider.
+   * - If contentId.domainId is set: services from all providers in that domain.
    */
   const updateServiceList = useCallback(async () => {
     if (!rosCtx.initialized) {
       return;
     }
 
-    // domainId -> (serviceKey -> ServiceExtendedInfo)
-    const domainServiceMaps = new Map<string, Map<string, ServiceExtendedInfo>>();
+    // serviceKey -> ServiceExtendedInfo
+    const serviceMap = new Map<string, ServiceExtendedInfo>();
+
+    const selectedDomainId = contentId?.domainId;
+    const selectedProviderId = contentId?.providerId;
 
     for (const provider of rosCtx.providers) {
-      const rawDomainId = provider.connection?.domainId ?? "default";
-      const domainId = String(rawDomainId);
-
-      let serviceMap = domainServiceMaps.get(domainId);
-      if (!serviceMap) {
-        serviceMap = new Map<string, ServiceExtendedInfo>();
-        domainServiceMaps.set(domainId, serviceMap);
+      // Filter by providerId if set
+      if (selectedProviderId !== undefined) {
+        if (provider.id !== selectedProviderId) {
+          continue;
+        }
+      } else if (selectedDomainId !== undefined) {
+        // Otherwise filter by domainId if set
+        const providerDomainId = provider.connection?.domainId;
+        if (providerDomainId !== selectedDomainId) {
+          continue;
+        }
       }
 
       for (const service of provider.rosServices) {
@@ -118,33 +127,20 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       }
     }
 
-    const nextServicesByDomain: Record<string, ServiceExtendedInfo[]> = {};
-    const domainIdsFromMap = Array.from(domainServiceMaps.keys());
-
-    for (const domainId of domainIdsFromMap) {
-      const serviceMap = domainServiceMaps.get(domainId);
-      if (!serviceMap) {
-        continue;
+    const list = Array.from(serviceMap.values()).sort((a, b) => {
+      const aSeps = (a.name.match(/\//g) || []).length;
+      const bSeps = (b.name.match(/\//g) || []).length;
+      if (aSeps === bSeps) {
+        return a.name.localeCompare(b.name);
       }
+      return bSeps - aSeps;
+    });
 
-      const list = Array.from(serviceMap.values()).sort((a, b) => {
-        const aSeps = (a.name.match(/\//g) || []).length;
-        const bSeps = (b.name.match(/\//g) || []).length;
-        if (aSeps === bSeps) {
-          return a.name.localeCompare(b.name);
-        }
-        return bSeps - aSeps;
-      });
-
-      nextServicesByDomain[domainId] = list;
-    }
-
-    setServicesByDomain(nextServicesByDomain);
-  }, [rosCtx.initialized, rosCtx.providers, genKey]);
+    setServices(list);
+  }, [rosCtx.initialized, rosCtx.providers, genKey, contentId]);
 
   /**
    * Trigger providers to refresh their ROS node lists, which will in turn update services.
-
    */
   const getServiceList = useCallback(() => {
     for (const provider of rosCtx.providers) {
@@ -155,7 +151,6 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   /**
    * If a group contains exactly one child and no direct service itself,
    * merge the group with its child to avoid deep, single-branch hierarchies.
-
    */
   const flattenSingleChildGroups = useCallback((node: TTreeItem): TTreeItem => {
     if (node.services.length === 1 && !node.serviceInfo) {
@@ -186,7 +181,6 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   /**
    * Tree structure builder for services (similar to topics).
    * Groups services by namespace segments.
-
    */
   const buildTree = useCallback(
     (servicesList: ServiceExtendedInfo[], avoidSingle: boolean): TTreeResult => {
@@ -195,12 +189,11 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       const rootNodes: TTreeItem[] = [];
 
       /**
-     * Phase 1: create a node for every path segment and attach ServiceExtendedInfo
-     * - For service "/foo/bar/baz", we create nodes for:
-     *   "/foo", "/foo/bar", "/foo/bar/baz"
-     * - Only the last segment (leaf) holds serviceInfo
-
-     */
+       * Phase 1: create a node for every path segment and attach ServiceExtendedInfo
+       * - For service "/foo/bar/baz", we create nodes for:
+       *   "/foo", "/foo/bar", "/foo/bar/baz"
+       * - Only the last segment (leaf) holds serviceInfo
+       */
       for (const service of servicesList) {
         const parts = service.name.split("/").filter(Boolean);
         let currentPath = "";
@@ -234,12 +227,11 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       }
 
       /**
-     * Phase 2: connect nodes to a tree based on their parent paths
-     * - Determine parent by stripping the last "/segment" from the path
-     * - Root nodes have no valid parent in the map and are pushed to rootNodes
-     * - We DO NOT propagate counts here; that is done later recursively
-
-     */
+       * Phase 2: connect nodes to a tree based on their parent paths
+       * - Determine parent by stripping the last "/segment" from the path
+       * - Root nodes have no valid parent in the map and are pushed to rootNodes
+       * - We DO NOT propagate counts here; that is done later recursively
+       */
       for (const [path, node] of nodes.entries()) {
         const parentPath = path.substring(0, path.lastIndexOf("/"));
 
@@ -261,11 +253,10 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       }
 
       /**
-     * Phase 3: sort root nodes
-     * - Groups before leaf services
-     * - Alphabetical by groupName
-
-     */
+       * Phase 3: sort root nodes
+       * - Groups before leaf services
+       * - Alphabetical by groupName
+       */
       rootNodes.sort((a, b) => {
         const aIsGroup = a.services.length > 0;
         const bIsGroup = b.services.length > 0;
@@ -275,10 +266,9 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       });
 
       /**
-     * Phase 4: optionally flatten groups that contain only a single child
-     * - This is only a structural change; counts will be recalculated afterwards
-
-     */
+       * Phase 4: optionally flatten groups that contain only a single child
+       * - This is only a structural change; counts will be recalculated afterwards
+       */
       const processedRoots: TTreeItem[] = [];
       if (avoidSingle) {
         for (const node of rootNodes) {
@@ -289,12 +279,11 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
       }
 
       /**
-     * Phase 5: recursively compute counts for all nodes
-     * - Leaf node (serviceInfo != null) has count = 1
-     * - Group node has count = sum of all leaf services in its subtree
-     * - This guarantees that count includes all services in subgroups
-
-     */
+       * Phase 5: recursively compute counts for all nodes
+       * - Leaf node (serviceInfo != null) has count = 1
+       * - Group node has count = sum of all leaf services in its subtree
+       * - This guarantees that count includes all services in subgroups
+       */
       const computeCounts = (node: TTreeItem): number => {
         // Leaf service
         if (node.serviceInfo) {
@@ -320,31 +309,12 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   );
 
   /**
-   * Flatten all services across domains (used for text filtering).
-
-   */
-  const allServices = useMemo(() => {
-    const result: ServiceExtendedInfo[] = [];
-    const domainIdsLocal = Object.keys(servicesByDomain);
-
-    for (const domainId of domainIdsLocal) {
-      const list = servicesByDomain[domainId] ?? [];
-      for (const svc of list) {
-        result.push(svc);
-      }
-    }
-
-    return result;
-  }, [servicesByDomain]);
-
-  /**
    * Text filter on service name, type and provider / requester node names.
-
    */
   const filteredServices = useMemo(() => {
-    if (!searchTerm.trim()) return allServices;
+    if (!searchTerm.trim()) return services;
 
-    return allServices.filter((service) =>
+    return services.filter((service) =>
       findIn(searchTerm, [
         service.name,
         service.srvType,
@@ -352,11 +322,10 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
         ...service.nodeRequester.map((item) => item.nodeName),
       ])
     );
-  }, [allServices, searchTerm]);
+  }, [services, searchTerm]);
 
   /**
-   * Tree data for the current filter state (single-domain structure).
-
+   * Tree data for the current filter state (single structure, no domains).
    */
   const treeData = useMemo(() => {
     const treeResult = buildTree(
@@ -387,7 +356,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   useCustomEventListener(EVENT_PROVIDER_ROS_SERVICES, updateServiceList);
   useCustomEventListener(EVENT_FILTER_SERVICES, (filter: TFilterText) => setSearchTerm(filter.data));
 
-  // keep derived root tree list in state (used by single-domain Virtuoso)
+  // keep derived root tree list in state (used by Virtuoso)
   useEffect(() => {
     setRootDataList(treeData);
   }, [treeData]);
@@ -396,65 +365,38 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
     setSearchTerm(term);
   }, []);
 
-  // expand/collapse for groups (shared across domains)
+  // expand/collapse for groups
   const toggleExpanded = useCallback((id: string) => {
     setExpandedItems((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
 
-  // selection: keep track of which domain the selection belongs to
-  const handleSelect = useCallback((itemId: string, domainId: string) => {
-    setSelected({ id: itemId, domainId });
+  // selection handler (no domainId anymore)
+  const handleSelect = useCallback((itemId: string) => {
+    setSelected(itemId);
   }, []);
 
-  // resolve selected ServiceExtendedInfo from selection keys
+  // resolve selected ServiceExtendedInfo from selected id
   useEffect(() => {
     if (!selected) {
       setServiceForSelected(undefined);
       return;
     }
 
-    const domainServices = servicesByDomain[selected.domainId] ?? [];
     let found: ServiceExtendedInfo | undefined;
 
-    for (const svc of domainServices) {
-      if (genKey([svc.name, svc.srvType]) === selected.id) {
+    for (const svc of services) {
+      if (genKey([svc.name, svc.srvType]) === selected) {
         found = svc;
         break;
       }
     }
 
     setServiceForSelected(found);
-  }, [selected, servicesByDomain, genKey]);
+  }, [selected, services, genKey]);
 
   /**
-   * Map provider -> domain (used to split multi-domain view).
-
-   */
-  const providerDomainMap = useMemo(() => {
-    const dMap = new Map<string, string>();
-    const map = new Map<string, string>();
-
-    for (const provider of rosCtx.providers) {
-      const raw = provider.connection?.domainId ?? "default";
-      map.set(provider.id, String(raw));
-      dMap.set(String(raw), String(raw));
-    }
-
-    // changes on domain ids causes refactoring in flex layout
-    if (!areArraysEqual(Array.from(dMap.keys()), domainIds)) {
-      setDomainIds(Array.from(dMap.keys()));
-    }
-
-    return map;
-  }, [rosCtx.providers]);
-
-  // single-domain convenience id
-  const singleDomainId = domainIds.length === 1 ? domainIds[0] : "default";
-
-  /**
-   * Flat rows for the single-domain case (Virtuoso).
+   * Flat rows for Virtuoso.
    * Groups and services are flattened into a single list while preserving depth.
-
    */
   const flatRows = useMemo<FlatRow[]>(() => {
     const expandedSet = new Set(expandedItems);
@@ -519,7 +461,6 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   /**
    * Open "call service" panel for the selected service.
    * external / openInTerminal are reserved for future extension (parity with topics).
-
    */
   const onCallService = useCallback(
     (service: ServiceExtendedInfo | undefined, external: boolean, openInTerminal = false) => {
@@ -583,10 +524,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   );
 
   /**
-   * Tree view:
-   * - Single-domain: one Virtuoso (flattened rows).
-   * - Multi-domain: DomainFlexLayout with one Virtuoso per domain.
-
+   * Tree view: single Virtuoso with flattened rows (no multi-domain mode anymore).
    */
   const treeView = useMemo(
     () => (
@@ -598,7 +536,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
 
           if (row.type === "group") {
             const node = row.treeItem;
-            const isSelected = selected?.id === row.id && selected?.domainId === singleDomainId;
+            const isSelected = selected === row.id;
 
             return (
               <TopicGroupTreeItem
@@ -612,7 +550,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
                 expanded={expandedItems.includes(row.id)}
                 selected={isSelected}
                 onToggle={() => toggleExpanded(row.id)}
-                onSelect={() => handleSelect(row.id, singleDomainId)}
+                onSelect={() => handleSelect(row.id)}
               />
             );
           }
@@ -621,7 +559,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
           if (!serviceInfo) return null;
 
           const id = row.id;
-          const isSelected = selected?.id === id && selected?.domainId === singleDomainId;
+          const isSelected = selected === id;
 
           return (
             <ServiceTreeItem
@@ -629,173 +567,16 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
               itemId={id}
               rootPath={row.rootPath}
               serviceInfo={serviceInfo}
-              selectedItem={selected?.id ?? ""}
+              selectedItem={selected ?? ""}
               selected={isSelected}
               depth={row.depth}
-              onSelect={() => handleSelect(id, singleDomainId)}
+              onSelect={() => handleSelect(id)}
             />
           );
         }}
       />
-      // ) : (
-      //   <DomainFlexLayout
-      //     key="domain-service-layout"
-      //     storageKey="layoutServiceDomains"
-      //     ids={domainIds}
-      //     componentName="domainServiceTree"
-      //     configKey="domainId"
-      //     insideTabId={LAYOUT_TABS.SERVICES}
-      //     factory={(_, domainId) => {
-      //       // services which appear in this domain, based on provider/requester providerId
-      //       const servicesInDomain = filteredServices.filter((service) => {
-      //         const providerIds = new Set<string>();
-
-      //         for (const item of service.nodeProviders) {
-      //           providerIds.add(item.providerId);
-      //         }
-      //         for (const item of service.nodeRequester) {
-      //           providerIds.add(item.providerId);
-      //         }
-
-      //         const ids = Array.from(providerIds.values());
-      //         for (const pid of ids) {
-      //           if (providerDomainMap.get(pid) === domainId) {
-      //             return true;
-      //           }
-      //         }
-      //         return false;
-      //       });
-
-      //       // build tree for this domain's services
-      //       const treeResult = buildTree(servicesInDomain, false);
-      //       const roots = treeResult.services;
-
-      //       const expandedSet = new Set(expandedItems);
-      //       const rows: FlatRow[] = [];
-      //       const avoidSingle = searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? settings.avoidGroupWithOneItem : false;
-
-      //       const walkDomain = (node: TTreeItem, depth: number, rootPath: string) => {
-      //         if (node.serviceInfo) {
-      //           rows.push({
-      //             id: genKey([node.serviceInfo.name, node.serviceInfo.srvType]),
-      //             type: "service",
-      //             depth,
-      //             treeItem: node,
-      //             rootPath,
-      //           });
-      //           return;
-      //         }
-
-      //         // optional flattening for display
-      //         if (avoidSingle && node.services.length === 1) {
-      //           const nextRoot = rootPath ? `${rootPath}/${node.groupName}` : node.groupName;
-      //           walkDomain(node.services[0], depth, nextRoot);
-      //           return;
-      //         }
-
-      //         rows.push({
-      //           id: node.groupKey,
-      //           type: "group",
-      //           depth,
-      //           treeItem: node,
-      //           rootPath,
-      //         });
-
-      //         if (expandedSet.has(node.groupKey)) {
-      //           const sortedChildren = [...node.services].sort((a, b) => {
-      //             const aIsGroup = !a.serviceInfo;
-      //             const bIsGroup = !b.serviceInfo;
-      //             if (aIsGroup && !bIsGroup) return -1;
-      //             if (!aIsGroup && bIsGroup) return 1;
-      //             return a.groupName.localeCompare(b.groupName);
-      //           });
-
-      //           for (const child of sortedChildren) {
-      //             walkDomain(child, depth + 1, "");
-      //           }
-      //         }
-      //       };
-
-      //       const sortedRoots = [...roots].sort((a, b) => {
-      //         const aIsGroup = !a.serviceInfo;
-      //         const bIsGroup = !b.serviceInfo;
-      //         if (aIsGroup && !bIsGroup) return -1;
-      //         if (!aIsGroup && bIsGroup) return 1;
-      //         return a.groupName.localeCompare(b.groupName);
-      //       });
-
-      //       for (const root of sortedRoots) {
-      //         walkDomain(root, 0, "");
-      //       }
-
-      //       return (
-      //         <Virtuoso
-      //           key={`services-panel-${domainId}`}
-      //           style={{ height: "100%" }}
-      //           totalCount={rows.length}
-      //           itemContent={(index: number) => {
-      //             const row = rows[index];
-
-      //             if (row.type === "group") {
-      //               const node = row.treeItem;
-      //               const isSelected = selected?.id === row.id && selected?.domainId === domainId;
-
-      //               return (
-      //                 <TopicGroupTreeItem
-      //                   key={row.id}
-      //                   itemId={row.id}
-      //                   rootPath={row.rootPath}
-      //                   groupName={node.groupName}
-      //                   countChildren={node.count}
-      //                   hasIncompatibleQos={false}
-      //                   depth={row.depth}
-      //                   expanded={expandedItems.includes(row.id)}
-      //                   selected={isSelected}
-      //                   onToggle={() => toggleExpanded(row.id)}
-      //                   onSelect={() => handleSelect(row.id, domainId)}
-      //                 />
-      //               );
-      //             }
-
-      //             const serviceInfo = row.treeItem.serviceInfo;
-      //             if (!serviceInfo) return null;
-
-      //             const id = row.id;
-      //             const isSelected = selected?.id === id && selected?.domainId === domainId;
-
-      //             return (
-      //               <ServiceTreeItem
-      //                 key={id}
-      //                 itemId={id}
-      //                 rootPath={row.rootPath}
-      //                 serviceInfo={serviceInfo}
-      //                 selectedItem={selected?.id ?? ""}
-      //                 selected={isSelected}
-      //                 depth={row.depth}
-      //                 onSelect={() => handleSelect(id, domainId)}
-      //               />
-      //             );
-      //           }}
-      //         />
-      //       );
-      //     }}
-      //   />
     ),
-    [
-      domainIds,
-      flatRows,
-      selected,
-      expandedItems,
-      singleDomainId,
-      toggleExpanded,
-      handleSelect,
-      filteredServices,
-      providerDomainMap,
-      buildTree,
-      searchTerm,
-      settings.avoidGroupWithOneItem,
-      genKey,
-    ]
+    [flatRows, selected, expandedItems, toggleExpanded, handleSelect]
   );
 
   return (
