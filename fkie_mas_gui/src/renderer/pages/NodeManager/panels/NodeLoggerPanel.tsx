@@ -42,13 +42,11 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
   const [error, setError] = useState<string>("");
   const [loggers, setLoggers] = useState<LoggerConfig[]>([]);
   const [loggersFiltered, setLoggersFiltered] = useState<LoggerConfig[]>([]);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
   const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
 
   useEffect(() => {
     setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setBackgroundColor(settingsCtx.get("backgroundColor") as string);
   }, [settingsCtx.changed]);
 
@@ -219,7 +217,7 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
       </Stack>
       <Stack direction="row" spacing={0.1} justifyItems="center">
         {addable && !addable && (
-          <Tooltip title={"Add a new logger name"} placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+          <Tooltip title={"Add a new logger name"} placement="bottom" disableInteractive>
             <IconButton
               size="small"
               aria-label="add logger name"
@@ -236,7 +234,6 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
         <Tooltip
           title={"Remove last changed levels to prevent change them after node restart!"}
           placement="bottom"
-          enterDelay={tooltipDelay}
           disableInteractive
         >
           <span>
@@ -254,13 +251,7 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip
-          title="Refresh logger list"
-          placement="bottom"
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
-          disableInteractive
-        >
+        <Tooltip title="Refresh logger list" placement="bottom" disableInteractive>
           <IconButton
             size="small"
             edge="start"
@@ -313,7 +304,7 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
                           flexDirection: "row",
                         }}
                       >
-                        <Tooltip title="fatal" placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+                        <Tooltip title="fatal" placement="bottom" disableInteractive>
                           <Radio
                             value="FATAL"
                             size="small"
@@ -326,7 +317,7 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
                             }}
                           />
                         </Tooltip>
-                        <Tooltip title="error" placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+                        <Tooltip title="error" placement="bottom" disableInteractive>
                           <Radio
                             value="ERROR"
                             size="small"
@@ -339,7 +330,7 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
                             }}
                           />
                         </Tooltip>
-                        <Tooltip title="warning" placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+                        <Tooltip title="warning" placement="bottom" disableInteractive>
                           <Radio
                             value="WARN"
                             size="small"
@@ -352,7 +343,7 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
                             }}
                           />
                         </Tooltip>
-                        <Tooltip title="info" placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+                        <Tooltip title="info" placement="bottom" disableInteractive>
                           <Radio
                             value="INFO"
                             size="small"
@@ -365,7 +356,7 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
                             }}
                           />
                         </Tooltip>
-                        <Tooltip title="debug" placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+                        <Tooltip title="debug" placement="bottom" disableInteractive>
                           <Radio
                             value="DEBUG"
                             color="default"

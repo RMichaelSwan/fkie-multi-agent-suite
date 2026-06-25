@@ -4,24 +4,24 @@ import LinkIcon from "@mui/icons-material/Link";
 import LinkOffIcon from "@mui/icons-material/LinkOff";
 import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import {
-    Box,
-    ClickAwayListener,
-    Grow,
-    IconButton,
-    MenuItem,
-    MenuList,
-    Paper,
-    Popper,
-    Stack,
-    Tooltip,
-    Typography,
+  Box,
+  ClickAwayListener,
+  Grow,
+  IconButton,
+  MenuItem,
+  MenuList,
+  Paper,
+  Popper,
+  Stack,
+  Tooltip,
+  Typography,
 } from "@mui/material";
 import { green, grey, orange, red } from "@mui/material/colors";
 import {
-    treeItemClasses,
-    TreeItemSlotProps,
-    UseTreeItemContentSlotOwnProps,
-    UseTreeItemIconContainerSlotOwnProps,
+  treeItemClasses,
+  TreeItemSlotProps,
+  UseTreeItemContentSlotOwnProps,
+  UseTreeItemIconContainerSlotOwnProps,
 } from "@mui/x-tree-view";
 import React, { useCallback, useEffect, useState } from "react";
 
@@ -70,12 +70,10 @@ export default function HostItem(props: HostItemProps): JSX.Element {
   const [showHelpTime, setShowHelpTime] = useState<boolean>(false);
   const [openNtpdateDialog, setOpenNtpdateDialog] = useState<boolean>(false);
   const [colorizeHosts, setColorizeHosts] = useState<string>(settingsCtx.get("colorizeHosts") as string);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [timeDiffThreshold, setTimeDiffThreshold] = useState<number>(settingsCtx.get("timeDiffThreshold") as number);
 
   useEffect(() => {
     setColorizeHosts(settingsCtx.get("colorizeHosts") as string);
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setTimeDiffThreshold(settingsCtx.get("timeDiffThreshold") as number);
   }, [settingsCtx.changed]);
 
@@ -231,12 +229,7 @@ export default function HostItem(props: HostItemProps): JSX.Element {
       label={
         <Box display="flex" alignItems="center" paddingLeft={0.0}>
           {provider.rosState.ros_version === "1" && (
-            <Tooltip
-              title="Toggle Master Sync"
-              placement="bottom-start"
-              enterDelay={tooltipDelay}
-              enterNextDelay={tooltipDelay}
-            >
+            <Tooltip title="Toggle Master Sync" placement="bottom-start">
               <IconButton
                 edge="start"
                 aria-label="Toggle Master Sync"

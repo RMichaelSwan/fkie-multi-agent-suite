@@ -38,12 +38,10 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
   const [topicInfo, setTopicInfo] = useState<TopicExtendedInfo | undefined>(undefined);
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [hasIncompatibleQos, setHasIncompatibleQos] = useState<boolean>(false);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
   }, [settingsCtx.changed]);
 
@@ -292,7 +290,6 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
                   </Stack>
                 }
                 placement="left"
-                enterDelay={tooltipDelay}
                 disableInteractive
               >
                 <PlayArrowRoundedIcon style={{ padding: 1, color: "#09770fff" }} fontSize="inherit" />
@@ -339,7 +336,6 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
                   </Stack>
                 }
                 placement="left"
-                enterDelay={tooltipDelay}
                 disableInteractive
               >
                 <ChatBubbleOutlineIcon

@@ -39,13 +39,11 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
   const [searched, setSearched] = useState<string>("");
   const [selectedParameter, setSelectedParameter] = useState<{ provider: Provider; params: RosParameter[] }>();
   const [showWarning, setShowWarning] = useState<boolean>(false);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
   const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
   const [showParameterType, setShowParameterType] = useState<boolean>(settingsCtx.get("showParameterType") as boolean);
 
   useEffect(() => {
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setBackgroundColor(settingsCtx.get("backgroundColor") as string);
     setButtonLocation(settingsCtx.get("buttonLocation") as string);
     setShowParameterType(settingsCtx.get("showParameterType") as boolean);
@@ -184,7 +182,7 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
   const createButtons = useMemo(() => {
     return (
       <Stack direction="row" spacing={0.5} alignItems="center">
-        <Tooltip title="Reload parameter list" placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+        <Tooltip title="Reload parameter list" placement="bottom" disableInteractive>
           <IconButton
             size="small"
             onClick={() => {
@@ -195,7 +193,7 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
             <RefreshIcon sx={{ fontSize: "inherit" }} />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Show parameter types" placement="bottom" enterDelay={tooltipDelay} disableInteractive>
+        <Tooltip title="Show parameter types" placement="bottom" disableInteractive>
           <ToggleButton
             size="small"
             value="check"
@@ -207,12 +205,7 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
         </Tooltip>
 
         {selectedParameter && (
-          <Tooltip
-            title="Delete selected ROS1 parameter"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="Delete selected ROS1 parameter" placement="bottom" disableInteractive>
             <span>
               <IconButton
                 disabled={!selectedParameter}
@@ -229,7 +222,7 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
         )}
       </Stack>
     );
-  }, [tooltipDelay, selectedParameter, showParameterType]);
+  }, [selectedParameter, showParameterType]);
 
   return (
     <Box height="100%" sx={{ backgroundColor: backgroundColor }}>

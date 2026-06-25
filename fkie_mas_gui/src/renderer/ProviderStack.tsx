@@ -16,6 +16,8 @@ import { darkThemeDef, lightThemeDef } from "./themes";
 export default function ProviderStack({ children }: { children: React.ReactNode }): JSX.Element {
   const settingsCtx = useSettingsContext();
   const useDarkMode = settingsCtx.get("useDarkMode");
+  const fontSize = settingsCtx?.get("fontSize") as number | undefined;
+  const tooltipDelay = settingsCtx?.get("tooltipEnterDelay") as number | undefined;
   const [lightTheme, setLightTheme] = useState(createTheme(lightThemeDef));
   const [darkTheme, setDarkTheme] = useState(createTheme(darkThemeDef));
 
@@ -38,26 +40,35 @@ export default function ProviderStack({ children }: { children: React.ReactNode 
   };
 
   useEffect(() => {
-    // update font size globally
-    const fontSize = settingsCtx?.get("fontSize");
-    if (fontSize) {
-      lightThemeDef.typography.fontSize = fontSize as number;
-      lightThemeDef.components.MuiCssBaseline.styleOverrides.body["& .flexlayout__layout"]["--font-size"] = fontSize;
-      darkThemeDef.typography.fontSize = fontSize as number;
-      darkThemeDef.components.MuiCssBaseline.styleOverrides.body["& .flexlayout__layout"]["--font-size"] = fontSize;
-      setDarkTheme(createTheme(darkThemeDef));
-      setLightTheme(createTheme(lightThemeDef));
-    }
-  }, [settingsCtx.changed]);
+    if (fontSize === undefined) return;
+    lightThemeDef.typography.fontSize = fontSize;
+    lightThemeDef.components.MuiCssBaseline.styleOverrides.body["& .flexlayout__layout"]["--font-size"] = fontSize;
+    darkThemeDef.typography.fontSize = fontSize;
+    darkThemeDef.components.MuiCssBaseline.styleOverrides.body["& .flexlayout__layout"]["--font-size"] = fontSize;
+    setDarkTheme(createTheme(darkThemeDef));
+    setLightTheme(createTheme(lightThemeDef));
+  }, [fontSize]);
 
-    // FlexLayout-Theme umschalten
+  useEffect(() => {
+    if (tooltipDelay === undefined) return;
+    if (lightThemeDef.components.MuiTooltip?.defaultProps) {
+      lightThemeDef.components.MuiTooltip.defaultProps.enterDelay = tooltipDelay;
+      lightThemeDef.components.MuiTooltip.defaultProps.enterNextDelay = tooltipDelay;
+    }
+    if (darkThemeDef.components.MuiTooltip?.defaultProps) {
+      darkThemeDef.components.MuiTooltip.defaultProps.enterDelay = tooltipDelay;
+      darkThemeDef.components.MuiTooltip.defaultProps.enterNextDelay = tooltipDelay;
+    }
+    setDarkTheme(createTheme(darkThemeDef));
+    setLightTheme(createTheme(lightThemeDef));
+  }, [tooltipDelay]);
+
+  // FlexLayout-Theme umschalten
   useEffect(() => {
     const link = document.getElementById("flexlayout-theme") as HTMLLinkElement | null;
     if (!link) return;
 
-    link.href = useDarkMode
-      ? "assets/flexlayout/alpha_dark.css"
-      : "assets/flexlayout/alpha_light.css";
+    link.href = useDarkMode ? "assets/flexlayout/alpha_dark.css" : "assets/flexlayout/alpha_light.css";
   }, [useDarkMode]);
 
   useEffect(() => {

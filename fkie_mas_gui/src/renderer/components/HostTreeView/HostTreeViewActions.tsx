@@ -23,7 +23,6 @@ export interface HostTreeViewActionsProps {
   selectedNodesCount: number;
   hasDynamicReconfigure: boolean;
   canUnregisterSelectedNodes: boolean;
-  tooltipDelay: number;
   showButtonsForKeyModifiers: boolean;
 
   onStartClick: (options: { ignoreTimer: boolean }) => void;
@@ -51,7 +50,6 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
     selectedNodesCount,
     hasDynamicReconfigure,
     canUnregisterSelectedNodes,
-    tooltipDelay,
     showButtonsForKeyModifiers,
     onStartClick,
     onStopClick,
@@ -142,8 +140,6 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
           </div>
         }
         placement="left"
-        enterDelay={tooltipDelay}
-        enterNextDelay={tooltipDelay}
         disableInteractive
       >
         <span>
@@ -181,8 +177,6 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
           </div>
         }
         placement="left"
-        enterDelay={tooltipDelay}
-        enterNextDelay={tooltipDelay}
         disableInteractive
       >
         <span>
@@ -219,8 +213,6 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
           </div>
         }
         placement="left"
-        enterDelay={tooltipDelay}
-        enterNextDelay={tooltipDelay}
         disableInteractive
       >
         <span>
@@ -280,8 +272,6 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
           </div>
         }
         placement="left"
-        enterDelay={tooltipDelay}
-        enterNextDelay={tooltipDelay}
         disableInteractive
       >
         <span>
@@ -449,8 +439,6 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
             </div>
           }
           placement="left"
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
           disableInteractive
         >
           <span>
@@ -488,8 +476,6 @@ const HostTreeViewActions: React.FC<HostTreeViewActionsProps> = (props) => {
             </div>
           }
           placement="left"
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
           disableInteractive
         >
           <span>

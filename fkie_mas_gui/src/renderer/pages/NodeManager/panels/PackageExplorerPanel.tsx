@@ -92,7 +92,6 @@ export default function PackageExplorerPanel(): JSX.Element {
   const [packageItemsTree, setPackageItemsTree] = useState<TPackageItemsTree>({});
   const [packageItemList, setPackageItemList] = useState<PathItem[]>([]);
   const [firstLaunchDirItem, setFirstLaunchDirItem] = useState<string>("");
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
   const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
   const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
@@ -103,7 +102,6 @@ export default function PackageExplorerPanel(): JSX.Element {
   );
 
   useEffect(() => {
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setBackgroundColor(settingsCtx.get("backgroundColor") as string);
     setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
     setButtonLocation(settingsCtx.get("buttonLocation") as string);
@@ -540,7 +538,7 @@ export default function PackageExplorerPanel(): JSX.Element {
 
   const createReloadButton = useMemo(() => {
     return (
-      <Tooltip title="Reload package list" placement="bottom" enterDelay={tooltipDelay} enterNextDelay={tooltipDelay}>
+      <Tooltip title="Reload package list" placement="bottom" disableInteractive>
         <IconButton
           size="small"
           onClick={() => {
@@ -556,13 +554,7 @@ export default function PackageExplorerPanel(): JSX.Element {
   const createButtons = useMemo(() => {
     return (
       <ButtonGroup orientation="vertical" aria-label="launch file control group">
-        <Tooltip
-          title="Edit File"
-          placement="bottom"
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
-          disableInteractive
-        >
+        <Tooltip title="Edit File" placement="bottom" disableInteractive>
           <span>
             <IconButton
               disabled={!selectedFile}
@@ -576,13 +568,7 @@ export default function PackageExplorerPanel(): JSX.Element {
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip
-          title="Load"
-          placement="bottom"
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
-          disableInteractive
-        >
+        <Tooltip title="Load" placement="bottom" disableInteractive>
           <span>
             <IconButton
               disabled={!(selectedFile && LAUNCH_FILE_EXTENSIONS.find((fe) => selectedFile.path.indexOf(fe) !== -1))}
@@ -597,13 +583,7 @@ export default function PackageExplorerPanel(): JSX.Element {
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip
-          title="Copy absolute path"
-          placement="bottom"
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
-          disableInteractive
-        >
+        <Tooltip title="Copy absolute path" placement="bottom" disableInteractive>
           <span>
             <IconButton
               disabled={!selectedFile?.path}
@@ -622,7 +602,7 @@ export default function PackageExplorerPanel(): JSX.Element {
         </Tooltip>
       </ButtonGroup>
     );
-  }, [packageListFiltered, selectedPackage, loading, tooltipDelay, selectedFile]);
+  }, [packageListFiltered, selectedPackage, loading, selectedFile]);
 
   return (
     <Stack

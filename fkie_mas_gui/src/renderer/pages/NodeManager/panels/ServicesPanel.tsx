@@ -16,7 +16,7 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { ServiceExtendedInfo } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { areArraysEqual, findIn } from "@/renderer/utils/index";
-import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "../layout";
+import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
 import { emitOpenComponent, EVENT_FILTER_SERVICES, TFilterText } from "../layout/events";
 import ServiceCallerPanel from "./ServiceCallerPanel";
 
@@ -38,7 +38,6 @@ type TTreeResult = {
 };
 
 type TSettings = {
-  tooltipDelay: number;
   avoidGroupWithOneItem: boolean;
   backgroundColor: string;
   buttonLocation: string;
@@ -74,7 +73,6 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   const [domainIds, setDomainIds] = useState<string[]>([]);
 
   const [settings, setSettings] = useState<TSettings>({
-    tooltipDelay: settingsCtx.get("tooltipEnterDelay") as number,
     avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
     backgroundColor: settingsCtx.get("backgroundColor") as string,
     buttonLocation: settingsCtx.get("buttonLocation") as string,
@@ -372,7 +370,6 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   // react to settings changes from context
   useEffect(() => {
     setSettings({
-      tooltipDelay: settingsCtx.get("tooltipEnterDelay") as number,
       avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
       backgroundColor: settingsCtx.get("backgroundColor") as string,
       buttonLocation: settingsCtx.get("buttonLocation") as string,
@@ -556,7 +553,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
   const buttonBox = useMemo(
     () => (
       <ButtonGroup orientation="vertical" aria-label="service control group">
-        <Tooltip title="Call service" placement="left" enterDelay={settings.tooltipDelay} disableInteractive>
+        <Tooltip title="Call service" placement="left" disableInteractive>
           <span>
             <IconButton
               disabled={!serviceForSelected}
@@ -572,7 +569,7 @@ export default function ServicesPanel({ initialSearchTerm = "" }: ServicesPanelP
         </Tooltip>
       </ButtonGroup>
     ),
-    [serviceForSelected, settings.tooltipDelay, onCallService]
+    [serviceForSelected, onCallService]
   );
 
   const reloadButton = useMemo(

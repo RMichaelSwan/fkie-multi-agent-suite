@@ -20,11 +20,7 @@ import {
 } from "@mui/material";
 import { useDebounceCallback } from "@react-hook/debounce";
 
-import {
-  EventProviderActivity,
-  EventProviderDelay,
-  EventProviderWarnings,
-} from "@/renderer/providers/events";
+import { EventProviderActivity, EventProviderDelay, EventProviderWarnings } from "@/renderer/providers/events";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 import semver from "semver";
@@ -55,12 +51,10 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
   const settingsCtx = useSettingsContext();
   const [providersActivity, setProvidersActivity] = useState(false);
   const [updated, forceUpdate] = useReducer((x) => x + 1, 0);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
 
   useEffect(() => {
     setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
   }, [settingsCtx.changed]);
 
   const closeProviderHandler = useCallback(
@@ -471,13 +465,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
           }}
         >
           {provider.isAvailable() && (
-            <Tooltip
-              title="websocket delay from the host"
-              placement="bottom-start"
-              enterDelay={tooltipDelay}
-              enterNextDelay={tooltipDelay}
-              disableInteractive
-            >
+            <Tooltip title="websocket delay from the host" placement="bottom-start" disableInteractive>
               <Typography
                 variant="body2"
                 fontSize="0.8em"
@@ -494,8 +482,6 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
             <Tooltip
               title={`daemon has older version ${provider.getDaemonReleaseVersion()}, required: ${settingsCtx.MIN_VERSION_DAEMON}, open terminal for update`}
               placement="bottom-start"
-              enterDelay={tooltipDelay}
-              enterNextDelay={tooltipDelay}
               disableInteractive
             >
               <IconButton
@@ -521,8 +507,6 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
             <Tooltip
               title={`daemon has a newer version ${provider.getDaemonReleaseVersion()} with broken changes. This GUI requires ${settingsCtx.MIN_VERSION_DAEMON}. In case of problems, please open a terminal and downgrade the daemon version.`}
               placement="bottom-start"
-              enterDelay={tooltipDelay}
-              enterNextDelay={tooltipDelay}
               disableInteractive
             >
               <IconButton

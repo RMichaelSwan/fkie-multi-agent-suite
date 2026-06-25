@@ -45,7 +45,6 @@ type TTreeResult = {
 };
 
 type TSettings = {
-  tooltipDelay: number;
   avoidGroupWithOneItem: boolean;
   backgroundColor: string;
   buttonLocation: string;
@@ -89,7 +88,6 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
   const [availableProviders, setAvailableProviders] = useState<TProviderDescription[]>([]);
   const [domainIds, setDomainIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<TSettings>({
-    tooltipDelay: settingsCtx.get("tooltipEnterDelay") as number,
     avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
     backgroundColor: settingsCtx.get("backgroundColor") as string,
     buttonLocation: settingsCtx.get("buttonLocation") as string,
@@ -389,7 +387,6 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
 
   useEffect(() => {
     setSettings({
-      tooltipDelay: settingsCtx.get("tooltipEnterDelay") as number,
       avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
       backgroundColor: settingsCtx.get("backgroundColor") as string,
       buttonLocation: settingsCtx.get("buttonLocation") as string,
@@ -463,7 +460,6 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
             </div>
           }
           placement="left"
-          enterDelay={settings.tooltipDelay}
           disableInteractive
         >
           <span>
@@ -500,7 +496,6 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
                 </div>
               }
               placement="left"
-              enterDelay={settings.tooltipDelay}
               disableInteractive
             >
               <ChatOutlinedIcon fontSize="inherit" />
@@ -517,7 +512,7 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
           id={`echo-provider-menu-${topicForSelected?.name || ""}`}
         />
 
-        <Tooltip title="Echo in Terminal" placement="left" enterDelay={settings.tooltipDelay} disableInteractive>
+        <Tooltip title="Echo in Terminal" placement="left" disableInteractive>
           <span>
             <IconButton
               disabled={!topicForSelected}
@@ -544,7 +539,6 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
             </div>
           }
           placement="left"
-          enterDelay={settings.tooltipDelay}
           disableInteractive
         >
           <span>
@@ -563,7 +557,7 @@ export default function TopicsPanel({ initialSearchTerm = "" }: TopicsPanelProps
         </Tooltip>
       </ButtonGroup>
     ),
-    [topicForSelected, availableProviders, settings.tooltipDelay, onEchoClick, onPublishClick]
+    [topicForSelected, availableProviders, onEchoClick, onPublishClick]
   );
 
   const reloadButton = useMemo(

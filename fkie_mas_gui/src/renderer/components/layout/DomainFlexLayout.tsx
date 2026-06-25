@@ -1,17 +1,20 @@
+import FeaturedPlayListIcon from "@mui/icons-material/FeaturedPlayList";
+import TopicIcon from "@mui/icons-material/Topic";
+import { Box, Typography } from "@mui/material";
 import * as FlexLayout from "flexlayout-react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCustomEventListener } from "react-custom-events";
 
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { EVENT_SELECT_TAB } from "@/renderer/pages/NodeManager/layout/events";
-import { Box, Typography } from "@mui/material";
-import { useCustomEventListener } from "react-custom-events";
+import { pAddTabStickyButton } from "@/renderer/pages/NodeManager/layout/helpers";
+import ServicesPanel from "@/renderer/pages/NodeManager/panels/ServicesPanel";
+import TopicsPanel from "@/renderer/pages/NodeManager/panels/TopicsPanel";
 
 /**
  * Minimal JSON node shape used for manipulating the FlexLayout JSON model.
- * We intentionally keep this small and typed to avoid using `any`.
-
  */
 type JsonNode = {
   id: string;
@@ -56,10 +59,6 @@ export interface DomainFlexLayoutResult {
   model: FlexLayout.Model | null;
   setModel: (model: FlexLayout.Model | null) => void;
   handleModelChange: (model: FlexLayout.Model) => void;
-  handleRenderTabSet: (
-    node: FlexLayout.TabSetNode | FlexLayout.BorderNode,
-    renderValues: FlexLayout.ITabSetRenderValues
-  ) => void;
 }
 
 /**
@@ -260,13 +259,6 @@ export default function useDomainFlexLayout<TId extends string | number>(
     [setLayoutJson, logCtx]
   );
 
-  const handleRenderTabSet = useCallback(
-    (node: FlexLayout.TabSetNode | FlexLayout.BorderNode, renderValues: FlexLayout.ITabSetRenderValues) => {
-      // renderValues.leading = <Typography>Domains</Typography>;
-    },
-    []
-  );
-
   /**
    * Initialize layout from storage on first run,
    * then only react to changes in the ids list (e.g. new/removed domains).
@@ -333,7 +325,7 @@ export default function useDomainFlexLayout<TId extends string | number>(
   //   to avoid recreating the model on every storage update or model change.
   //   This keeps tab contents (e.g. expanded tree nodes) stable.
 
-  return { model, setModel, handleModelChange, handleRenderTabSet };
+  return { model, setModel, handleModelChange };
 }
 
 /**
@@ -359,7 +351,7 @@ export function DomainFlexLayout<TId extends string | number>(props: DomainFlexL
   const { ids, storageKey, componentName, configKey, insideTabId, factory } = props;
 
   const [forceUpdate, setForceUpdate] = useReducer((x) => x + 1, 0);
-  const { model, handleModelChange, handleRenderTabSet } = useDomainFlexLayout<TId>({
+  const { model, handleModelChange } = useDomainFlexLayout<TId>({
     storageKey,
     ids,
     componentName,
@@ -393,6 +385,47 @@ export function DomainFlexLayout<TId extends string | number>(props: DomainFlexL
     [factory, configKey]
   );
 
+  function onRenderTabSet(
+    node: FlexLayout.TabSetNode | FlexLayout.BorderNode,
+    renderValues: FlexLayout.ITabSetRenderValues
+  ): void {
+    const children = node.getChildren();
+
+    for (const child of children) {
+      if (model && child.getId() === LAYOUT_TABS.NODES) {
+        pAddTabStickyButton({
+          model: model,
+          container: renderValues.stickyButtons,
+          id: LAYOUT_TABS.TOPICS,
+          title: "Topics",
+          reactNode: <TopicsPanel />,
+          setId: node.getId(),
+          icon: <TopicIcon sx={{ fontSize: "inherit" }} />,
+        });
+        pAddTabStickyButton({
+          model: model,
+          container: renderValues.stickyButtons,
+          id: LAYOUT_TABS.SERVICES,
+          title: "Services",
+          reactNode: <ServicesPanel />,
+          setId: node.getId(),
+          icon: <FeaturedPlayListIcon sx={{ fontSize: "inherit" }} />,
+        });
+        // pAddTabStickyButton(
+        //   renderValues.stickyButtons,
+        //   LAYOUT_TABS.PARAMETER,
+        //   "Parameter",
+        //   <ParameterPanel nodes={[]} providers={[]} />,
+        //   node.getId(),
+        //   <TuneIcon sx={{ fontSize: "inherit" }} />
+        // );
+        // if (window.commandExecutor) {
+        //   renderValues.stickyButtons.push(<ExternalAppsModal key="external-apps-dialog" />);
+        // }
+      }
+    }
+  }
+
   useCustomEventListener(EVENT_SELECT_TAB, (data: { tabId: string }) => {
     // IMPORTANT: When the surrounding Nodes tab becomes active again,
     // rebuild the internal domain-specific FlexLayout model once.
@@ -424,7 +457,7 @@ export function DomainFlexLayout<TId extends string | number>(props: DomainFlexL
         model={model}
         factory={nodeFactory}
         onModelChange={handleModelChange}
-        onRenderTabSet={handleRenderTabSet}
+        onRenderTabSet={onRenderTabSet}
       />
     </Box>
   );

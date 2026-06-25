@@ -122,7 +122,6 @@ export default function HostTreeViewPanel(): JSX.Element {
   const [showButtonsForKeyModifiers, setShowButtonsForKeyModifiers] = useState<boolean>(
     settingsCtx.get("showButtonsForKeyModifiers") as boolean
   );
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
   const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
 
@@ -155,10 +154,9 @@ export default function HostTreeViewPanel(): JSX.Element {
   // keep UI-related settings in sync with SettingsContext
   useEffect(() => {
     setShowButtonsForKeyModifiers(settingsCtx.get("showButtonsForKeyModifiers") as boolean);
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setBackgroundColor(settingsCtx.get("backgroundColor") as string);
     setButtonLocation(settingsCtx.get("buttonLocation") as string);
-  }, [settingsCtx.changed, settingsCtx]);
+  }, [settingsCtx.changed]);
 
   /**
    * Get list of nodes from a list of node.idGlobal
@@ -1477,7 +1475,6 @@ export default function HostTreeViewPanel(): JSX.Element {
           selectedNodesCount={selectedNodes.length}
           hasDynamicReconfigure={hasDynamicReconfigure}
           canUnregisterSelectedNodes={canUnregisterSelectedNodes}
-          tooltipDelay={tooltipDelay}
           showButtonsForKeyModifiers={showButtonsForKeyModifiers}
           onStartClick={handleStartClick}
           onStopClick={handleStopClick}
@@ -1504,13 +1501,7 @@ export default function HostTreeViewPanel(): JSX.Element {
         {queue.currentIndex < 0 && (
           <Stack direction="row" spacing={0.5} alignItems="center">
             {buttonLocation === BUTTON_LOCATIONS.LEFT && (
-              <Tooltip
-                title="Reload node list"
-                placement="left"
-                enterDelay={tooltipDelay}
-                enterNextDelay={tooltipDelay}
-                disableInteractive
-              >
+              <Tooltip title="Reload node list" placement="left" disableInteractive>
                 <IconButton
                   size="small"
                   onClick={() => {
@@ -1531,13 +1522,7 @@ export default function HostTreeViewPanel(): JSX.Element {
               fullWidth
             />
             {buttonLocation === BUTTON_LOCATIONS.RIGHT && (
-              <Tooltip
-                title="Reload node list"
-                placement="left"
-                enterDelay={tooltipDelay}
-                enterNextDelay={tooltipDelay}
-                disableInteractive
-              >
+              <Tooltip title="Reload node list" placement="left" disableInteractive>
                 <IconButton
                   size="small"
                   onClick={() => {

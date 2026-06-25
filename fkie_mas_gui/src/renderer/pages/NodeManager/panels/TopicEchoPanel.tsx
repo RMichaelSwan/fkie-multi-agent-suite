@@ -87,13 +87,11 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
   const [currentQos, setCurrentQos] = useState<RosQos | undefined>(undefined);
   const openQos = Boolean(qosAnchorEl);
   const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
   // let receivedIndex = 0;
 
   useEffect(() => {
     setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setBackgroundColor(settingsCtx.get("backgroundColor") as string);
   }, [settingsCtx.changed]);
 
@@ -322,13 +320,7 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
               </Typography>
             </Stack>
           </Button>
-          <Tooltip
-            title="reset stats"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="reset stats" placement="bottom" disableInteractive>
             <IconButton
               size="small"
               onClick={(event) => {
@@ -372,46 +364,22 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
     return (
       <Stack spacing={0.5} margin={0.5} direction="column">
         <Stack spacing={0.5} direction="row">
-          <Tooltip
-            title="show message data"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="show message data" placement="bottom" disableInteractive>
             <ToggleButton size="small" value="noData" selected={!noData} onChange={() => setNoData(!noData)}>
               <DataObjectIcon sx={{ fontSize: "inherit" }} />
             </ToggleButton>
           </Tooltip>
-          <Tooltip
-            title="show arrays"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="show arrays" placement="bottom" disableInteractive>
             <ToggleButton size="small" value="noArr" selected={!noArr} onChange={() => setNoArr(!noArr)}>
               <DataArrayIcon sx={{ fontSize: "inherit" }} />
             </ToggleButton>
           </Tooltip>
-          <Tooltip
-            title="show strings"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="show strings" placement="bottom" disableInteractive>
             <ToggleButton size="small" value="noStr" selected={!noStr} onChange={() => setNoStr(!noStr)}>
               <AbcIcon sx={{ fontSize: "inherit" }} />
             </ToggleButton>
           </Tooltip>
-          <Tooltip
-            title="limit message forward to 1 Hz"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="limit message forward to 1 Hz" placement="bottom" disableInteractive>
             <ToggleButton
               size="small"
               value="noStr"
@@ -422,13 +390,7 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
             </ToggleButton>
           </Tooltip>
 
-          <Tooltip
-            title="count of displayed array values"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="count of displayed array values" placement="bottom" disableInteractive>
             <Select
               id="select-array-count"
               autoWidth={false}
@@ -448,13 +410,7 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
               })}
             </Select>
           </Tooltip>
-          <Tooltip
-            title="count of displayed messages"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="count of displayed messages" placement="bottom" disableInteractive>
             <Select
               id="select-msg-count"
               autoWidth={false}
@@ -522,13 +478,7 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
               </Menu>
             </>
           )}
-          <Tooltip
-            title={pause ? "start subscriber" : "stop subscriber"}
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title={pause ? "start subscriber" : "stop subscriber"} placement="bottom" disableInteractive>
             <IconButton
               size="small"
               onClick={() => {
@@ -543,13 +493,7 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
               {pause ? <PlayArrowIcon sx={{ fontSize: "inherit" }} /> : <PauseIcon sx={{ fontSize: "inherit" }} />}
             </IconButton>
           </Tooltip>
-          <Tooltip
-            title="clear messages"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="clear messages" placement="bottom" disableInteractive>
             <IconButton
               size="small"
               onClick={() => {
@@ -572,8 +516,6 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
                   <Tooltip
                     title="shows complete message if search result is valid"
                     placement="bottom"
-                    enterDelay={tooltipDelay}
-                    enterNextDelay={tooltipDelay}
                     disableInteractive
                   >
                     <ToggleButton
@@ -600,7 +542,6 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
     noStr,
     hz,
     pause,
-    tooltipDelay,
     msgCount,
     arrayItemsCount,
     qosAnchorEl,

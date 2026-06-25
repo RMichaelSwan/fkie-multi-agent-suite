@@ -80,7 +80,6 @@ import {
   TEventId,
   TEventInfoState,
   TEventOpenComponent,
-  TEventToggleComponent,
 } from "./layout/events";
 import { IExtTerminalConfig } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
@@ -91,6 +90,7 @@ import LoggingPanel from "./panels/LoggingPanel";
 // import OverflowMenuNodeDetails from "./panels/OverflowMenuNodeDetails";
 import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
+import { pAddTabStickyButton } from "./layout/helpers";
 import InfoNoRunningDaemons from "./panels/InfoNoRunningDaemons";
 import PackageExplorerPanel from "./panels/PackageExplorerPanel";
 import ParameterPanel from "./panels/ParameterPanel";
@@ -127,7 +127,6 @@ export default function NodeManager(): JSX.Element {
   const [dirtyTabs, setDirtyTabs] = useState<string[]>([]);
   const [passwordRequests, setPasswordRequests] = useState<React.ReactNode[]>([]);
 
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [tabFullName, setTabFullName] = useState<boolean>(settingsCtx.get("tabFullName") as boolean);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(settingsCtx.get("useDarkMode") as boolean);
 
@@ -143,7 +142,6 @@ export default function NodeManager(): JSX.Element {
 
   // sync settings dependent state
   useEffect(() => {
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setTabFullName(settingsCtx.get("tabFullName") as boolean);
     setIsDarkMode(settingsCtx.get("useDarkMode") as boolean);
   }, [settingsCtx.changed]);
@@ -404,7 +402,7 @@ export default function NodeManager(): JSX.Element {
 
   useCustomEventListener(
     EVENT_TOGGLE_COMPONENT,
-    (data: TEventToggleComponent) => {
+    (data: TEventOpenComponent) => {
       const tab = model.getNodeById(data.id);
       const createTab = tab === undefined;
       if (tab && !(tab as TabNode)?.isVisible()) {
@@ -579,7 +577,6 @@ export default function NodeManager(): JSX.Element {
       case LAYOUT_TABS.NO_RUNNING_DAEMONS:
         return <InfoNoRunningDaemons key="info-no-running-daemons" />;
       case LAYOUT_TABS.DOMAIN:
-        return <>node.id</>;
         return (
           <DomainFlexLayout
             key="domain-host-layout"
@@ -587,7 +584,7 @@ export default function NodeManager(): JSX.Element {
             ids={[3, 6]}
             componentName="domainHostTree"
             configKey="domainId"
-            insideTabId={LAYOUT_TAB_SETS.CENTER}
+            insideTabId={node.getId()}
             factory={(node, domainId) => {
               console.log(`DFL ${node.getId()}, domainId: ${domainId}`);
               return factory(node, domainId);
@@ -669,7 +666,7 @@ export default function NodeManager(): JSX.Element {
       case LAYOUT_TABS.LOGGING:
         renderNameValues.content = "";
         renderNameValues.leading = (
-          <Tooltip title="Logging (mas gui)" placement="top" enterDelay={tooltipDelay} disableInteractive>
+          <Tooltip title="Logging (mas gui)" placement="top" disableInteractive>
             <Badge
               color="info"
               badgeContent={`${logCtx.countErrors}`}
@@ -742,7 +739,6 @@ export default function NodeManager(): JSX.Element {
               key={`button-close-${node.getId()}`}
               title="Open in external window"
               placement="bottom"
-              enterDelay={tooltipDelay}
               disableInteractive
             >
               <IconButton
@@ -812,97 +808,10 @@ export default function NodeManager(): JSX.Element {
     }
   }
 
-  function pAddTabStickyButton(
-    container: React.ReactNode[],
-    id: string,
-    title: string,
-    reactNode: React.ReactNode,
-    setId: string,
-    icon: React.ReactNode,
-    tooltipLoc:
-      | "right"
-      | "top"
-      | "bottom"
-      | "bottom-end"
-      | "bottom-start"
-      | "left-end"
-      | "left-start"
-      | "left"
-      | "right-end"
-      | "right-start"
-      | "top-end"
-      | "top-start"
-      | undefined = "right",
-    force = false
-  ): void {
-    if (force || !model.getNodeById(id)) {
-      container.push(
-        <Tooltip
-          key={`tooltip-${id}`}
-          title={title}
-          placement={tooltipLoc}
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
-          disableInteractive
-        >
-          <span>
-            <IconButton
-              onClick={() => {
-                emitToggleComponent({
-                  id: id,
-                  title: title,
-                  closable: true,
-                  component: id,
-                  toNodeId: setId,
-                  config: { reactNode: reactNode },
-                });
-              }}
-            >
-              {icon}
-            </IconButton>
-          </span>
-        </Tooltip>
-      );
-    }
-  }
-
   function onRenderTabSet(node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues): void {
     console.log(`TAB SET: ${node.getId()}`);
     if (node.getId() === LAYOUT_TAB_SETS.DOMAINS) {
       // return ...
-    }
-    const children = node.getChildren();
-
-    for (const child of children) {
-      if (child.getId() === LAYOUT_TABS.NODES) {
-        pAddTabStickyButton(
-          renderValues.stickyButtons,
-          LAYOUT_TABS.TOPICS,
-          "Topics",
-          <TopicsPanel />,
-          node.getId(),
-          <TopicIcon sx={{ fontSize: "inherit" }} />
-        );
-        pAddTabStickyButton(
-          renderValues.stickyButtons,
-          LAYOUT_TABS.SERVICES,
-          "Services",
-          <ServicesPanel />,
-          node.getId(),
-          <FeaturedPlayListIcon sx={{ fontSize: "inherit" }} />
-        );
-        // pAddTabStickyButton(
-        //   renderValues.stickyButtons,
-        //   LAYOUT_TABS.PARAMETER,
-        //   "Parameter",
-        //   <ParameterPanel nodes={[]} providers={[]} />,
-        //   node.getId(),
-        //   <TuneIcon sx={{ fontSize: "inherit" }} />
-        // );
-        // if (window.commandExecutor) {
-        //   renderValues.stickyButtons.push(<ExternalAppsModal key="external-apps-dialog" />);
-        // }
-      }
     }
 
     if (node.getId() === LAYOUT_TAB_SETS.BORDER_BOTTOM) {
@@ -918,28 +827,28 @@ export default function NodeManager(): JSX.Element {
 
       // add settings tab button in bottom border
       console.log(`ADD BUTTON`);
-      pAddTabStickyButton(
-        renderValues.buttons,
-        LAYOUT_TABS.SETTINGS,
-        "Settings",
-        <SettingsPanel />,
-        LAYOUT_TAB_SETS.BORDER_RIGHT,
-        <SettingsIcon sx={{ fontSize: "inherit" }} />,
-        "top",
-        true
-      );
+      pAddTabStickyButton({
+        model: model,
+        container: renderValues.buttons,
+        id: LAYOUT_TABS.SETTINGS,
+        title: "Settings",
+        reactNode: <SettingsPanel />,
+        setId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        icon: <SettingsIcon sx={{ fontSize: "inherit" }} />,
+        force: true,
+      });
 
       // add about tab button in bottom border
-      pAddTabStickyButton(
-        renderValues.buttons,
-        LAYOUT_TABS.ABOUT,
-        "About",
-        <AboutPanel />,
-        LAYOUT_TAB_SETS.BORDER_RIGHT,
-        <InfoOutlinedIcon sx={{ fontSize: "inherit" }} />,
-        "top",
-        true
-      );
+      pAddTabStickyButton({
+        model: model,
+        container: renderValues.buttons,
+        id: LAYOUT_TABS.ABOUT,
+        title: "About",
+        reactNode: <AboutPanel />,
+        setId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        icon: <InfoOutlinedIcon sx={{ fontSize: "inherit" }} />,
+        force: true,
+      });
 
       // add update button in bottom border
       if (auCtx.updateAvailable) {
@@ -957,7 +866,7 @@ export default function NodeManager(): JSX.Element {
                   title: "About",
                   component: LAYOUT_TABS.ABOUT,
                   closable: true,
-                  toNodeId: LAYOUT_TABS.NODES,
+                  toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
                 });
               }}
               variant="text"

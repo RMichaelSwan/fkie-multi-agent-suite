@@ -70,7 +70,6 @@ export function EditorToolbar(props: EditorToolbarProps): JSX.Element {
   const settingsCtx = useSettingsContext();
   const [historyModels, setHistoryModels] = useState<THistoryModel[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
   const [selectParentFiles, setSelectParentFiles] = useState<LaunchIncludedFile[]>([]);
   const modifiedFileSet = useMemo(() => new Set(modifiedFiles.map(fileFromUriPath)), [modifiedFiles]);
@@ -80,7 +79,6 @@ export function EditorToolbar(props: EditorToolbarProps): JSX.Element {
   );
 
   useEffect(() => {
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
   }, [settingsCtx.changed]);
 
@@ -290,13 +288,7 @@ export function EditorToolbar(props: EditorToolbarProps): JSX.Element {
             .filter((path) => path !== activeModel?.uri.path)
             .map((path) => {
               return (
-                <Tooltip
-                  key={path}
-                  title={`changed ${getFileName(path)}`}
-                  enterDelay={tooltipDelay}
-                  enterNextDelay={tooltipDelay}
-                  disableInteractive
-                >
+                <Tooltip key={path} title={`changed ${getFileName(path)}`} disableInteractive>
                   <Link
                     noWrap
                     aria-label={`modified ${path}`}

@@ -191,7 +191,11 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     type: "string",
     freeSolo: true,
     default: "while [ ! -f {LOG_FILE} ]; do sleep 1.0; done; /usr/bin/less -fLQR +G +F",
-    options: ["/usr/bin/less -fLQR +G", "/usr/bin/less -fLQR +G +F", "while [ ! -f {LOG_FILE} ]; do sleep 1.0; done; /usr/bin/less -fLQR +G +F"],
+    options: [
+      "/usr/bin/less -fLQR +G",
+      "/usr/bin/less -fLQR +G +F",
+      "while [ ! -f {LOG_FILE} ]; do sleep 1.0; done; /usr/bin/less -fLQR +G +F",
+    ],
     group: "Logging",
   },
   color: {
@@ -217,8 +221,9 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
   },
   tooltipEnterDelay: {
     label: "The number of milliseconds to wait before showing the tooltip.",
-    type: "none",
-    default: 500,
+    type: "number",
+    default: 5000,
+    group: "Appearance",
   },
   actionOnChangeLaunch: {
     label: "Action on loaded launch file change detection",
@@ -290,7 +295,11 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     freeSolo: true,
     type: "string",
     default: ".*_impl_,/*_ros2cli",
-    options: [".*_impl_,/*_ros2cli", ".*_impl_,/*_ros2cli,/mas/*,/_mas_*,ttyd*", ".*_impl_,/*_ros2cli,/mas/*,/_mas_*,ttyd*,zenoh-daemon"],
+    options: [
+      ".*_impl_,/*_ros2cli",
+      ".*_impl_,/*_ros2cli,/mas/*,/_mas_*,ttyd*",
+      ".*_impl_,/*_ros2cli,/mas/*,/_mas_*,ttyd*,zenoh-daemon",
+    ],
     description: "Nodes to be placed in a {SPAM} group.",
     isValid: (value: JSONValue) => {
       const splits: string[] = ((value as string) || "").split(",");

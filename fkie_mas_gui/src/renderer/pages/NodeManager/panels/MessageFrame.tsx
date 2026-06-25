@@ -35,11 +35,6 @@ export default function MessageFrame(props: MessageFrameProps): JSX.Element {
   const [rootIsCollapsed, setRootIsCollapsed] = useState(initRootCollapsed);
   const [collapsedKeys, setCollapsedKeys] = useState<(string | number)[]>(initCollapsed);
   const [showWholeFilteredMessage] = useLocalStorage<boolean>("TopicEcho:showWholeFilteredMessage", false);
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
-
-  useEffect(() => {
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
-  }, [settingsCtx.changed]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -127,13 +122,7 @@ export default function MessageFrame(props: MessageFrameProps): JSX.Element {
               {event.seq} --- {new Date(event.timestamp).toLocaleTimeString()}
             </Typography>
           )}
-          <Tooltip
-            title="Copy message with 'ros2 topic pub' command"
-            placement="bottom"
-            enterDelay={tooltipDelay}
-            enterNextDelay={tooltipDelay}
-            disableInteractive
-          >
+          <Tooltip title="Copy message with 'ros2 topic pub' command" placement="bottom" disableInteractive>
             <div>
               <CopyButton
                 value={`ROS_DOMAIN_ID=${domainId} ros2 topic pub -1 --keep-alive 3 ${qos ? qosFromJson(qos).toString() : ""} ${event.topic} ${event.message_type} '${JSON.stringify(event)}'`}

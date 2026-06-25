@@ -3,18 +3,18 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import {
-    Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    IconButton,
-    Stack,
-    Table,
-    TableBody,
-    TableContainer,
-    Tooltip,
-    Typography,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Table,
+  TableBody,
+  TableContainer,
+  Tooltip,
+  Typography,
 } from "@mui/material";
 import MuiAccordion, { AccordionProps } from "@mui/material/Accordion";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
@@ -74,7 +74,6 @@ export default function ProviderPanel(): JSX.Element {
   const [noRosVersion, setNoRosVersion] = useState(false);
   const [providerRowsFiltered, setProviderRowsFiltered] = useState<Provider[]>([]);
   const [filterText, setFilterText] = useState("");
-  const [tooltipDelay, setTooltipDelay] = useState<number>(settingsCtx.get("tooltipEnterDelay") as number);
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
   const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
   const [startConfigurations, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>(
@@ -87,7 +86,6 @@ export default function ProviderPanel(): JSX.Element {
   const addButtonRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setTooltipDelay(settingsCtx.get("tooltipEnterDelay") as number);
     setBackgroundColor(settingsCtx.get("backgroundColor") as string);
     setButtonLocation(settingsCtx.get("buttonLocation") as string);
   }, [settingsCtx.changed]);
@@ -313,13 +311,7 @@ export default function ProviderPanel(): JSX.Element {
   const createReloadButton = useMemo(() => {
     return (
       <Stack direction="row">
-        <Tooltip
-          title="Refresh hosts list"
-          placement="bottom"
-          enterDelay={tooltipDelay}
-          enterNextDelay={tooltipDelay}
-          disableInteractive
-        >
+        <Tooltip title="Refresh hosts list" placement="bottom" disableInteractive>
           <IconButton
             edge="start"
             aria-label="refresh hosts list"
@@ -330,7 +322,7 @@ export default function ProviderPanel(): JSX.Element {
         </Tooltip>
       </Stack>
     );
-  }, [tooltipDelay, startConfigurations]);
+  }, [startConfigurations]);
 
   const createProviderTable = useMemo(() => {
     const result = (

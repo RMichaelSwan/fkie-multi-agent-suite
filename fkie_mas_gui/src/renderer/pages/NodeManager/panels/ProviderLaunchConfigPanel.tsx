@@ -1100,8 +1100,6 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
                           disableTouchListener
                           open={openTerminalTooltip}
                           placement="bottom-start"
-                          // enterDelay={tooltipDelay}
-                          // enterNextDelay={tooltipDelay}
                         >
                           <Stack
                             marginLeft="3px"

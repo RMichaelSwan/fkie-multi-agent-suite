@@ -9,6 +9,8 @@ const jsonString = "#b2762e";
 const jsonBoolean = "#dc155e";
 const jsonNull = "#dc155e";
 
+const tooltipDelay = 500;
+
 const lightThemeDef: ThemeOptionsExt = {
   palette: {
     mode: "light",
@@ -207,6 +209,12 @@ const lightThemeDef: ThemeOptionsExt = {
     MuiToolbar: {
       defaultProps: {
         variant: "dense",
+      },
+    },
+    MuiTooltip: {
+      defaultProps: {
+        enterDelay: tooltipDelay,
+        enterNextDelay: tooltipDelay,
       },
     },
   },
