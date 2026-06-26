@@ -6,6 +6,7 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import CmdType from "@/renderer/providers/CmdType";
 import Provider from "@/renderer/providers/Provider";
+import { TEnvEntry } from "@/types";
 import { emitCloseComponent } from "../layout/events";
 
 interface SingleTerminalPanelProps {
@@ -15,7 +16,7 @@ interface SingleTerminalPanelProps {
   nodeName?: string;
   screen?: string;
   cmd?: string;
-  env?: string[];
+  env?: TEnvEntry[];
 }
 
 export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JSX.Element {

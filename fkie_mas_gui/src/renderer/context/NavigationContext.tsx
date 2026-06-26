@@ -191,7 +191,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
               topLevelLaunchArgs={topLevelLaunchArgs}
             />
           ),
-          domainId: provider.connection.domainId,
+          contentId: { domainId: provider.connection.domainId },
           openExternal: true,
           tabType: "editor",
           editorConfig: {
@@ -228,7 +228,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
 
       if (forceOpenTerminal) {
         try {
-          const env = provider.startConfiguration?.getEnv() || [];
+          const env = provider.createRosEnv();
           const terminalCmd = await provider.cmdForType(CmdType.PUB, "", topic, "", "", env);
           const result = await window.commandExecutor?.execTerminal(null, `"pub ${topic}"`, terminalCmd.cmd);
           if (!result?.result) {
@@ -290,13 +290,13 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
 
       if (forceOpenTerminal) {
         try {
-          const env = provider.startConfiguration?.getEnv() || [];
+          const env = provider.createRosEnv();
           const terminalCmd = await provider.cmdForType(CmdType.ECHO, "", topic, "", "", env);
           const result = await window.commandExecutor?.execTerminal(null, `"echo ${topic}"`, terminalCmd.cmd);
           if (!result?.result) {
             logCtx.error(
               `Can't open subscriber in external terminal for ${topic}`,
-              `${result?.message}`,
+              `${result?.message};\nLook for details into terminal output of this GUI.`,
               "subscriber not started"
             );
           }
@@ -370,7 +370,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
           ? xor(settingsCtx.get("screenOpenExternal") as boolean, externalKeyModifier)
           : xor(settingsCtx.get("logOpenExternal") as boolean, externalKeyModifier) && !layoutModel?.getNodeById(id);
 
-      const env = provider.startConfiguration?.getEnv() || [];
+      const env = provider.createRosEnv();
       if (forceOpenTerminal) {
         try {
           const terminalCmd = await provider.cmdForType(type, node, "", screen, cmd, env);

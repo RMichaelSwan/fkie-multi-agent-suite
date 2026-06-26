@@ -21,6 +21,7 @@ import {
   TCommandExecutor,
   TCommandLine,
   TEditorManager,
+  TEnvEntry,
   TerminalCloseCallback,
   TerminalManagerEvents,
   TerminateCallback,
@@ -203,7 +204,7 @@ if (process.contextIsolated) {
         node: string,
         screen: string,
         cmd: string,
-        env: string[]
+        env: TEnvEntry[]
       ) => {
         return ipcRenderer.invoke(TerminalManagerEvents.open, id, host, port, info, node, screen, cmd, env);
       },

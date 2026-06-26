@@ -256,25 +256,25 @@ export default function NodeManager(): JSX.Element {
 
   /** Hide bottom panel when last terminal is closed and handle editor tabs with unsaved changes */
   const deleteTab = useCallback(
-    (editorId: string): void => {
+    (tabId: string): void => {
       // handle editor tabs with modified files
-      if (isEditorEditorId(editorId)) {
-        const modified = monacoCtx.getModifiedFilesByEditor(editorId);
+      if (isEditorEditorId(tabId)) {
+        const modified = monacoCtx.getModifiedFilesByEditor(tabId);
         if (modified.length > 0) {
-          const editorTab = model.getNodeById(editorId);
+          const editorTab = model.getNodeById(tabId);
           if (editorTab) {
             model.doAction(Actions.selectTab(editorTab.getId()));
-            setDirtyTabs([editorId]);
+            setDirtyTabs([tabId]);
             return;
           }
         } else {
           model.doAction(Actions.selectTab(LAYOUT_TABS.NODES));
-          model.doAction(Actions.deleteTab(editorId));
+          model.doAction(Actions.deleteTab(tabId));
         }
       }
 
       // handle tabs in bottom border
-      const nodeBId = model.getNodeById(editorId);
+      const nodeBId = model.getNodeById(tabId);
       if (!nodeBId) return;
       if (
         nodeBId.getParent()?.getType() === "border" &&
@@ -285,8 +285,9 @@ export default function NodeManager(): JSX.Element {
           nodeBId.getParent()?.getChildren().length === 2 &&
           (nodeBId.getParent() as BorderNode)?.getSelectedNode()?.isVisible();
         if (shouldSelectNewTab) {
-          model.doAction(Actions.selectTab(editorId));
+          model.doAction(Actions.selectTab(tabId));
         }
+        model.doAction(Actions.deleteTab(tabId));
         return;
       }
       const parentNode = nodeBId.getParent();
@@ -307,7 +308,7 @@ export default function NodeManager(): JSX.Element {
         }
       }
 
-      model.doAction(Actions.deleteTab(editorId));
+      model.doAction(Actions.deleteTab(tabId));
     },
     [model, monacoCtx]
   );
@@ -568,7 +569,7 @@ export default function NodeManager(): JSX.Element {
     console.log(`FACTORY: ${component}`);
     switch (component) {
       case LAYOUT_TABS.NODES:
-        return <HostTreeViewPanel key={`nodes-panel-${flexId}`} contentId={contentId}/>;
+        return <HostTreeViewPanel key={`nodes-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.HOSTS:
         return <ProviderPanel key="hosts-panel" />;
       case LAYOUT_TABS.PACKAGES:
@@ -578,9 +579,9 @@ export default function NodeManager(): JSX.Element {
       case LAYOUT_TABS.LOGGING:
         return <LoggingPanel key="logging-panel" />;
       case LAYOUT_TABS.TOPICS:
-        return <TopicsPanel key={`topics-panel-${flexId}`} contentId={contentId}/>;
+        return <TopicsPanel key={`topics-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.SERVICES:
-        return <ServicesPanel key={`services-panel-${flexId}`} contentId={contentId}/>;
+        return <ServicesPanel key={`services-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.SETTINGS:
         return <SettingsPanel key="settings-panel" />;
       case LAYOUT_TABS.ABOUT:
@@ -963,6 +964,7 @@ export default function NodeManager(): JSX.Element {
   /** Remove all tabs from layout that are not in LAYOUT_TAB_LIST */
   const cleanAndSaveLayout = useDebounceCallback(() => {
     const modelJson = model.toJson();
+    console.log(`MODEL:${JSON.stringify(modelJson)}`);
 
     for (const item of modelJson.borders || []) {
       item.selected = -1;

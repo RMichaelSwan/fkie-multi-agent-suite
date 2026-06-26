@@ -1,5 +1,5 @@
 import { CmdType } from "@/renderer/providers";
-import { TFileRange, TLaunchArg } from "@/types";
+import { TEnvEntry, TFileRange, TLaunchArg } from "@/types";
 
 export type IExtTerminalConfig = {
   type: CmdType;
@@ -8,7 +8,7 @@ export type IExtTerminalConfig = {
   topicName: string;
   screen: string;
   cmd: string;
-  env: string[];
+  env: TEnvEntry[];
 };
 
 export type IEditorConfig = {
@@ -46,7 +46,7 @@ export type ITerminalConfig = {
   node: string;
   screen: string;
   cmd: string;
-  env: string[];
+  env: TEnvEntry[];
 };
 
 export type TContentId =

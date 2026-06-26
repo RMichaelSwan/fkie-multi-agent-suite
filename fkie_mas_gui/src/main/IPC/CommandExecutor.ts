@@ -5,11 +5,13 @@ import { spawn, StdioOptions } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { quote } from "shell-quote";
 import { Client, ClientChannel, ClientErrorExtensions, ConnectConfig } from "ssh2";
 import CommandLine from "./CommandLine";
 import { SystemInfo } from "./SystemInfo";
 
 const textDecoder = new TextDecoder();
+
 /**
  * Class CommandExecutor: Execute commands locally or remote using SSH2 interface
  */
@@ -26,6 +28,14 @@ export default class CommandExecutor implements TCommandExecutor {
 
   systemInfo?: TSystemInfo;
 
+  /**
+   * Terminal configuration and detection options.
+   *
+   * terminals   -> candidate terminal binaries, in priority order
+   * exec        -> option used to execute a command (e.g. "-x /bin/bash -c" or "-e /bin/bash -c")
+   * noClose     -> option used to keep terminal open after command (depends on terminal)
+   * title       -> option used to set terminal title (depends on terminal)
+   */
   terminalOptions: {
     terminals: string[];
     exec: string;
@@ -33,7 +43,7 @@ export default class CommandExecutor implements TCommandExecutor {
     title: string;
   } = {
     terminals: ["/usr/bin/x-terminal-emulator", "/usr/bin/xterm", "/opt/x11/bin/xterm"],
-    exec: "e",
+    exec: "-e /bin/bash -c",
     noClose: "",
     title: "",
   };
@@ -42,6 +52,7 @@ export default class CommandExecutor implements TCommandExecutor {
     this.commandLine = commandLine;
     const sshPath = `${os.homedir()}/.ssh`;
     let currentHost: string | null = null;
+
     const readSshLine = async (line: string): Promise<void> => {
       const nLine = line.trim();
       if (nLine.startsWith("Host ")) {
@@ -61,6 +72,7 @@ export default class CommandExecutor implements TCommandExecutor {
         }
       }
     };
+
     const readSshConfig = async (): Promise<void> => {
       try {
         // read host/user configuration from ssh config
@@ -80,6 +92,7 @@ export default class CommandExecutor implements TCommandExecutor {
         console.error(`error while read ssh configuration file "${sshPath}/config": ${error}`);
       }
     };
+
     readSshConfig();
 
     try {
@@ -129,9 +142,9 @@ export default class CommandExecutor implements TCommandExecutor {
   };
 
   /**
-   * Executes a command using a SSH connection
+   * Executes a command using a SSH connection or locally via child_process.
    * @param credential - SSH credential, null for local host.
-   * @param command - Remote directory path
+   * @param command - Command to execute
    * @return Returns response
    */
   public exec: (
@@ -162,8 +175,7 @@ export default class CommandExecutor implements TCommandExecutor {
     }
 
     if (c.host === undefined || localIps.includes(c.host)) {
-      // log.debug(`CommandExecutor exec: Using local process for: [${command}]`);
-      // if local command, do not use SSH but child process instead
+      // local command: do not use SSH but child process instead
       return new Promise((resolve) => {
         try {
           let errorString = "";
@@ -188,9 +200,9 @@ export default class CommandExecutor implements TCommandExecutor {
                 message: resultString,
                 command,
               });
-              // resolve(`Closed with code: ${code}`);
             }
           });
+
           child.stdout?.on("data", (data) => {
             if (parentOut) {
               console.log(`${data}`);
@@ -206,6 +218,7 @@ export default class CommandExecutor implements TCommandExecutor {
               }
             }
           });
+
           child.stderr?.on("data", (data) => {
             if (parentOut) {
               console.error(`${data}`);
@@ -230,10 +243,13 @@ export default class CommandExecutor implements TCommandExecutor {
     }
 
     // command must be executed remotely
-
     return this.execRemote(c, command, 0);
   };
 
+  /**
+   * Executes a command on a remote host via SSH.
+   * Tries multiple private keys if authentication fails.
+   */
   private execRemote: (
     credential: ConnectConfig,
     command: string,
@@ -243,36 +259,42 @@ export default class CommandExecutor implements TCommandExecutor {
     command,
     keyIndex = 0
   ) => {
-    console.log(`exec an ${credential.host}: ${command}`);
+    console.log(`exec on ${credential.host}: ${command}`);
     const parentOut = !this.commandLine?.getArg("hide-output-from-background-processes");
     const connectionConfig = this.generateConfig(credential, keyIndex);
+
     return new Promise((resolve) => {
-      if (!command)
+      if (!command) {
         resolve({
           result: false,
           message: "Invalid empty command",
           command,
           connectConfig: connectionConfig,
         });
+        return;
+      }
+
       const conn: Client = new Client();
       try {
         conn
           .on("ready", () => {
             conn.exec(command, (err: Error | undefined, sshStream: ClientChannel) => {
-              if (credential) log.info(`<ssh:${credential.username}@${credential.host}:${credential.port}>${command}`);
+              if (credential) {
+                log.info(`<ssh:${credential.username}@${credential.host}:${credential.port}>${command}`);
+              }
               if (err) {
                 resolve({
                   result: false,
                   message: err?.message,
                   command,
                 });
+                return;
               }
               let errorString = "";
-              // .on('close', (code: string, signal: string) => {
+
               sshStream
                 .on("close", (code: number) => {
                   // TODO: Check code/signal to validate response or errors
-                  // command executed correctly and no response
                   if (code !== 0) {
                     resolve({
                       result: false,
@@ -312,6 +334,7 @@ export default class CommandExecutor implements TCommandExecutor {
             });
           })
           .connect(connectionConfig);
+
         conn.on("error", async (error: Error & ClientErrorExtensions) => {
           log.warn("CommandExecutor - connect error: ", JSON.stringify(error));
           connectionConfig.password = undefined;
@@ -352,10 +375,44 @@ export default class CommandExecutor implements TCommandExecutor {
   };
 
   /**
+   * Safely build a script argument for "bash -c".
+   *
+   * Wraps the given script in single quotes and escapes all existing
+   * single quotes using the standard shell pattern: ' -> '\''.
+   *
+   * Example:
+   *  script:  ssh host /bin/sh -c 'export FOO='\''bar'\'''
+   *  result: 'ssh host /bin/sh -c '\''export FOO='\''bar'\''''
+   */
+  private buildBashScriptArg(script: string): string {
+    const escaped = script.replace(/'/g, `'\\''`);
+    return `'${escaped}'`;
+  }
+
+  /**
+   * Build the command string that will actually be executed by /bin/sh on
+   * the local or remote side.
+   *
+   * - If sshCmd is non-empty, the command is executed remotely via ssh:
+   *      sshCmd /bin/sh -c 'command'
+   * - Otherwise the command is executed locally:
+   *      /bin/sh -c 'command'
+   *
+   * The inner command is quoted using shell-quote to be safe for /bin/sh -c.
+   */
+  private buildShellCommand(sshCmd: string, command: string): string {
+    const quotedInner = quote([command]); // e.g. 'export FOO=bar; echo test'
+    if (sshCmd) {
+      return `${sshCmd} /bin/sh -c ${quotedInner}`;
+    }
+    return `/bin/sh -c ${quotedInner}`;
+  }
+
+  /**
    * Executes a command in an external Terminal (using a SSH connection on remote hosts)
    * @param credential - SSH credential, null for local host
-   * @param title - Remote directory path
-   * @param command - Remote directory path
+   * @param title - Terminal title
+   * @param command - Command to execute (will be passed to /bin/sh -c)
    */
   public async execTerminal(
     credential: ConnectConfig | null,
@@ -366,23 +423,29 @@ export default class CommandExecutor implements TCommandExecutor {
     let terminalTitleOpt = this.terminalOptions.title;
     let noCloseOpt = this.terminalOptions.noClose;
     let terminalExecOpt = this.terminalOptions.exec;
-    // eslint-disable-next-line no-restricted-syntax
+
+    // Try to find a working terminal from the configured list
     for (const t of this.terminalOptions.terminals) {
-      // eslint-disable-next-line no-loop-func
       try {
         fs.accessSync(t, fs.constants.X_OK);
-        // workaround to support the command parameter in different terminal
         const resolvedPath = fs.realpathSync(t, null);
         const basename = path.basename(resolvedPath);
+
+        // Decide how to pass a command to the terminal
+        // Many terminals support "-x /bin/bash -c" or "-e /bin/bash -c"
         if (["terminator", "gnome-terminal", "xfce4-terminal"].includes(basename)) {
           terminalExecOpt = "-x /bin/bash -c";
         } else {
+          // Default to "-e /bin/bash -c" for xterm and most others
           terminalExecOpt = "-e /bin/bash -c";
         }
+
+        // Configure "no close" behavior and title option depending on terminal
         if (["terminator", "gnome-terminal", "gnome-terminal.wrapper"].includes(basename)) {
-          // If your external terminal close after the execution, you can change this behavior in profiles.
-          // You can also create a profile with name 'hold'. This profile will be then load by node_manager.
+          // If your external terminal closes after the execution, you can change this behavior in profiles.
+          // You can also create a profile with name 'hold'. This profile will then be loaded by node_manager.
           noCloseOpt = "--profile hold";
+          // Title handling can be done via profiles; we keep default here.
         } else if (["xfce4-terminal", "xterm", "lxterm", "uxterm"].includes(basename)) {
           noCloseOpt = "";
           terminalTitleOpt = "-T";
@@ -390,6 +453,7 @@ export default class CommandExecutor implements TCommandExecutor {
           noCloseOpt = "--noclose";
           terminalTitleOpt = "";
         }
+
         terminalEmulator = t;
         break;
       } catch {
@@ -398,19 +462,18 @@ export default class CommandExecutor implements TCommandExecutor {
     }
 
     if (!terminalEmulator) {
-      return new Promise((resolve) => {
-        resolve({
-          result: false,
-          message: `No Terminal found! Please install one of ${this.terminalOptions.terminals}`,
-          command,
-        });
-      });
+      return {
+        result: false,
+        message: `No terminal found! Please install one of: ${this.terminalOptions.terminals.join(", ")}`,
+        command,
+      };
     }
 
     let terminalTitle = "";
     if (title && terminalTitleOpt) {
-      terminalTitle = `${terminalTitleOpt} ${title}`;
+      terminalTitle = `${terminalTitleOpt} ${title}`.trim();
     }
+
     let sshCmd = "";
     if (credential) {
       // generate string for SSH command
@@ -426,8 +489,20 @@ export default class CommandExecutor implements TCommandExecutor {
         [c.username, c.host].join("@"),
       ].join(" ");
     }
-    const shCommand = `/bin/sh -c "${command.replace(/^'|^"/, "").replace(/'$|"$/, "")}"`;
-    const cmd = `${terminalEmulator} ${terminalTitle} ${noCloseOpt} ${terminalExecOpt} '${sshCmd} ${shCommand}'`;
+
+    // Build the script to be executed either locally or remotely via ssh
+    const shellCommand = this.buildShellCommand(sshCmd, command);
+
+    // Now wrap that script as a single safe argument for "bash -c"
+    const bashCommandArg = this.buildBashScriptArg(shellCommand);
+
+    // Assemble the final command that is executed locally (spawn with shell: true)
+    // Example:
+    //   x-terminal-emulator -T "Title" --profile hold -x /bin/bash -c 'ssh user@host /bin/sh -c '\''export ...; ros2 ...'\'''
+    const parts = [terminalEmulator, terminalTitle, noCloseOpt, terminalExecOpt, bashCommandArg].filter((p) => !!p);
+
+    const cmd = parts.join(" ").replace(/\s+/g, " ").trim();
+
     return this.exec(null, cmd);
   }
 
@@ -450,9 +525,11 @@ export default class CommandExecutor implements TCommandExecutor {
       const matched = this.wildcardMatch(credential.host, pattern);
       return matched;
     });
+
     const sshUser: string | undefined = matchedHosts ? this.sshUsers[matchedHosts] : undefined;
     const sshPort: number | undefined = matchedHosts ? this.sshPorts[matchedHosts] : undefined;
     const sshKey: Buffer | undefined = matchedHosts ? this.sshKeys[matchedHosts] : undefined;
+
     if (!sshKey && !credential.password && keyIndex < this.privateSshKeys.length) {
       // no key in configuration and no password, try find key
       privateKey = this.privateSshKeys[keyIndex];
@@ -470,6 +547,9 @@ export default class CommandExecutor implements TCommandExecutor {
   }
 }
 
+/**
+ * Downloads and runs the MAS debian install script.
+ */
 export async function updateDebianPackages(prerelease: boolean = false): Promise<boolean> {
   return new Promise((resolve) => {
     try {
@@ -494,9 +574,11 @@ export async function updateDebianPackages(prerelease: boolean = false): Promise
       child.on("close", (code) => {
         resolve(code === 0);
       });
+
       child.stdout?.on("data", (data) => {
         log.info(`${data}`.trim());
       });
+
       child.stderr?.on("data", (data) => {
         log.info(`${data}`.trim());
       });

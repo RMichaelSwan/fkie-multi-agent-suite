@@ -1,4 +1,13 @@
-import { JSONObject, TResult, TResultData, TResultProcess, TSystemInfo } from "@/types";
+import {
+  envEntryToExportStr,
+  envEntryToStr,
+  JSONObject,
+  TEnvEntry,
+  TResult,
+  TResultData,
+  TResultProcess,
+  TSystemInfo,
+} from "@/types";
 import { TResultParam } from "@/types/TResultParam";
 import { emitCustomEvent } from "react-custom-events";
 import { DEFAULT_BUG_TEXT, ILoggingContext } from "../context/LoggingContext";
@@ -22,8 +31,8 @@ import {
   LaunchNodeReply,
   LaunchPublishMessage,
   LifecycleState,
-  LogPathItem,
   LoggerConfig,
+  LogPathItem,
   PathEvent,
   PathItem,
   ProviderLaunchConfiguration,
@@ -44,6 +53,7 @@ import {
   URI,
 } from "../models";
 import { parseDiagnostics } from "../models/Diagnostics";
+import { envFromSystemEnv } from "../models/ProviderLaunchConfiguration";
 import { delay } from "../utils";
 import CmdTerminal from "./CmdTerminal";
 import CmdType from "./CmdType";
@@ -441,20 +451,24 @@ export default class Provider implements IProvider {
     this.hostnames = Array.from(resultMap.values());
   }
 
-  public toEnvExportPrefix(env: string[]) {
-    const prefix = env.map((entry) => `export ${entry};`).join(" ");
-    if (!prefix) return "";
-    return prefix;
+  public createRosEnv(): TEnvEntry[] {
+    if (this.systemEnv) {
+      return envFromSystemEnv(this.systemEnv);
+    }
+    if (this.startConfiguration) {
+      return this.startConfiguration.getEnv();
+    }
+    return [];
   }
 
-  public createEnvPrefix(env: string[]) {
-    if (this.startConfiguration) {
-      return this.toEnvExportPrefix(this.startConfiguration.getEnv());
-    }
-    return env
-      .filter((item) => !!item)
-      .map((item) => `export ${item};`)
-      .join(" ");
+  public createRosEnvPrefix(env?: TEnvEntry[]): string {
+    const rEnv = env || this.createRosEnv();
+    return rEnv.map((entry) => envEntryToStr(entry)).join(" ");
+  }
+
+  public createRosEnvExportPrefix(env?: TEnvEntry[]): string {
+    const rEnv = env || this.createRosEnv();
+    return rEnv.map((entry) => envEntryToExportStr(entry)).join(" ");
   }
 
   /** Creates a command string to open screen or log in a terminal */
@@ -464,7 +478,7 @@ export default class Provider implements IProvider {
     topicName: string,
     screenName: string,
     cmd: string,
-    env: string[]
+    env: TEnvEntry[]
   ) => Promise<CmdTerminal> = async (type, nodeName = "", topicName = "", screenName = "", cmd = "", env = []) => {
     const result = new CmdTerminal();
     let cmdType = type;
@@ -473,7 +487,7 @@ export default class Provider implements IProvider {
     }
     switch (cmdType) {
       case CmdType.CMD: {
-        const prefix = this.createEnvPrefix(env);
+        const prefix = this.createRosEnvExportPrefix(env);
         result.cmd = cmd ? `${prefix} ${cmd}` : `${prefix}`;
         break;
       }
@@ -506,13 +520,13 @@ export default class Provider implements IProvider {
         if (this.rosState.ros_version === "1") {
           result.cmd = `rostopic echo ${topicName}`;
         } else if (this.rosState.ros_version === "2") {
-          const prefix = this.createEnvPrefix(env);
+          const prefix = this.createRosEnvExportPrefix(env);
           result.cmd = `${prefix} ros2 topic echo ${topicName}`;
         }
         break;
       }
       case CmdType.TERMINAL: {
-        const prefix = this.createEnvPrefix(env);
+        const prefix = this.createRosEnvExportPrefix(env);
         result.cmd = cmd ? `${prefix} ${cmd}` : `${prefix}`;
         break;
       }

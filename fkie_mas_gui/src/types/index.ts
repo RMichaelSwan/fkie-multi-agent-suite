@@ -17,6 +17,7 @@ import { TLaunchArg } from "./LaunchArg";
 import { PublishCloseCallback, PublishManagerEvents, TPublishManager } from "./PublishManager";
 import { ShutdownManagerEvents, TerminateCallback, TShutdownManager } from "./ShutdownManager";
 import { SubscriberCloseCallback, SubscriberManagerEvents, TSubscriberManager } from "./SubscriberManager";
+import { envEntryToExportStr, envEntryToStr, TEnvEntry } from "./TEnvEntry";
 import { TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "./TerminalManager";
 import { InfoStateLevel, TInfoState } from "./TInfoState";
 import { TResult } from "./TResult";
@@ -33,6 +34,8 @@ export {
   CommandLineEvents,
   DialogManagerEvents,
   EditorManagerEvents,
+  envEntryToExportStr,
+  envEntryToStr,
   InfoStateLevel,
   PublishManagerEvents,
   ShutdownManagerEvents,
@@ -56,6 +59,7 @@ export type {
   TCommandLine,
   TDialogManager,
   TEditorManager,
+  TEnvEntry,
   TerminalCloseCallback,
   TerminateCallback,
   TFileRange,

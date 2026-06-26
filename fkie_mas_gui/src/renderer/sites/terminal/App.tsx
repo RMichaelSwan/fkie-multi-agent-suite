@@ -5,6 +5,7 @@ import { useAlwaysCurrentRef } from "@/renderer/hooks/useAlwaysCurrentRef";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { TEnvEntry } from "@/types";
 import SingleTerminalPanel from "../../pages/NodeManager/panels/SingleTerminalPanel";
 import { CmdType, cmdTypeFromString } from "../../providers";
 import TerminalProvider from "../../providers/TerminalProvider";
@@ -16,7 +17,7 @@ interface ITerminalInfo {
   node: string;
   screen: string;
   cmd: string;
-  env: string[];
+  env: TEnvEntry[];
 }
 
 export default function TerminalApp(): JSX.Element {
@@ -41,7 +42,7 @@ export default function TerminalApp(): JSX.Element {
     const cmd = urlParams.get("cmd");
     const envParam = urlParams.get("env");
     const env = envParam ? JSON.parse(envParam) : [];
-    console.log(`ETENV: ${env}`);
+    console.log(`ENV from url params: ${JSON.stringify(env)}`);
     if (!host || !port) {
       logCtx.error(`invalid address ${host}:${port}`, "");
       return;
@@ -63,8 +64,8 @@ export default function TerminalApp(): JSX.Element {
         info: cmdTypeFromString(info),
         node: node ? node : "",
         screen: screen ? screen : "",
-        cmd: cmd ? cmd : "",
-        env: env ? env : [],
+        cmd: cmd || "",
+        env: env || [],
       });
     } else {
       logCtx.error(`connection to ${host}:${port} failed`, "");

@@ -1,6 +1,7 @@
 import { parse } from "shell-quote";
 
-import { JSONObject, TResult } from "@/types";
+import { JSONObject, TEnvEntry, TResult } from "@/types";
+import { envEntryToStr, toEnvEntry } from "@/types/TEnvEntry";
 import { generateUniqueId } from "../utils";
 
 export const RMW_SELECTIONS = [
@@ -114,31 +115,31 @@ export type TProviderLaunchParams = {
   respawn: boolean;
 };
 
-export const envFromSystemEnv = (env: JSONObject) => {
-  const result: string[] = [];
+export const envFromSystemEnv: (env: JSONObject) => TEnvEntry[] = (env) => {
+  const result: TEnvEntry[] = [];
   if (env.ROS_DOMAIN_ID) {
-    result.push(`ROS_DOMAIN_ID=${env.ROS_DOMAIN_ID}`);
+    result.push({ name: "ROS_DOMAIN_ID", value: `${env.ROS_DOMAIN_ID}` });
   }
   if (env.RMW_IMPLEMENTATION) {
-    result.push(`RMW_IMPLEMENTATION=${env.RMW_IMPLEMENTATION}`);
+    result.push({ name: "RMW_IMPLEMENTATION", value: `${env.RMW_IMPLEMENTATION}` });
     if (env.RMW_IMPLEMENTATION === "rmw_zenoh_cpp") {
       for (const envVar of Object.keys(env)) {
         if (envVar.startsWith("ZENOH_")) {
-          result.push(`${envVar}=${env[envVar]}`);
+          result.push({ name: envVar, value: `${env[envVar]}` });
         }
       }
     }
     if (env.RMW_IMPLEMENTATION === "rmw_cyclonedds_cpp") {
       for (const envVar of Object.keys(env)) {
         if (envVar.startsWith("CYCLONEDDS_")) {
-          result.push(`${envVar}=${env[envVar]}`);
+          result.push({ name: envVar, value: `${env[envVar]}` });
         }
       }
     }
     if (env.RMW_IMPLEMENTATION === "rmw_fastrtps_cpp") {
       for (const envVar of Object.keys(env)) {
         if (envVar.startsWith("FASTDDS_") || envVar.startsWith("RMW_FASTRTPS_")) {
-          result.push(`${envVar}=${env[envVar]}`);
+          result.push({ name: envVar, value: `${env[envVar]}` });
         }
       }
     }
@@ -374,7 +375,9 @@ export default class ProviderLaunchConfiguration {
   }
 
   public getEnvPrefix() {
-    const prefix = this.getEnv().join(" ");
+    const prefix = this.getEnv()
+      .map((entry) => envEntryToStr(entry))
+      .join(" ");
     if (!prefix) return "";
     return `${prefix} `;
   }
@@ -403,18 +406,18 @@ export default class ProviderLaunchConfiguration {
   }
 
   public getEnv() {
-    const result: string[] = [this.domainPrefix(), this.rmwPrefix()];
+    const result: TEnvEntry[] = [toEnvEntry(this.domainPrefix()), toEnvEntry(this.rmwPrefix())];
     if (this.params.rmw.current === "rmw_zenoh_cpp") {
       if (this.params.rmw.zenoh.overrideEnv === "multicast") {
-        result.push(this.getZenohRouterCheck());
-        result.push(this.getZenohMulticast());
+        result.push(toEnvEntry(this.getZenohRouterCheck()));
+        result.push(toEnvEntry(this.getZenohMulticast()));
       } else if (this.params.rmw.zenoh.overrideEnv === "remote") {
-        result.push(this.getZenohNodeOverride());
+        result.push(toEnvEntry(this.getZenohNodeOverride()));
       } else if (this.params.rmw.zenoh.overrideEnv === "local") {
-        result.push(this.getZenohNodeOverride());
+        result.push(toEnvEntry(this.getZenohNodeOverride()));
       } else {
         for (const token of this.splitEnv(this.params.rmw.zenoh.overrideEnv)) {
-          result.push(token);
+          result.push(toEnvEntry(token));
         }
       }
     }
@@ -427,26 +430,26 @@ export default class ProviderLaunchConfiguration {
         };
       }
       if (this.params.rmw.cyclone.overrideEnv === "from file") {
-        result.push(`CYCLONEDDS_URI="file://$HOME/cyclonedds.xml"`);
+        result.push({ name: "CYCLONEDDS_URI", value: "file://$HOME/cyclonedds.xml" });
       }
       if (this.params.rmw.cyclone.overrideEnv === "env") {
         const cycloneEnv = this.getCycloneEnv();
         if (cycloneEnv) {
-          result.push(cycloneEnv);
+          result.push(toEnvEntry(cycloneEnv));
         }
       }
       for (const token of this.splitEnv(this.params.rmw.cyclone.overrideEnv)) {
-        result.push(token);
+        result.push(toEnvEntry(token));
       }
     }
     if (this.params.rmw.current === "rmw_fastrtps_cpp") {
       for (const token of this.splitEnv(this.params.rmw.fastrtps.overrideEnv)) {
-        result.push(token);
+        result.push(toEnvEntry(token));
       }
     }
     if (this.params.rmw.current === "rmw_connextdds") {
       for (const token of this.splitEnv(this.params.rmw.connext.overrideEnv)) {
-        result.push(token);
+        result.push(toEnvEntry(token));
       }
     }
     return result.filter((entry) => !!entry);

@@ -33,6 +33,7 @@ import {
   EVENT_PROVIDER_ROS_TOPICS,
 } from "@/renderer/providers/eventTypes";
 import { EventNodeDiagnostic, TEventNodeLifecycle } from "@/renderer/providers/events";
+import { envEntryToStr } from "@/types";
 import SystemInformationPanel from "./SystemInformationPanel";
 
 function compareTopics(a: RosTopicId | RosTopic, b: RosTopicId | RosTopic): number {
@@ -554,7 +555,9 @@ export default function DetailsPanel(): JSX.Element {
             if (provider) {
               envPrefix = provider.startConfiguration?.getEnvPrefix() || "";
               if (!envPrefix) {
-                envPrefix = envFromSystemEnv(provider.systemEnv).join(" ");
+                envPrefix = envFromSystemEnv(provider.systemEnv)
+                  .map((entry) => envEntryToStr(entry))
+                  .join(" ");
               }
             }
             const launchPrefix = launchInfo?.launch_prefix ? launchInfo?.launch_prefix : "";

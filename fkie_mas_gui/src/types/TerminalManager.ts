@@ -1,3 +1,5 @@
+import { TEnvEntry } from "./TEnvEntry";
+
 export const TerminalManagerEvents = {
   has: "terminal:has",
   open: "terminal:open",
@@ -16,7 +18,7 @@ export type TTerminalManager = {
     node: string,
     screen: string,
     cmd: string,
-    env: string[]
+    env: TEnvEntry[]
   ) => Promise<string | null>;
   close: (id: string) => Promise<boolean>;
   has: (id: string) => Promise<boolean>;

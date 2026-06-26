@@ -1,4 +1,4 @@
-import { TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "@/types";
+import { TEnvEntry, TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "@/types";
 import { is } from "@electron-toolkit/utils";
 import ioIcon from "@public/crystal_clear_show_io.png?asset";
 import logIcon from "@public/crystal_clear_show_log.png?asset";
@@ -45,7 +45,7 @@ export default class TerminalManager implements TTerminalManager {
         node: string,
         screen: string,
         cmd: string,
-        env: string[]
+        env: TEnvEntry[]
       ) => {
         return this.open(id, host, port, info, node, screen, cmd, env);
       }
@@ -76,7 +76,7 @@ export default class TerminalManager implements TTerminalManager {
     node: string,
     screen: string,
     cmd: string,
-    env: string[]
+    env: TEnvEntry[]
   ) => Promise<string | null> = async (id, host, port, info, node, screen, cmd, env) => {
     // if (isDebug) {
     //   await installExtensions()
@@ -136,7 +136,7 @@ export default class TerminalManager implements TTerminalManager {
       const nodeStr = node ? `&node=${node}` : "";
       const screenStr = screen ? `&screen=${screen}` : "";
       const cmdStr = cmd ? `&cmd=${cmd}` : "";
-      const envStr = env ? `&env=${env}` : "";
+      const envStr = env ? `&env=${JSON.stringify(env)}` : "";
       window.loadURL(
         `${process.env.ELECTRON_RENDERER_URL}/terminal.html?id=${id}&host=${host}&port=${port}&info=${info}${nodeStr}${screenStr}${cmdStr}${envStr}`
       );

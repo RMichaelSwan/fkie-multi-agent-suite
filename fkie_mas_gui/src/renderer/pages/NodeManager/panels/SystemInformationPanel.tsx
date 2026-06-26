@@ -16,7 +16,7 @@ import { Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_WARNINGS } from "@/renderer/providers/eventTypes";
 import { EventProviderWarnings } from "@/renderer/providers/events";
 import { generateUniqueId, tsStr } from "@/renderer/utils";
-import { JSONObject, TSystemInfo } from "@/types";
+import { envEntryToStr, JSONObject, TSystemInfo } from "@/types";
 import { useCustomEventListener } from "react-custom-events";
 
 interface SystemInformationPanelProps {
@@ -167,7 +167,9 @@ export default function SystemInformationPanel(props: SystemInformationPanelProp
     if (provider) {
       envPrefix = provider.startConfiguration?.getEnvPrefix() || "";
       if (!envPrefix) {
-        envPrefix = envFromSystemEnv(provider.systemEnv).join(" ");
+        envPrefix = envFromSystemEnv(provider.systemEnv)
+          .map((entry) => envEntryToStr(entry))
+          .join(" ");
       }
     }
     return (
