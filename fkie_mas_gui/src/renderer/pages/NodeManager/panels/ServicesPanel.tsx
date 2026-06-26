@@ -18,7 +18,6 @@ import { findIn } from "@/renderer/utils/index";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
 import { emitOpenComponent, EVENT_FILTER_SERVICES, TFilterText } from "../layout/events";
 import { TContentId } from "../layout/LayoutTabConfig";
-import ServiceCallerPanel from "./ServiceCallerPanel";
 
 type TTreeItem = {
   groupKey: string;

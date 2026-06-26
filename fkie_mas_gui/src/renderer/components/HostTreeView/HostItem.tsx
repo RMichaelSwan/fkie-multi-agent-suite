@@ -32,7 +32,6 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
-import SingleTerminalPanel from "@/renderer/pages/NodeManager/panels/SingleTerminalPanel";
 import { CmdType } from "@/renderer/providers";
 import Provider from "@/renderer/providers/Provider";
 import { generateUniqueId } from "@/renderer/utils";

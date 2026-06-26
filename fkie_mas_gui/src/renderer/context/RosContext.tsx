@@ -152,7 +152,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const systemInfoRef = useAlwaysCurrentRef<TSystemInfo | null>(systemInfo);
   const showReloadRef = useAlwaysCurrentRef(showSnackbarReloadLaunchNotification);
   const showBinaryRef = useAlwaysCurrentRef(showSnackbarBinaryChangedNotification);
-  const mapProviderRosNodesRef = useAlwaysCurrentRef(mapProviderRosNodes);
 
   // ─────────────────────────────────────────────
   // Provider Node state helpers

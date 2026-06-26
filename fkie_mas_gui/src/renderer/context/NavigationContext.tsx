@@ -10,8 +10,6 @@ import { xor } from "@/renderer/utils/index";
 import { TFileRange, TLaunchArg } from "@/types";
 import { createEditorId } from "../monaco/utils";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../pages/NodeManager/layout";
-import TopicEchoPanel from "../pages/NodeManager/panels/TopicEchoPanel";
-import TopicPublishPanel from "../pages/NodeManager/panels/TopicPublishPanel";
 import { CmdType } from "../providers";
 
 export type TNavSelection = {

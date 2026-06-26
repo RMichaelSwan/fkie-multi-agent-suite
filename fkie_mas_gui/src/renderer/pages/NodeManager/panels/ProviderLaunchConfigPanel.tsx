@@ -101,7 +101,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const launchCfg = launchCfgRef.current;
   const [_valuesChanged, forceValuesUpdate] = useReducer((x) => x + 1, 0);
 
-  const [startConfigurations, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>(
+  const [_, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>(
     "Provider:startConfigurations",
     [],
     {

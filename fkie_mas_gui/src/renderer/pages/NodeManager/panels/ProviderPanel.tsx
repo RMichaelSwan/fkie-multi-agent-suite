@@ -37,7 +37,6 @@ import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import Provider, { generateProviderId } from "@/renderer/providers/Provider";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
 import { emitOpenComponent } from "../layout/events";
-import ProviderLaunchConfigPanel from "./ProviderLaunchConfigPanel";
 import ProviderPanelRow from "./ProviderPanelRow";
 import ProviderPanelRowCfg from "./ProviderPanelRowCfg";
 

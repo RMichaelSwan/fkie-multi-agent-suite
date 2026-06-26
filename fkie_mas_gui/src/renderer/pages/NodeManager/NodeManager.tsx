@@ -81,7 +81,7 @@ import {
   TEventOpenComponent,
   TEventSelectTab,
 } from "./layout/events";
-import { contentToId, IExtTerminalConfig, TContentId, TEditorConfig, TLayoutTabConfig } from "./layout/LayoutTabConfig";
+import { contentToId, TContentId, TExtTerminalConfig, TLayoutTabConfig } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
 import AboutPanel from "./panels/AboutPanel";
 import DetailsPanel from "./panels/DetailsPanel";
@@ -129,7 +129,7 @@ export default function NodeManager(): JSX.Element {
 
   const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 2 });
   const [model, setModel] = useState<Model>(() => Model.fromJson(layoutJson));
-  const layoutRef = useRef<Layout | null>(null);
+  const layoutRef = useRef<React.ComponentRef<typeof Layout> | null>(null);
 
   // const [layoutComponents] = useState<Record<string, React.ReactNode>>({});
   const [addToLayout, setAddToLayout] = useState<ITabAttributesExt[]>([]);
@@ -711,7 +711,7 @@ export default function NodeManager(): JSX.Element {
     }
   }
 
-  async function openExternalTerminal(config: IExtTerminalConfig, tabNodeId: string): Promise<void> {
+  async function openExternalTerminal(config: TExtTerminalConfig, tabNodeId: string): Promise<void> {
     // create terminal command
     const provider = rosCtx.getProviderById(config.providerId);
     if (!provider) return;
