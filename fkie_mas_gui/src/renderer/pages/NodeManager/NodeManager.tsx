@@ -81,7 +81,7 @@ import {
   TEventOpenComponent,
   TEventSelectTab,
 } from "./layout/events";
-import { contentToId, IExtTerminalConfig, TContentId } from "./layout/LayoutTabConfig";
+import { contentToId, IExtTerminalConfig, TContentId, TEditorConfig, TLayoutTabConfig } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
 import AboutPanel from "./panels/AboutPanel";
 import DetailsPanel from "./panels/DetailsPanel";
@@ -93,12 +93,19 @@ import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
 import { pAddTabStickyButton } from "./layout/helpers";
 import { LAYOUT_DOMAIN_TAB_SET, LAYOUT_NO_RUNNING_DAEMONS } from "./layout/LayoutJson";
 import ExternalAppsPanel from "./panels/ExternalAppsPanel";
+import FileEditorPanel from "./panels/FileEditorPanel";
 import InfoNoRunningDaemons from "./panels/InfoNoRunningDaemons";
+import NodeLoggerPanel from "./panels/NodeLoggerPanel";
 import PackageExplorerPanel from "./panels/PackageExplorerPanel";
 import ParameterPanel from "./panels/ParameterPanel";
+import ProviderLaunchConfigPanel from "./panels/ProviderLaunchConfigPanel";
 import ProviderPanel from "./panels/ProviderPanel";
+import ServiceCallerPanel from "./panels/ServiceCallerPanel";
 import ServicesPanel from "./panels/ServicesPanel";
 import SettingsPanel from "./panels/SettingsPanel";
+import SingleTerminalPanel from "./panels/SingleTerminalPanel";
+import TopicEchoPanel from "./panels/TopicEchoPanel";
+import TopicPublishPanel from "./panels/TopicPublishPanel";
 import TopicsPanel from "./panels/TopicsPanel";
 
 type TPanelId = {
@@ -140,6 +147,9 @@ export default function NodeManager(): JSX.Element {
     !window.commandExecutor && window.location.href.indexOf(":6275") === -1
   );
 
+  /**
+   * @deprecated will be removed with TLayoutTabConfig.reactNode
+   */
   const layoutComponentsRef = useRef<Record<string, React.ReactNode>>({});
 
   // sync settings dependent state
@@ -314,40 +324,10 @@ export default function NodeManager(): JSX.Element {
     [model, monacoCtx]
   );
 
-  // // close all tabs with panelGroup === sidebar
-  // // Wa assume only one tab can be open
-  // function deleteSidebarTabs(node?: LayoutNode): boolean {
-  //   if (node === undefined) {
-  //     const found = model
-  //       .getBorderSet()
-  //       .getBorders()
-  //       .filter((b) => {
-  //         return deleteSidebarTabs(b);
-  //       });
-  //     if (found.length > 0) return true;
-  //   }
-  //   const root = node ? node : model.getRoot();
-  //   const sidebarTabs = root
-  //     .getChildren()
-  //     .filter((child) => child.getType() === "tab" && SIDEBAR_TABS.includes(child.getId()));
-  //   if (sidebarTabs.length > 0) {
-  //     sidebarTabs.map((tab) => {
-  //       model.doAction(Actions.deleteTab(tab.getId()));
-  //     });
-  //     return true;
-  //   }
-  //   // recursive search
-  //   const tabSets = root.getChildren().filter((child) => ["tabset", "row"].includes(child.getType()));
-  //   tabSets.filter((item) => {
-  //     return deleteSidebarTabs(item);
-  //   });
-  //   return tabSets.length > 0;
-  // }
-
   useCustomEventListener(
     EVENT_OPEN_COMPONENT,
     (data: TEventOpenComponent) => {
-      console.log(`open: ${data.id}`);
+      console.log(`open component: ${data.id}`);
       const node = model.getNodeById(data.id);
       if (node) {
         if (node.getParent()?.getType() === "border") {
@@ -371,12 +351,12 @@ export default function NodeManager(): JSX.Element {
           // normal tab: just select it
           model.doAction(Actions.selectTab(data.id));
         }
-        console.log(`  found tab open: ${data.id}, toNodeId: ${data.toNodeId}`);
         if (data.toNodeId === LAYOUT_TAB_SETS.CENTER && data.id.startsWith(LAYOUT_TABS.DOMAIN)) {
           // hide info tab if domain tab was added
           deleteTab(LAYOUT_TABS.NO_RUNNING_DAEMONS);
         }
       } else {
+        console.log(` -> create component: ${data.component} with id: ${data.id}`);
         // create a new tab
         const tab: ITabAttributesExt = {
           id: data.id,
@@ -388,9 +368,8 @@ export default function NodeManager(): JSX.Element {
           enablePopout,
           config: data.config,
         };
-        console.log(`${data.component} ---- data.config: ${JSON.stringify(data.config)}`);
+        // store react node and return it in factory()
         if (data.config?.reactNode) {
-          console.log(`STORE TO ${data.id}`);
           layoutComponentsRef.current[data.id] = data.config.reactNode;
         }
         // store tab in state; will be added in a later effect
@@ -408,7 +387,6 @@ export default function NodeManager(): JSX.Element {
   useCustomEventListener(
     EVENT_CLOSE_COMPONENT,
     (data: TEventId) => {
-      console.log(`EVENT_CLOSE_COMPONENT: ${data.id}`);
       deleteTab(data.id);
     },
     [deleteTab]
@@ -420,8 +398,8 @@ export default function NodeManager(): JSX.Element {
       if (data.config?.contentId !== undefined) {
         return;
       }
+      console.log(`toggle component: ${data.component} with id: ${data.id}`);
       const tab = model.getNodeById(data.id);
-      console.log(`toggle: ${data.id}`);
       const createTab = tab === undefined;
       if (tab && !(tab as TabNode)?.isVisible()) {
         model.doAction(Actions.selectTab(data.id));
@@ -523,33 +501,22 @@ export default function NodeManager(): JSX.Element {
     if (addToLayout.length > 0) {
       const newAddToLayout = [...addToLayout];
       const tab = newAddToLayout.pop();
-      console.log(`addToLayout: ${JSON.stringify(tab)}`);
       if (tab?.id) {
         const node = model.getNodeById(tab.id);
         if (node) {
-          console.log(`  found: ${tab?.id}`);
           return;
         }
         const panelId = getPanelId(tab.id || "", tab.toNodeId);
-        console.log(`add TAB: ${tab.id} to PANEL ID: ${panelId.id}`);
 
         // store current selected tab in CENTER
         const isDomainCenterTab = tab.component === LAYOUT_TABS.DOMAIN && panelId.id === LAYOUT_TAB_SETS.CENTER;
-
         let previouslySelectedTabId: string | undefined;
-        // let hasExistingDomainTab = false;
-
         if (isDomainCenterTab) {
           const ts = model.getNodeById(LAYOUT_TAB_SETS.CENTER) as TabSetNode | undefined;
           if (ts) {
-            console.log(`found cnter: ${ts.getId()}`);
             // const children = ts.getChildren();
             previouslySelectedTabId = ts.getSelectedNode()?.getId();
             if (previouslySelectedTabId === LAYOUT_TABS.NO_RUNNING_DAEMONS) previouslySelectedTabId = undefined;
-            console.log(`previouslySelectedTabId: ${previouslySelectedTabId}`);
-            // store only domain tabs
-            // hasExistingDomainTab = children.some((c) => c.getId() === LAYOUT_TABS.DOMAIN);
-            // console.log(`hasExistingDomainTab: ${hasExistingDomainTab}`);
           }
         }
 
@@ -572,7 +539,6 @@ export default function NodeManager(): JSX.Element {
         }
         // select previously selected
         if (isDomainCenterTab && previouslySelectedTabId) {
-          console.log(`previouslySelectedTabId: ${previouslySelectedTabId}`);
           model.doAction(Actions.selectTab(previouslySelectedTabId));
         }
         if (tab.toNodeId === LAYOUT_TAB_SETS.CENTER) {
@@ -586,11 +552,9 @@ export default function NodeManager(): JSX.Element {
 
   function factory(node: TabNode, contentId?: TContentId): JSX.Element {
     const component = node.getComponent();
-    const config = node.getConfig();
-    console.log(`FACTORY> node: ${node.getId()}, component: ${component}, config: ${JSON.stringify(config)}`);
+    const config: TLayoutTabConfig = node.getConfig();
     const custom = layoutComponentsRef.current[node.getId()];
     if (custom) {
-      console.log("  CUSTOM custom node for", node.getId());
       return custom as React.ReactElement;
     }
     const flexId = contentId?.domainId || contentId?.providerId;
@@ -612,12 +576,118 @@ export default function NodeManager(): JSX.Element {
         return <ServicesPanel key={`services-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.SETTINGS:
         return <SettingsPanel key="settings-panel" />;
+      case LAYOUT_TABS.EDITOR: {
+        if (!config.editorConfig) {
+          return <Typography>Invalid editor configuration {JSON.stringify(config.editorConfig)}</Typography>;
+        }
+        const prov = rosCtx.getProviderById(config.editorConfig.providerId);
+        if (prov)
+          return (
+            <FileEditorPanel
+              key={config.editorConfig.id}
+              editorId={config.editorConfig.id}
+              provider={prov}
+              currentFilePath={config.editorConfig.path}
+              rootFilePath={config.editorConfig.rootLaunch}
+              fileRange={config.editorConfig.fileRange}
+              launchArgs={config.editorConfig.launchArgs}
+              topLevelLaunchArgs={config.editorConfig.topLevelLaunchArgs}
+            />
+          );
+        return <Typography>Provider with ID {config.editorConfig.providerId} not found</Typography>;
+      }
+      case LAYOUT_TABS.TERMINAL: {
+        if (!config.terminalConfig) {
+          return <Typography>Invalid terminal configuration {JSON.stringify(config.terminalConfig)}</Typography>;
+        }
+        const prov = rosCtx.getProviderById(config.terminalConfig.providerId);
+        if (prov)
+          return (
+            <SingleTerminalPanel
+              key={config.terminalConfig.id}
+              id={config.terminalConfig.id}
+              type={config.terminalConfig.cmdType}
+              provider={prov}
+              nodeName={config.terminalConfig.node}
+              screen={config.terminalConfig.screen}
+              cmd={config.terminalConfig.cmd}
+              env={config.terminalConfig.env}
+            />
+          );
+        return <Typography>Provider with ID {config.terminalConfig.providerId} not found</Typography>;
+      }
+      case LAYOUT_TABS.TOPIC_ECHO: {
+        if (!config.subscriberConfig) {
+          return <Typography>Invalid subscriber configuration {JSON.stringify(config.subscriberConfig)}</Typography>;
+        }
+        const prov = rosCtx.getProviderById(config.subscriberConfig.providerId);
+        if (prov)
+          return (
+            <TopicEchoPanel
+              key={config.subscriberConfig.id}
+              provider={prov}
+              showOptions={config.subscriberConfig.showOptions}
+              defaultTopic={config.subscriberConfig.topic}
+              defaultNoData={config.subscriberConfig.noData}
+            />
+          );
+        return <Typography>Provider with ID {config.subscriberConfig.providerId} not found</Typography>;
+      }
+      case LAYOUT_TABS.TOPIC_PUBLISHER: {
+        if (!config.publisherConfig) {
+          return <Typography>Invalid publisher configuration {JSON.stringify(config.publisherConfig)}</Typography>;
+        }
+        return (
+          <TopicPublishPanel
+            key={config.publisherConfig.id}
+            providerId={config.publisherConfig.providerId}
+            topicName={config.publisherConfig.topicName}
+            topicType={config.publisherConfig.topicType}
+          />
+        );
+      }
+      case LAYOUT_TABS.SERVICE_CALLER: {
+        if (!config.serviceCallerConfig) {
+          return (
+            <Typography>Invalid service caller configuration {JSON.stringify(config.serviceCallerConfig)}</Typography>
+          );
+        }
+        return (
+          <ServiceCallerPanel
+            key={config.serviceCallerConfig.id}
+            providerId={config.serviceCallerConfig.providerId}
+            serviceName={config.serviceCallerConfig.serviceName}
+            serviceType={config.serviceCallerConfig.serviceType}
+          />
+        );
+      }
+      case LAYOUT_TABS.NODE_LOGGER:
+        if (!config.nodeLoggerConfig) {
+          return <Typography>Invalid node logger configuration {JSON.stringify(config.nodeLoggerConfig)}</Typography>;
+        }
+        return <NodeLoggerPanel key={config.nodeLoggerConfig.id} node={config.nodeLoggerConfig.node} />;
       case LAYOUT_TABS.ABOUT:
         return <AboutPanel key="about-panel" />;
       case LAYOUT_TABS.PARAMETER:
-        return <ParameterPanel key="parameter-panel" nodes={config.nodes} providers={config.providers} />;
+        return (
+          <ParameterPanel
+            key="parameter-panel"
+            nodes={config.parameterConfig?.nodes || []}
+            providers={config.parameterConfig?.providers || []}
+          />
+        );
       case LAYOUT_TABS.APPS:
         return <ExternalAppsPanel key={`apps-panel-${flexId}`} contentId={contentId} />;
+
+      case LAYOUT_TABS.PROVIDER_LAUNCH_CONTROL:
+        if (!config.providerLaunchConfig) {
+          return (
+            <Typography>Invalid provider launch configuration {JSON.stringify(config.providerLaunchConfig)}</Typography>
+          );
+        }
+        return (
+          <ProviderLaunchConfigPanel key={config.providerLaunchConfig.id} config={config.providerLaunchConfig.config} />
+        );
       case LAYOUT_TABS.NO_RUNNING_DAEMONS:
         return <InfoNoRunningDaemons key="info-no-running-daemons" />;
       case LAYOUT_TABS.DOMAIN:
@@ -631,14 +701,13 @@ export default function NodeManager(): JSX.Element {
             contentId={config.contentId}
             insideTabId={node.getId()}
             factory={(node, contentId) => {
-              console.log(`DFL ${node.getId()}, contentId: ${contentToId(contentId)}`);
               return factory(node, contentId);
             }}
             onCloseTab={(id: string) => deleteTab(id)}
           />
         );
       default:
-        return <></>;
+        return <Typography>unknown component: {component}</Typography>;
     }
   }
 
@@ -992,7 +1061,6 @@ export default function NodeManager(): JSX.Element {
   /** Remove all tabs from layout that are not in LAYOUT_TAB_LIST */
   const cleanAndSaveLayout = useDebounceCallback(() => {
     const modelJson = model.toJson();
-    console.log(`MODEL:${JSON.stringify(modelJson)}`);
 
     for (const item of modelJson.borders || []) {
       item.selected = -1;
@@ -1129,29 +1197,11 @@ export default function NodeManager(): JSX.Element {
             const tabId = action.data.tabNode as string;
             emitSelectTab({ tabId: tabId });
           }
-          model.visitNodes((node) => {
-            if (node.getType() === "tabset") {
-              console.log(
-                node.getId(),
-                "children:",
-                node.getChildren().length,
-                "childs:" +
-                  node
-                    .getChildren()
-                    .map((c) => c.getId())
-                    .join(",")
-              );
-            }
-          });
           return action;
         }}
         onRenderTab={onRenderTab}
         onRenderTabSet={onRenderTabSet}
         onModelChange={(_model, _action) => {
-          // if (!_model.getNodeById(LAYOUT_TAB_SETS.CENTER)) {
-          //   console.log(`add ${LAYOUT_TAB_SETS.CENTER} tabset`);
-          //   _model.doAction(Actions.addTab(LAYOUT_DOMAIN_TAB_SET, "rootRow", DockLocation.CENTER, -1));
-          // }
           if (![Actions.SELECT_TAB, Actions.SET_ACTIVE_TABSET].includes(_action.type)) {
             cleanAndSaveLayout();
           }

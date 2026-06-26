@@ -42,6 +42,7 @@ import {
   CycloneMaxParticipants,
   RMW_SELECTIONS,
   RmwSelection,
+  TProviderLaunchParams,
   ZENOH_SELECTIONS,
   ZenohEnvSelection,
 } from "@/renderer/models/ProviderLaunchConfiguration";
@@ -89,18 +90,30 @@ const checkedIcon = <CheckBoxIcon fontSize="small" />;
 
 interface ProviderLaunchConfigPanelProps {
   config: ProviderLaunchConfiguration;
-  onDelete: (configId: string) => void;
-  onSave: (config: ProviderLaunchConfiguration) => void;
 }
 
 export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPanelProps): JSX.Element {
-  const { config, onDelete, onSave } = props;
+  const { config } = props;
 
   const rosCtx = useRosContext();
   const settingsCtx = useSettingsContext();
   const launchCfgRef = useRef<ProviderLaunchConfiguration>(config);
   const launchCfg = launchCfgRef.current;
   const [_valuesChanged, forceValuesUpdate] = useReducer((x) => x + 1, 0);
+
+  const [startConfigurations, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>(
+    "Provider:startConfigurations",
+    [],
+    {
+      version: 1,
+      migrate: (oldValue, oldVersion) => {
+        if (oldVersion === undefined) {
+          return oldValue as TProviderLaunchParams[];
+        }
+        return [];
+      },
+    }
+  );
 
   const hostArg: string | undefined = settingsCtx.getArgument("host") as string | undefined;
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
@@ -172,6 +185,36 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   useEffect(() => {
     setBackgroundColor(settingsCtx.get("backgroundColor") as string);
   }, [settingsCtx.changed]);
+
+  const saveLaunchConfiguration = useCallback(
+    (config: ProviderLaunchConfiguration) => {
+      setStartConfigurations((prev) => {
+        const idx = prev.findIndex((c) => c.id === config.params.id);
+        const next = [...prev];
+
+        if (idx !== -1) {
+          // replace
+          next[idx] = config.params;
+        } else {
+          // add new
+          next.push(config.params);
+        }
+
+        // sort
+        return next.sort((a, b) => a.host.localeCompare(b.host));
+      });
+    },
+    [setStartConfigurations]
+  );
+
+  const deleteLaunchConfiguration = useCallback(
+    (configId: string) => {
+      setStartConfigurations((prev) => {
+        return prev.filter((c) => c.id !== configId);
+      });
+    },
+    [setStartConfigurations]
+  );
 
   function updateTopics(): void {
     // trigger add new provider
@@ -646,7 +689,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
               // display="flex"
               color="success"
               onClick={() => {
-                onSave(launchCfg);
+                saveLaunchConfiguration(launchCfg);
                 emitCloseComponent({ id: launchCfg.params.id });
               }}
               style={{ height: "3em", textAlign: "center" }}
@@ -664,7 +707,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
           // display="flex"
           color="error"
           onClick={() => {
-            onDelete(launchCfg.params.id);
+            deleteLaunchConfiguration(launchCfg.params.id);
             emitCloseComponent({ id: launchCfg.params.id });
           }}
           style={{ height: "3em", textAlign: "center" }}

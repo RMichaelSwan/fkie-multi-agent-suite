@@ -76,10 +76,15 @@ export default function ProviderPanel(): JSX.Element {
   const [filterText, setFilterText] = useState("");
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
   const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
-  const [startConfigurations, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>(
-    "Provider:startConfigurations",
-    []
-  );
+  const [startConfigurations] = useLocalStorage<TProviderLaunchParams[]>("Provider:startConfigurations", [], {
+    version: 1,
+    migrate: (oldValue, oldVersion) => {
+      if (oldVersion === undefined) {
+        return oldValue as TProviderLaunchParams[];
+      }
+      return [];
+    },
+  });
   const [showStartConfigurations, setShowStartConfigurations] = useState<ProviderLaunchConfiguration[]>([]);
   const [openHintDialog, setOpenHintDialog] = useState<boolean>(startConfigurations.length === 0);
 
@@ -249,62 +254,21 @@ export default function ProviderPanel(): JSX.Element {
     }
   }, 300);
 
-  const saveLaunchConfiguration = useCallback(
-    (config: ProviderLaunchConfiguration) => {
-      setStartConfigurations((prev) => {
-        const idx = prev.findIndex((c) => c.id === config.params.id);
-        const next = [...prev];
-
-        if (idx !== -1) {
-          // replace
-          next[idx] = config.params;
-        } else {
-          // add new
-          next.push(config.params);
-        }
-
-        // sort
-        return next.sort((a, b) => a.host.localeCompare(b.host));
-      });
-    },
-    [setStartConfigurations]
-  );
-
-  const deleteLaunchConfiguration = useCallback(
-    (configId: string) => {
-      setStartConfigurations((prev) => {
-        return prev.filter((c) => c.id !== configId);
-      });
-    },
-    [setStartConfigurations]
-  );
-
-  const editLaunchConfiguration = useCallback(
-    (config: ProviderLaunchConfiguration, title?: string) => {
-      console.log(`CREATE ${config.params.id}`);
-      emitOpenComponent({
-        id: config.params.id,
-        title: title || `${config.params.host} start configuration`,
-        closable: true,
-        component: LAYOUT_TABS.PROVIDER_LAUNCH_CONTROL,
-        toNodeId: LAYOUT_TAB_SETS.CENTER,
-        config: {
-          reactNode: (
-            <ProviderLaunchConfigPanel
-              config={config}
-              onDelete={(configId) => {
-                deleteLaunchConfiguration(configId);
-              }}
-              onSave={(config) => {
-                saveLaunchConfiguration(config);
-              }}
-            />
-          ),
+  const editLaunchConfiguration = useCallback((config: ProviderLaunchConfiguration, title?: string) => {
+    emitOpenComponent({
+      id: config.params.id,
+      title: title || `${config.params.host} start configuration`,
+      closable: true,
+      component: LAYOUT_TABS.PROVIDER_LAUNCH_CONTROL,
+      toNodeId: LAYOUT_TAB_SETS.CENTER,
+      config: {
+        providerLaunchConfig: {
+          id: config.params.id,
+          config,
         },
-      });
-    },
-    [deleteLaunchConfiguration, saveLaunchConfiguration]
-  );
+      },
+    });
+  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useCustomEventListener(EVENT_PROVIDER_STATE, () => {

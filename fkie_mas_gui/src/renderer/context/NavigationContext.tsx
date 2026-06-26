@@ -6,12 +6,10 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { getBaseName } from "@/renderer/models";
 import { emitEditorSelectRange, emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
-import FileEditorPanel from "@/renderer/pages/NodeManager/panels/FileEditorPanel";
 import { xor } from "@/renderer/utils/index";
 import { TFileRange, TLaunchArg } from "@/types";
 import { createEditorId } from "../monaco/utils";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../pages/NodeManager/layout";
-import SingleTerminalPanel from "../pages/NodeManager/panels/SingleTerminalPanel";
 import TopicEchoPanel from "../pages/NodeManager/panels/TopicEchoPanel";
 import TopicPublishPanel from "../pages/NodeManager/panels/TopicPublishPanel";
 import { CmdType } from "../providers";
@@ -180,28 +178,19 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         component: LAYOUT_TABS.EDITOR,
         toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("editorOpenLocation") as string],
         config: {
-          reactNode: (
-            <FileEditorPanel
-              editorId={id}
-              provider={provider}
-              currentFilePath={path}
-              rootFilePath={rootLaunch}
-              fileRange={fileRange}
-              launchArgs={launchArgs}
-              topLevelLaunchArgs={topLevelLaunchArgs}
-            />
-          ),
           contentId: { domainId: provider.connection.domainId },
           openExternal: true,
           tabType: "editor",
           editorConfig: {
             id,
+            providerId: provider.id,
             host: provider.connection.host,
             port: provider.connection.port,
             rootLaunch,
             path,
             fileRange,
             launchArgs,
+            topLevelLaunchArgs,
           },
         },
       });
@@ -256,11 +245,11 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         component: LAYOUT_TABS.TOPIC_PUBLISHER,
         toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("publisherOpenLocation") as string],
         config: {
-          reactNode: <TopicPublishPanel topicName={topicName} topicType={topicType} providerId={providerId} />,
           openExternal: true,
           tabType: `${CmdType.PUB}`,
           publisherConfig: {
             id,
+            providerId: provider.id,
             host: provider.connection.host,
             port: provider.connection.port,
             topicName: topic,
@@ -325,18 +314,11 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         component: LAYOUT_TABS.TOPIC_ECHO,
         toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("subscriberOpenLocation") as string],
         config: {
-          reactNode: (
-            <TopicEchoPanel
-              showOptions={showOptions}
-              provider={provider}
-              defaultTopic={topic}
-              defaultNoData={defaultNoData}
-            />
-          ),
           openExternal: true,
           tabType: `${CmdType.ECHO}`,
           subscriberConfig: {
             id,
+            providerId: provider.id,
             host: provider.connection.host,
             port: provider.connection.port,
             topic,
@@ -413,21 +395,11 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         component: LAYOUT_TABS.TERMINAL,
         toNodeId: LAYOUT_TAB_SETS.BORDER_BOTTOM,
         config: {
-          reactNode: (
-            <SingleTerminalPanel
-              id={id}
-              type={type}
-              provider={provider}
-              nodeName={node}
-              screen={screen}
-              cmd={cmd}
-              env={env}
-            />
-          ),
           openExternal: !noPopout,
           tabType: type,
           terminalConfig: {
             id,
+            providerId: provider.id,
             host: provider.connection.host,
             port: provider.connection.port,
             cmdType: type,

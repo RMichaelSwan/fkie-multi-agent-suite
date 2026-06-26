@@ -13,7 +13,6 @@ import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import {
   EVENT_SELECT_TAB,
   EVENT_TOGGLE_COMPONENT,
-  TEventId,
   TEventOpenComponent,
   TEventSelectTab,
 } from "@/renderer/pages/NodeManager/layout/events";
@@ -291,29 +290,29 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
           id: `${LAYOUT_TABS.TOPICS}-${contentToId(contentId)}`,
           title: "Topics",
           component: LAYOUT_TABS.TOPICS,
-          contentId: contentId,
           setId: node.getId(),
           icon: <TopicIcon sx={{ fontSize: "inherit" }} />,
+          config: { contentId: contentId },
         });
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
           id: `${LAYOUT_TABS.SERVICES}-${contentToId(contentId)}`,
           title: "Services",
-          contentId: contentId,
           component: LAYOUT_TABS.SERVICES,
           setId: node.getId(),
           icon: <FeaturedPlayListIcon sx={{ fontSize: "inherit" }} />,
+          config: { contentId: contentId },
         });
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
           id: `${LAYOUT_TABS.APPS}-${contentToId(contentId)}`,
           title: "ROS Apps",
-          contentId: contentId,
           component: LAYOUT_TABS.APPS,
           setId: node.getId(),
           icon: <AppsIcon sx={{ fontSize: "inherit" }} />,
+          config: { contentId: contentId },
         });
       }
     }

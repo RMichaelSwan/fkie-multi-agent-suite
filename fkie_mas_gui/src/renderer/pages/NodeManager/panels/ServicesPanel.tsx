@@ -469,21 +469,20 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
       // currently we do not distinguish external / terminal for services,
       // but we keep the parameters for future alignment with topic handling
       console.debug(`call service: external=${external} terminal=${openInTerminal}`);
-
+      const id = `call-service-${service.id}}`;
       emitOpenComponent({
-        id: `call-service-${service.id}}`,
+        id: id,
         title: `Call Service - ${service.name}`,
         closable: true,
         component: LAYOUT_TABS.SERVICE_CALLER,
         toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
         config: {
-          reactNode: (
-            <ServiceCallerPanel
-              serviceName={service.name}
-              serviceType={service.srvType}
-              providerId={service.nodeProviders[0]?.providerId}
-            />
-          ),
+          serviceCallerConfig: {
+            id,
+            providerId: service.nodeProviders[0]?.providerId,
+            serviceName: service.name,
+            serviceType: service.srvType,
+          },
         },
       });
     },

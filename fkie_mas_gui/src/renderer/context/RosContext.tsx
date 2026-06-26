@@ -1003,7 +1003,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
 
   const switchDedicatedTabs = useCallback(
     (tabsFor: string) => {
-      console.log("switchDedicatedTabs");
       if (tabsFor === "HOSTS") {
         // remove all domain tabs
         for (const prov of providers) {

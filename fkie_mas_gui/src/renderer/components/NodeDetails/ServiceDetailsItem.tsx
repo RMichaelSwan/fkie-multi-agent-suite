@@ -10,9 +10,8 @@ import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosService, RosTopicId, ServiceExtendedInfo, TServiceNodeInfo } from "@/renderer/models";
-import { LAYOUT_TAB_SETS, LAYOUT_TABS, LayoutTabConfig } from "@/renderer/pages/NodeManager/layout";
+import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
-import ServiceCallerPanel from "@/renderer/pages/NodeManager/panels/ServiceCallerPanel";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { generateUniqueId, removeDDSuid } from "@/renderer/utils";
 import { CopyButton } from "../UI";
@@ -40,16 +39,20 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
   }, [settingsCtx.changed]);
 
   function onServiceCallClick(service: ServiceExtendedInfo): void {
+    const id = `call-service-${generateUniqueId()}`;
     emitOpenComponent({
-      id: `call-service-${generateUniqueId()}`,
+      id: id,
       title: service.name,
       closable: true,
       component: LAYOUT_TABS.SERVICE_CALLER,
       toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
       config: {
-        reactNode: (
-          <ServiceCallerPanel serviceName={service.name} serviceType={service.srvType} providerId={providerId || ""} />
-        ),
+        serviceCallerConfig: {
+          id,
+          serviceName: service.name,
+          serviceType: service.srvType,
+          providerId: providerId || "",
+        },
       },
     });
   }

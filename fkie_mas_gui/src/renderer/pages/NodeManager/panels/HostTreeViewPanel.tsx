@@ -50,8 +50,6 @@ import { TResultClearPath } from "@/renderer/providers/ProviderConnection";
 import { findIn } from "@/renderer/utils/index";
 import { TFileRange } from "@/types";
 import { contentToId, TContentId } from "../layout/LayoutTabConfig";
-import NodeLoggerPanel from "./NodeLoggerPanel";
-import ParameterPanel from "./ParameterPanel";
 
 type TProviderNodes = {
   providerId: string;
@@ -277,7 +275,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
         closable: true,
         component: LAYOUT_TABS.NODE_LOGGER,
         toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("nodeLoggerOpenLocation") as string],
-        config: { reactNode: <NodeLoggerPanel node={node} /> },
+        config: { nodeLoggerConfig: { id, node } },
       });
     },
     [settingsCtx]
@@ -364,13 +362,14 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
         params.push({
           name: node.name,
           callback: () => {
+            const id = `parameter-node-${node.idGlobal}`;
             emitOpenComponent({
-              id: `parameter-node-${node.idGlobal}`,
+              id: id,
               title: `${node.name}`,
               closable: true,
               component: LAYOUT_TABS.PARAMETER,
               toNodeId: openLocation,
-              config: { nodes: [node], providers: [] },
+              config: { parameterConfig: { id, nodes: [node], providers: [] } },
             });
           },
         });
@@ -382,13 +381,14 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
           params.push({
             name: provider.name(),
             callback: () => {
+              const id = `parameter-provider-${provider}`;
               emitOpenComponent({
-                id: `parameter-provider-${provider}`,
+                id: id,
                 title: `${provider.name()}`,
                 closable: true,
                 component: LAYOUT_TABS.PARAMETER,
                 toNodeId: openLocation,
-                config: { reactNode: <ParameterPanel nodes={[]} providers={[providerId]} /> },
+                config: { parameterConfig: { id, nodes: [], providers: [providerId] } },
               });
             },
           });

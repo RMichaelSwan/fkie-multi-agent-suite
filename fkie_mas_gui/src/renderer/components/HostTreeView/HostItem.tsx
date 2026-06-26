@@ -313,7 +313,17 @@ export default function HostItem(props: HostItemProps): JSX.Element {
                         component: LAYOUT_TABS.TERMINAL,
                         toNodeId: LAYOUT_TAB_SETS.BORDER_BOTTOM,
                         config: {
-                          reactNode: <SingleTerminalPanel id={id} type={CmdType.CMD} provider={provider} cmd={value} />,
+                          terminalConfig: {
+                            id,
+                            cmdType: CmdType.CMD,
+                            providerId: provider.id,
+                            host: provider.connection.host,
+                            port: provider.connection.port,
+                            node: "",
+                            screen: "",
+                            env: [],
+                            cmd: value,
+                          },
                         },
                       });
                     }
