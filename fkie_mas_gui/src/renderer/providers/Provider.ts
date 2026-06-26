@@ -11,7 +11,7 @@ import {
 import { TResultParam } from "@/types/TResultParam";
 import { emitCustomEvent } from "react-custom-events";
 import { DEFAULT_BUG_TEXT, ILoggingContext } from "../context/LoggingContext";
-import { ISettingsContext } from "../context/SettingsContext";
+import { getDefaultPortFromRos, ISettingsContext } from "../context/SettingsContext";
 import {
   Composable,
   DaemonVersion,
@@ -105,6 +105,11 @@ import {
   TEventNodeLifecycle,
 } from "./events";
 import WebsocketConnection from "./websocket/WebsocketConnection";
+
+export function generateProviderId(host: string, port: number, rosVersion: string, domainId: number) {
+  const providerPort = port !== 0 ? port : getDefaultPortFromRos(WebsocketConnection.type, rosVersion, "", domainId);
+  return `${host}:${providerPort}`;
+}
 
 type TProviderDaemonReady = {
   status: boolean;
@@ -296,7 +301,8 @@ export default class Provider implements IProvider {
         }
       );
     }
-    this.id = `${this.connection.host}:${this.connection.port}`;
+    this.id = generateProviderId(host, port, rosVersion, domainId);
+    console.log(`CREATED PROVIDER: ${this.id}`);
   }
 
   protected log(): ILoggingContext {

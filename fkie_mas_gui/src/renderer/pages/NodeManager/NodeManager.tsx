@@ -45,7 +45,7 @@ import {
   TabSetNode,
 } from "flexlayout-react";
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { emitCustomEvent, useCustomEventListener } from "react-custom-events";
+import { useCustomEventListener } from "react-custom-events";
 
 // import ExternalAppsModal from "@/renderer/components/ExternalAppsModal/ExternalAppsModal";
 import PasswordDialog from "@/renderer/components/PasswordModal/PasswordDialog";
@@ -66,10 +66,10 @@ import { CmdType, Provider } from "@/renderer/providers";
 import { EventProviderAuthRequest } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_AUTH_REQUEST } from "@/renderer/providers/eventTypes";
 import { basename } from "@/renderer/utils";
-import { TInfoState } from "@/types";
+import { InfoStateLevel, TInfoState } from "@/types";
 import { DEFAULT_LAYOUT, LAYOUT_TAB_LIST, LAYOUT_TAB_SETS, LAYOUT_TABS } from "./layout";
 import {
-  emitCloseComponent,
+  emitSelectTab,
   emitToggleComponent,
   EVENT_CLOSE_COMPONENT,
   EVENT_INFO_STATE,
@@ -79,6 +79,7 @@ import {
   TEventId,
   TEventInfoState,
   TEventOpenComponent,
+  TEventSelectTab,
 } from "./layout/events";
 import { contentToId, IExtTerminalConfig, TContentId } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
@@ -346,6 +347,7 @@ export default function NodeManager(): JSX.Element {
   useCustomEventListener(
     EVENT_OPEN_COMPONENT,
     (data: TEventOpenComponent) => {
+      console.log(`open: ${data.id}`);
       const node = model.getNodeById(data.id);
       if (node) {
         if (node.getParent()?.getType() === "border") {
@@ -395,8 +397,12 @@ export default function NodeManager(): JSX.Element {
         setAddToLayout((prev) => [tab, ...prev]);
       }
     },
-    [layoutComponentsRef, model, enablePopout]
+    []
   );
+
+  useCustomEventListener(EVENT_SELECT_TAB, (data: TEventSelectTab) => {
+    model?.doAction(Actions.selectTab(data.tabId));
+  });
 
   /** Close tabs on signals from the tab itself (e.g. ctrl+d) */
   useCustomEventListener(
@@ -415,6 +421,7 @@ export default function NodeManager(): JSX.Element {
         return;
       }
       const tab = model.getNodeById(data.id);
+      console.log(`toggle: ${data.id}`);
       const createTab = tab === undefined;
       if (tab && !(tab as TabNode)?.isVisible()) {
         model.doAction(Actions.selectTab(data.id));
@@ -513,10 +520,10 @@ export default function NodeManager(): JSX.Element {
 
   // Add tabs to layout after EVENT_OPEN_COMPONENT was received
   useEffect(() => {
-    console.log(`setAddToLayoutsetAddToLayout_: ${setAddToLayout.length}`);
     if (addToLayout.length > 0) {
       const newAddToLayout = [...addToLayout];
       const tab = newAddToLayout.pop();
+      console.log(`addToLayout: ${JSON.stringify(tab)}`);
       if (tab?.id) {
         const node = model.getNodeById(tab.id);
         if (node) {
@@ -525,6 +532,27 @@ export default function NodeManager(): JSX.Element {
         }
         const panelId = getPanelId(tab.id || "", tab.toNodeId);
         console.log(`add TAB: ${tab.id} to PANEL ID: ${panelId.id}`);
+
+        // store current selected tab in CENTER
+        const isDomainCenterTab = tab.component === LAYOUT_TABS.DOMAIN && panelId.id === LAYOUT_TAB_SETS.CENTER;
+
+        let previouslySelectedTabId: string | undefined;
+        // let hasExistingDomainTab = false;
+
+        if (isDomainCenterTab) {
+          const ts = model.getNodeById(LAYOUT_TAB_SETS.CENTER) as TabSetNode | undefined;
+          if (ts) {
+            console.log(`found cnter: ${ts.getId()}`);
+            // const children = ts.getChildren();
+            previouslySelectedTabId = ts.getSelectedNode()?.getId();
+            if (previouslySelectedTabId === LAYOUT_TABS.NO_RUNNING_DAEMONS) previouslySelectedTabId = undefined;
+            console.log(`previouslySelectedTabId: ${previouslySelectedTabId}`);
+            // store only domain tabs
+            // hasExistingDomainTab = children.some((c) => c.getId() === LAYOUT_TABS.DOMAIN);
+            // console.log(`hasExistingDomainTab: ${hasExistingDomainTab}`);
+          }
+        }
+
         const action = Actions.addTab(tab, panelId.id, DockLocation.CENTER, -1);
         model.doAction(action);
 
@@ -542,6 +570,11 @@ export default function NodeManager(): JSX.Element {
             model.doAction(Actions.selectTab(editorId));
           }
         }
+        // select previously selected
+        if (isDomainCenterTab && previouslySelectedTabId) {
+          console.log(`previouslySelectedTabId: ${previouslySelectedTabId}`);
+          model.doAction(Actions.selectTab(previouslySelectedTabId));
+        }
         if (tab.toNodeId === LAYOUT_TAB_SETS.CENTER) {
           // hide info tab if domain tab was added
           deleteTab(LAYOUT_TABS.NO_RUNNING_DAEMONS);
@@ -554,19 +587,14 @@ export default function NodeManager(): JSX.Element {
   function factory(node: TabNode, contentId?: TContentId): JSX.Element {
     const component = node.getComponent();
     const config = node.getConfig();
-    console.log(`CONFIG: ${JSON.stringify(config)}`);
-    console.log(`node.getId(): ${node.getId()}`);
+    console.log(`FACTORY> node: ${node.getId()}, component: ${component}, config: ${JSON.stringify(config)}`);
     const custom = layoutComponentsRef.current[node.getId()];
     if (custom) {
-      console.log("render custom node for", node.getId());
+      console.log("  CUSTOM custom node for", node.getId());
       return custom as React.ReactElement;
     }
-    // if (layoutComponentsRef.current[node.getId()]) {
-    //   return layoutComponentsRef.current[node.getId()] as React.ReactElement;
-    // }
     const flexId = contentId?.domainId || contentId?.providerId;
 
-    console.log(`FACTORY: ${component}`);
     switch (component) {
       case LAYOUT_TABS.NODES:
         return <HostTreeViewPanel key={`nodes-panel-${flexId}`} contentId={contentId} />;
@@ -815,7 +843,6 @@ export default function NodeManager(): JSX.Element {
   }
 
   function onRenderTabSet(node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues): void {
-    console.log(`TAB SET: ${node.getId()}`);
     if (node.getId() === LAYOUT_TAB_SETS.CENTER) {
       const dedicatedTabsFor = settingsCtx.get("dedicatedTabsFor") as string;
       renderValues.leading =
@@ -942,6 +969,7 @@ export default function NodeManager(): JSX.Element {
           item.id !== LAYOUT_TABS.ABOUT &&
           item.id !== LAYOUT_TABS.SETTINGS &&
           item.id !== LAYOUT_TABS.PARAMETER &&
+          item.id !== LAYOUT_TABS.NODES &&
           LAYOUT_TAB_LIST.includes(item.id)
           // (LAYOUT_TAB_LIST.includes(item.id) || item.id?.startsWith(LAYOUT_TABS.DOMAIN))
         ) {
@@ -1099,7 +1127,7 @@ export default function NodeManager(): JSX.Element {
           }
           if (action.type === Actions.SELECT_TAB) {
             const tabId = action.data.tabNode as string;
-            emitCustomEvent(EVENT_SELECT_TAB, { tabId: tabId });
+            emitSelectTab({ tabId: tabId });
           }
           model.visitNodes((node) => {
             if (node.getType() === "tabset") {
@@ -1227,6 +1255,36 @@ export default function NodeManager(): JSX.Element {
       )}
 
       {passwordRequests.map((item) => item)}
+
+      {currentInfoState?.level === InfoStateLevel.ERROR && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              pointerEvents: "auto",
+              padding: "8px 14px",
+              borderRadius: 8,
+              background: "rgba(0, 0, 0, 0.75)",
+              color: "#fff",
+              fontSize: 13,
+              maxWidth: 400,
+              textAlign: "center",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            }}
+          >
+            {currentInfoState?.message}
+          </div>
+        </div>
+      )}
     </Stack>
   );
 }

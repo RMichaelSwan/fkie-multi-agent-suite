@@ -33,8 +33,8 @@ import { ConnectionState } from "@/renderer/providers";
 import { EventProviderState } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import { grey } from "@mui/material/colors";
-import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
-import { emitOpenComponent } from "../layout/events";
+import { LAYOUT_TABS } from "../layout";
+import { emitSelectTab } from "../layout/events";
 import InfoNoRunningDaemons from "./InfoNoRunningDaemons";
 
 /**
@@ -438,13 +438,13 @@ export default function PackageExplorerPanel(): JSX.Element {
     });
 
     // Notify other components that a launch file has been opened
-    emitOpenComponent({
-      id: LAYOUT_TABS.NODES,
-      title: "Nodes",
-      component: LAYOUT_TABS.NODES,
-      closable: false,
-      toNodeId: LAYOUT_TAB_SETS.CENTER,
-    });
+    if ((settingsCtx.get("dedicatedTabsFor") as string) === "HOSTS") {
+      emitSelectTab({ tabId: `${LAYOUT_TABS.DOMAIN}-${provider.id}` });
+      emitSelectTab({ tabId: `${LAYOUT_TABS.NODES}-${provider.id}` });
+    } else {
+      emitSelectTab({ tabId: `${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}` });
+      emitSelectTab({ tabId: `${LAYOUT_TABS.NODES}-${provider.connection.domainId}` });
+    }
   }, [rosCtx, selectedLaunchFile, settingsCtx]);
 
   useEffect(() => {

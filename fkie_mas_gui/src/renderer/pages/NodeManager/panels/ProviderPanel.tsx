@@ -34,7 +34,7 @@ import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
 import { TProviderLaunchParams, ZenohEnvSelection } from "@/renderer/models/ProviderLaunchConfiguration";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
-import Provider from "@/renderer/providers/Provider";
+import Provider, { generateProviderId } from "@/renderer/providers/Provider";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
 import { emitOpenComponent } from "../layout/events";
 import ProviderLaunchConfigPanel from "./ProviderLaunchConfigPanel";
@@ -138,7 +138,7 @@ export default function ProviderPanel(): JSX.Element {
     );
   }, [startConfigurations]);
 
-  async function getDomainId(): Promise<void> {
+  const getDomainId = useCallback(async (): Promise<void> => {
     if (rosCtx.providers.length === 0) {
       if (settingsCtx.getArgument("start") && window.commandExecutor) {
         return;
@@ -187,15 +187,19 @@ export default function ProviderPanel(): JSX.Element {
                 }
                 console.log(`found running mas-daemon with domain id ${domainId}`);
                 if (domainId >= 0) {
-                  const newProvider = rosCtx.createProvider(
-                    "localhost",
-                    rosCtx.rosInfo.version,
-                    undefined,
-                    domainId,
-                    undefined
-                  );
-                  newProvider.triggeredByAutoConnect = true;
-                  rosCtx.connectToProvider(newProvider);
+                  const newProvId = generateProviderId("localhost", 0, rosCtx.rosInfo.version, domainId);
+                  if (!rosCtx.getProviderById(newProvId)) {
+                    console.log(`provId not found: ${newProvId}`);
+                    const newProvider = rosCtx.createProvider(
+                      "localhost",
+                      rosCtx.rosInfo.version,
+                      undefined,
+                      domainId,
+                      undefined
+                    );
+                    newProvider.triggeredByAutoConnect = true;
+                    rosCtx.connectToProvider(newProvider);
+                  }
                 }
               }
             }
@@ -208,7 +212,16 @@ export default function ProviderPanel(): JSX.Element {
         setNoSourcedROS(true);
       }
     }
-  }
+  }, [
+    rosCtx.providers,
+    rosCtx.connect,
+    rosCtx.connectToProvider,
+    rosCtx.getProviderById,
+    rosCtx.createProvider,
+    rosCtx.rosInfo,
+    settingsCtx,
+    startConfigurations,
+  ]);
 
   const debouncedCallbackFilterText = useDebounceCallback((providers: Provider[], searchTerm: string) => {
     if (searchTerm.length > 1) {

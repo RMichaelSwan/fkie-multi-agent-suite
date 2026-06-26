@@ -146,7 +146,7 @@ export default function ExternalAppsPanel(props: ExternalAppsProps): JSX.Element
       {!localProvider && (
         <Alert severity="warning">
           <AlertTitle>No local running daemons for this domain found</AlertTitle>
-          Please start a MAS daemon or join one to start ROS apps.
+          Please start a local MAS daemon for this domain or join one to start ROS apps.
         </Alert>
       )}
       <TableContainer>

@@ -148,6 +148,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const logCtxRef = useAlwaysCurrentRef(logCtx);
   const settingsCtxRef = useAlwaysCurrentRef(settingsCtx);
   const providersRef = useAlwaysCurrentRef<Provider[]>(providers);
+  const providersAddQueueRef = useAlwaysCurrentRef<Provider[]>(providersAddQueue);
   const systemInfoRef = useAlwaysCurrentRef<TSystemInfo | null>(systemInfo);
   const showReloadRef = useAlwaysCurrentRef(showSnackbarReloadLaunchNotification);
   const showBinaryRef = useAlwaysCurrentRef(showSnackbarBinaryChangedNotification);
@@ -204,7 +205,9 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const getProviderById = useCallback(
     (providerId: string | undefined, includeNotAvailable = true): Provider | undefined => {
       if (!providerId) return undefined;
-      return providersRef.current.find((p) => (p.isAvailable() || includeNotAvailable) && p.id === providerId);
+      const found = providersRef.current.find((p) => (p.isAvailable() || includeNotAvailable) && p.id === providerId);
+      if (found) return found;
+      return providersAddQueueRef.current.find((p) => (p.isAvailable() || includeNotAvailable) && p.id === providerId);
     },
     [providersRef.current]
   );
@@ -286,6 +289,14 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const removeProvider = useCallback(
     (providerId: string): void => {
       logCtx.debug(`Remove provider ${providerId}`, "");
+      setMapProviderRosNodes((prev) => {
+        // Copy previous provider → nodes map
+        const newMap = new Map<string, RosNode[]>(prev);
+        // Remove entries for this provider
+        newMap.delete(providerId);
+        return newMap;
+      });
+
       setProviders((prev) =>
         prev.filter((p) => {
           if (p.id === providerId) {
@@ -611,7 +622,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
 
       if (!result.result) {
         if (result.connectConfig) {
-          logCtx.error("Request password", JSON.stringify(result.connectConfig), "password request");
+          logCtx.warn("Request password", JSON.stringify(result.connectConfig), "password request");
           emitCustomEvent(
             EVENT_PROVIDER_AUTH_REQUEST,
             new EventProviderAuthRequest(provider, config, result.connectConfig)
@@ -663,6 +674,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         // ── Resolve or create provider ─────────────────────────
         let provider: Provider | null = getProviderByHosts([config.params.host], port, null) as Provider | null;
         if (!provider) {
+          console.log(`startConfig: ${config.params.domainId}`);
           provider = new Provider(
             logCtxRef,
             settingsCtxRef,
@@ -966,6 +978,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
 
   const connect = useCallback(
     (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean) => {
+      console.log(`connect to: ${configParams.domainId}`);
       const provider = new Provider(
         logCtxRef,
         settingsCtxRef,
@@ -990,6 +1003,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
 
   const switchDedicatedTabs = useCallback(
     (tabsFor: string) => {
+      console.log("switchDedicatedTabs");
       if (tabsFor === "HOSTS") {
         // remove all domain tabs
         for (const prov of providers) {
@@ -1048,7 +1062,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
 
   useEffect(() => {
     switchDedicatedTabs(dedicatedTabsFor);
-  }, [dedicatedTabsFor, switchDedicatedTabs]);
+  }, [dedicatedTabsFor]);
 
   // ─────────────────────────────────────────────
   // Event listeners
@@ -1148,6 +1162,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         case ConnectionState.STATES.CONNECTED:
           provider.triggeredByAutoConnect = false;
           if (provider.connection.domainId !== -1) {
+            console.log(`CONNECTED: ${provider.id}`);
             console.log(`ADD TAB: ${LAYOUT_TABS.DOMAIN}, id: ${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}`);
             if (dedicatedTabsFor === "HOSTS") {
               emitOpenComponent({
@@ -1172,7 +1187,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
           clearProviders();
           break;
         case ConnectionState.STATES.CLOSED:
-          mapProviderRosNodesRef.current.set(provider.id, []);
+          // mapProviderRosNodesRef.current.set(provider.id, []);
           clearProviders();
           break;
         case ConnectionState.STATES.AUTHZ:
@@ -1187,17 +1202,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
           break;
         default:
           break;
-      }
-      const isDisconnectedState =
-        newState === ConnectionState.STATES.CLOSED || newState === ConnectionState.STATES.UNSUPPORTED;
-      if (isDisconnectedState) {
-        setMapProviderRosNodes((prev) => {
-          // Copy previous provider → nodes map
-          const newMap = new Map<string, RosNode[]>(prev);
-          // Remove entries for this provider
-          newMap.delete(provider.id);
-          return newMap;
-        });
       }
     },
     [setProviders]

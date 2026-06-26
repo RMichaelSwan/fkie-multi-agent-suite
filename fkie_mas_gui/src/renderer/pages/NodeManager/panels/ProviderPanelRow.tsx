@@ -1,4 +1,9 @@
-import { EventProviderActivity, EventProviderDelay, EventProviderWarnings } from "@/renderer/providers/events";
+import {
+  EventProviderActivity,
+  EventProviderDelay,
+  EventProviderState,
+  EventProviderWarnings,
+} from "@/renderer/providers/events";
 import CheckIcon from "@mui/icons-material/Check";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
@@ -33,9 +38,11 @@ import { CmdType, ConnectionState, Provider } from "@/renderer/providers";
 import {
   EVENT_PROVIDER_ACTIVITY,
   EVENT_PROVIDER_DELAY,
+  EVENT_PROVIDER_STATE,
   EVENT_PROVIDER_WARNINGS,
 } from "@/renderer/providers/eventTypes";
-import OverflowMenuExternalApps from "./OverflowMenuExternalApps";
+import { LAYOUT_TABS } from "../layout";
+import { emitSelectTab } from "../layout/events";
 import { EMenuProvider } from "./OverflowMenuProvider";
 
 interface ProviderPanelRowProps {
@@ -100,11 +107,11 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
     }
   });
 
-  // useCustomEventListener(EVENT_PROVIDER_STATE, (data: EventProviderState) => {
-  //   if (data.provider.id === provider.id) {
-  //     forceUpdate();
-  //   }
-  // });
+  useCustomEventListener(EVENT_PROVIDER_STATE, (data: EventProviderState) => {
+    if (data.provider.id === provider.id) {
+      forceUpdate();
+    }
+  });
 
   async function onProviderMenuClick(actionType: EMenuProvider, provider: Provider): Promise<void> {
     if (actionType === EMenuProvider.INFO) {
@@ -116,6 +123,13 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
           return value[0];
         });
       navCtx.setSelected("provider-panel", [provider.id, ...nodes], true);
+      if ((settingsCtx.get("dedicatedTabsFor") as string) === "HOSTS") {
+        emitSelectTab({ tabId: `${LAYOUT_TABS.DOMAIN}-${provider.id}` });
+        emitSelectTab({ tabId: `${LAYOUT_TABS.NODES}-${provider.id}` });
+      } else {
+        emitSelectTab({ tabId: `${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}` });
+        emitSelectTab({ tabId: `${LAYOUT_TABS.NODES}-${provider.connection.domainId}` });
+      }
       return;
     }
     if (actionType === EMenuProvider.DELETE) {

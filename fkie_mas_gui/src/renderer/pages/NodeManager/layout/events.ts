@@ -20,6 +20,10 @@ export type TEventId = {
   id: string;
 };
 
+export type TEventSelectTab = {
+  tabId: string;
+};
+
 export type TFilterText = {
   data: string;
 };
@@ -83,6 +87,10 @@ export function emitToggleComponent(props: TEventOpenComponent) {
 
 export function emitCloseComponent(props: TEventId) {
   emitCustomEvent(EVENT_CLOSE_COMPONENT, props);
+}
+
+export function emitSelectTab(props: TEventSelectTab) {
+  emitCustomEvent(EVENT_SELECT_TAB, props);
 }
 
 export function emitEditorSelectRange(props: TEventEditorSelectRange) {

@@ -13,7 +13,9 @@ import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import {
   EVENT_SELECT_TAB,
   EVENT_TOGGLE_COMPONENT,
+  TEventId,
   TEventOpenComponent,
+  TEventSelectTab,
 } from "@/renderer/pages/NodeManager/layout/events";
 import { pAddTabStickyButton } from "@/renderer/pages/NodeManager/layout/helpers";
 import { contentToId, TContentId } from "@/renderer/pages/NodeManager/layout/LayoutTabConfig";
@@ -282,7 +284,6 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
     const children = node.getChildren();
 
     for (const child of children) {
-      console.log(`RENDER: ${child.getId()}`);
       if (model && child.getId() === `${LAYOUT_TABS.NODES}-${contentToId(contentId)}`) {
         pAddTabStickyButton({
           model: model,
@@ -318,12 +319,13 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
     }
   }
 
-  useCustomEventListener(EVENT_SELECT_TAB, (data: { tabId: string }) => {
+  useCustomEventListener(EVENT_SELECT_TAB, (data: TEventSelectTab) => {
     // IMPORTANT: When the surrounding Nodes tab becomes active again,
     // rebuild the internal domain-specific FlexLayout model once.
     if (data.tabId === insideTabId) {
       setForceUpdate();
     }
+    model?.doAction(FlexLayout.Actions.selectTab(data.tabId));
   });
 
   useCustomEventListener(
