@@ -5,6 +5,7 @@ import psutil
 import re
 import shlex
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -398,6 +399,20 @@ def run_command(name: str, command: str, additional_args: List[str], respawn: bo
     subprocess.Popen(shlex.split(screen_command), env=dict(os.environ))
 
 
+def parent_sigint_handler(signum, frame):
+    pass
+
+signal.signal(signal.SIGINT, parent_sigint_handler)
+
+def wait_for_ctrl_d():
+    print("less is closed. Press Ctrl+D to exit (or Enter to continue).")
+    try:
+        input()
+    except EOFError:
+        # Ctrl+D -> EOF -> close
+        sys.exit(0)
+
+
 def main(argv=sys.argv) -> int:
     parser, args, additional_args = parse_arguments()
 
@@ -441,6 +456,7 @@ def main(argv=sys.argv) -> int:
             p = subprocess.Popen(shlex.split(cmd))
             p.wait()
             print_help = False
+            wait_for_ctrl_d()
 
         if args.tail_screen_log:
             logfile = screen.get_logfile(node=args.tail_screen_log.replace('{HOST}', ros_host_suffix()))
@@ -451,6 +467,7 @@ def main(argv=sys.argv) -> int:
             Log.info(cmd)
             p = subprocess.Popen(shlex.split(cmd))
             p.wait()
+            wait_for_ctrl_d
             print_help = False
 
         elif args.show_ros_log:
@@ -464,6 +481,7 @@ def main(argv=sys.argv) -> int:
             p = subprocess.Popen(shlex.split(cmd))
             p.wait()
             print_help = False
+            wait_for_ctrl_d()
 
         elif args.ros_log_path:
             if args.ros_log_path == '[]':
