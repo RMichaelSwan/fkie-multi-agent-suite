@@ -77,7 +77,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
     await window.commandExecutor?.execTerminal(
       provider.isLocalHost ? null : { host: provider.host() },
       "'show daemon log'",
-      "'ros2 run fkie_mas_daemon mas-remote-node.py --show_ros_log /mas/_daemon_{HOST}'"
+      `ros2 run fkie_mas_daemon mas-remote-node.py --show_ros_log /mas/_daemon_${provider.connection.domainId}_{HOST}`
     );
   }
 

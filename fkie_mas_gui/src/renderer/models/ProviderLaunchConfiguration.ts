@@ -435,7 +435,7 @@ export default class ProviderLaunchConfiguration {
       if (this.params.rmw.cyclone.overrideEnv === "env") {
         const cycloneEnv = this.getCycloneEnv();
         if (cycloneEnv) {
-          result.push(toEnvEntry(cycloneEnv));
+          result.push(...cycloneEnv);
         }
       }
       for (const token of this.splitEnv(this.params.rmw.cyclone.overrideEnv)) {
@@ -498,8 +498,8 @@ export default class ProviderLaunchConfiguration {
     return `ZENOH_CONFIG_OVERRIDE='mode="client";connect/endpoints=["tcp/0.0.0.0:7447"]'`;
   }
 
-  public getCycloneEnv(): string {
-    if (this.params.rmw.current !== "rmw_cyclonedds_cpp") return "";
+  public getCycloneEnv(): TEnvEntry[] {
+    if (this.params.rmw.current !== "rmw_cyclonedds_cpp") return [];
     if (this.params.rmw.cyclone.overrideEnv === "env") {
       let allowMulticast: string = "";
       if (this.params.rmw.cyclone.allowMulticast !== "default") {
@@ -510,9 +510,14 @@ export default class ProviderLaunchConfiguration {
         maxParticipants = `<Discovery><MaxAutoParticipantIndex>${this.params.rmw.cyclone.maxParticipants}</MaxAutoParticipantIndex></Discovery>`;
       }
       if (allowMulticast || maxParticipants) {
-        return `CYCLONEDDS_URI='<CycloneDDS><Domain Id="any">${allowMulticast}${maxParticipants}</Domain></CycloneDDS>'`;
+        return [
+          {
+            name: "CYCLONEDDS_URI",
+            value: `<CycloneDDS><Domain Id="any">${allowMulticast}${maxParticipants}</Domain></CycloneDDS>`,
+          },
+        ];
       }
     }
-    return "";
+    return [];
   }
 }
