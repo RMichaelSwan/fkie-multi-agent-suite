@@ -22,6 +22,7 @@ import {
   RosParameter,
   RosTopic,
   RosTopicId,
+  TLogPathItem,
   getDiagnosticLevelName,
   getFileName,
 } from "@/renderer/models";
@@ -33,6 +34,7 @@ import {
   EVENT_PROVIDER_ROS_TOPICS,
 } from "@/renderer/providers/eventTypes";
 import { EventNodeDiagnostic, TEventNodeLifecycle } from "@/renderer/providers/events";
+import { generateUniqueId } from "@/renderer/utils";
 import { envEntryToStr } from "@/types";
 import SystemInformationPanel from "./SystemInformationPanel";
 
@@ -53,7 +55,7 @@ export default function DetailsPanel(): JSX.Element {
 
   const [indexOfSelected, setIndexOfSelected] = useState<number>(0);
   const [nodeShow, setNodeShow] = useState<RosNode | undefined>(undefined);
-  const [logPaths, setLogPaths] = useState({}); // {node.idGlobal: LogPathItem}
+  const [logPaths, setLogPaths] = useState({}); // {node.idGlobal: TReplyLogPathItems}
   const [lifecycle, setLifecycle] = useState<LifecycleState | undefined>();
   const [updateDiagnostics, forceUpdateDiagnostics] = useReducer((x) => x + 1, 0);
   const [updateServices, forceUpdateServices] = useReducer((x) => x + 1, 0);
@@ -346,37 +348,12 @@ export default function DetailsPanel(): JSX.Element {
               </Stack>
             )}
             <Stack direction="column" spacing={0.5}>
-              {logPaths[nodeShow.idGlobal]?.map((logItem) => {
-                return (
-                  <Stack key={`log-${logItem.id}`}>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tag
-                        key={logItem.screen_log}
-                        color="default"
-                        title="Screen log:"
-                        text={logItem.screen_log}
-                        wrap
-                        copyButton={logItem.screen_log}
-                      />
-                    </Stack>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tag
-                        key={logItem.ros_log}
-                        color="default"
-                        title="Ros log:"
-                        text={logItem.ros_log}
-                        wrap
-                        copyButton={logItem.ros_log}
-                      />
-                    </Stack>
-                  </Stack>
-                );
-              })}
-              {!logPaths[nodeShow.idGlobal] && (
-                <Stack direction="row" padding={0} spacing={0.5}>
+              {!logPaths[nodeShow.idGlobal] || logPaths[nodeShow.idGlobal]?.error ? (
+                <Stack direction="column" padding={0} spacing={0.5}>
                   <Button
                     type="submit"
                     // variant="contained"
+                    sx={{ justifyContent: "flex-start", textTransform: "none" }}
                     size="small"
                     color="warning"
                     onClick={async () => {
@@ -387,7 +364,39 @@ export default function DetailsPanel(): JSX.Element {
                   >
                     get log paths
                   </Button>
+                  {logPaths[nodeShow.idGlobal]?.error && (
+                    <Typography variant="body2" color="warning">
+                      {logPaths[nodeShow.idGlobal]?.error}
+                    </Typography>
+                  )}
                 </Stack>
+              ) : (
+                logPaths[nodeShow.idGlobal].paths.map((logItem: TLogPathItem) => {
+                  return (
+                    <Stack key={`log-${logItem.node}-${generateUniqueId()}`}>
+                      <Stack direction="row" spacing={0.5}>
+                        <Tag
+                          key={logItem.screen_log}
+                          color="default"
+                          title="Screen log:"
+                          text={logItem.screen_log}
+                          wrap
+                          copyButton={logItem.screen_log}
+                        />
+                      </Stack>
+                      <Stack direction="row" spacing={0.5}>
+                        <Tag
+                          key={logItem.ros_log}
+                          color="default"
+                          title="Ros log:"
+                          text={logItem.ros_log}
+                          wrap
+                          copyButton={logItem.ros_log}
+                        />
+                      </Stack>
+                    </Stack>
+                  );
+                })
               )}
             </Stack>
           </Stack>

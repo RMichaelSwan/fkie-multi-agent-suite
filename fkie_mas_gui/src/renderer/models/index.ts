@@ -49,13 +49,13 @@ import Composable from "./Composable";
 import LifecycleState, { TLifecycleTransition } from "./LifecycleState";
 import LogEvent, { LoggingLevel } from "./LogEvent";
 import LoggerConfig, { LogLevelType } from "./LoggerConfig";
-import LogPathItem from "./LogPathItem";
 import Result from "./Result";
 import SubscriberEvent, { TSubscriberEventExt } from "./SubscriberEvent";
 import SubscriberFilter from "./SubscriberFilter";
 import SubscriberNode from "./SubscriberNode";
 import SystemWarning from "./SystemWarning";
 import SystemWarningGroup from "./SystemWarningGroup";
+import { TLogPathItem, TReplyLogPathItems } from "./TLogPathItem";
 import URI from "./uris";
 
 export {
@@ -89,7 +89,6 @@ export {
   LifecycleState,
   LogEvent,
   LogLevelType,
-  LogPathItem,
   LoggerConfig,
   LoggingLevel,
   PATH_EVENT_TYPE,
@@ -131,6 +130,8 @@ export {
     RosParameterRange,
     RosParameterValue,
     TLifecycleTransition,
+    TLogPathItem,
+    TReplyLogPathItems,
     TRosMessageStruct,
     TServiceNodeInfo,
     TSubscriberEventExt

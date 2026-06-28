@@ -6,7 +6,10 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import CmdType from "@/renderer/providers/CmdType";
 import Provider from "@/renderer/providers/Provider";
+import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
+import { ConnectionState, EventProviderState } from "@/renderer/providers/events";
 import { TEnvEntry } from "@/types";
+import { useCustomEventListener } from "react-custom-events";
 import { emitCloseComponent } from "../layout/events";
 
 interface SingleTerminalPanelProps {
@@ -33,6 +36,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
   const [errorHighlighting, setErrorHighlighting] = useState(false);
   const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
   const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
+  const [error, setError] = useState<string | undefined>();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
@@ -55,6 +59,9 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
       }
       setTokenUrl(tkUrl);
       const terminalCmd = await provider.cmdForType(type, nodeName, "", newScreen, cmd, env);
+      if (!terminalCmd.success) {
+        setError(terminalCmd.error);
+      }
       if (type !== CmdType.SET_TIME && terminalCmd.cmd) {
         setInitialCommands([`${terminalCmd.cmd}\r`]);
       }
@@ -64,6 +71,13 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
     },
     [cmd, nodeName, rosCtx, type]
   );
+
+  useCustomEventListener(EVENT_PROVIDER_STATE, (data: EventProviderState) => {
+    if (data.provider.id === provider.id && data.newState === ConnectionState.STATES.CONNECTED) {
+      setError("");
+      initializeTerminal(screen);
+    }
+  });
 
   const updateScreenName = useCallback(() => {
     // node changed, update the screen for the current node
@@ -145,6 +159,11 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
             <AlertTitle>Please select a node</AlertTitle>
           </Alert>
         )}
+        {error && (
+          <Alert severity="error">
+            <AlertTitle>{error}</AlertTitle>
+          </Alert>
+        )}
 
         {!currentHost && <Alert severity="info">Wait until the provider is initialized: [{provider.id}]</Alert>}
 
@@ -212,7 +231,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
         )}
       </Box>
     );
-  }, [cmd, currentHost, id, initialCommands, nodeName, provider, tokenUrl, type, ttydPort, errorHighlighting]);
+  }, [error, cmd, currentHost, id, initialCommands, nodeName, provider, tokenUrl, type, ttydPort, errorHighlighting]);
 
   return createTerminalView;
 }

@@ -498,15 +498,19 @@ export default function NodeManager(): JSX.Element {
 
   // Add tabs to layout after EVENT_OPEN_COMPONENT was received
   useEffect(() => {
+    console.log(`addToLayout: ${addToLayout.length}`);
     if (addToLayout.length > 0) {
       const newAddToLayout = [...addToLayout];
       const tab = newAddToLayout.pop();
+      console.log(`tab : ${tab}`);
       if (tab?.id) {
         const node = model.getNodeById(tab.id);
         if (node) {
+          console.log(`node found return : ${node.getId()}`);
           return;
         }
         const panelId = getPanelId(tab.id || "", tab.toNodeId);
+        console.log(`panelId: ${panelId}`);
 
         // store current selected tab in CENTER
         const isDomainCenterTab = tab.component === LAYOUT_TABS.DOMAIN && panelId.id === LAYOUT_TAB_SETS.CENTER;
@@ -520,6 +524,7 @@ export default function NodeManager(): JSX.Element {
           }
         }
 
+        console.log(`add tab: ${tab.id}, to panel: ${panelId.id}`);
         const action = Actions.addTab(tab, panelId.id, DockLocation.CENTER, -1);
         model.doAction(action);
 
@@ -548,7 +553,7 @@ export default function NodeManager(): JSX.Element {
       }
       setAddToLayout(newAddToLayout);
     }
-  }, [addToLayout, model, deleteTab]);
+  }, [addToLayout]);
 
   function factory(node: TabNode, contentId?: TContentId): JSX.Element {
     const component = node.getComponent();

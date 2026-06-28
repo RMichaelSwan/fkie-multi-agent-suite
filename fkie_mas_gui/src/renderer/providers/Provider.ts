@@ -32,7 +32,6 @@ import {
   LaunchPublishMessage,
   LifecycleState,
   LoggerConfig,
-  LogPathItem,
   PathEvent,
   PathItem,
   ProviderLaunchConfiguration,
@@ -50,16 +49,18 @@ import {
   SubscriberFilter,
   SubscriberNode,
   SystemWarningGroup,
+  TLogPathItem,
+  TReplyLogPathItems,
   URI,
 } from "../models";
 import { parseDiagnostics } from "../models/Diagnostics";
 import { envFromSystemEnv } from "../models/ProviderLaunchConfiguration";
 import { delay } from "../utils";
-import CmdTerminal from "./CmdTerminal";
 import CmdType from "./CmdType";
 import ConnectionState from "./ConnectionState";
 import ProviderConnection, { TProviderTimestamp, TResultClearPath, TResultStartNode } from "./ProviderConnection";
 import RosProviderState from "./RosProviderState";
+import { TCmdTerminal } from "./TCmdTerminal";
 import {
   EVENT_NODE_COMPOSABLE,
   EVENT_NODE_DIAGNOSTIC,
@@ -485,8 +486,8 @@ export default class Provider implements IProvider {
     screenName: string,
     cmd: string,
     env: TEnvEntry[]
-  ) => Promise<CmdTerminal> = async (type, nodeName = "", topicName = "", screenName = "", cmd = "", env = []) => {
-    const result = new CmdTerminal();
+  ) => Promise<TCmdTerminal> = async (type, nodeName = "", topicName = "", screenName = "", cmd = "", env = []) => {
+    const result: TCmdTerminal = { success: true, screen: "", cmd: "", log: "", external: true };
     let cmdType = type;
     if (cmdType === CmdType.SCREEN && screenName === "") {
       cmdType = CmdType.LOG;
@@ -514,11 +515,15 @@ export default class Provider implements IProvider {
         }
         break;
       case CmdType.LOG: {
-        const logPaths = await this.getLogPaths([nodeName]);
-        if (logPaths.length > 0) {
+        const replyLogPaths = await this.getLogPaths([nodeName]);
+        if (replyLogPaths.success && replyLogPaths.paths.length > 0) {
+          const logPath = replyLogPaths.paths[0];
           // `tail -f ${logPaths[0].screen_log} \r`,
-          result.cmd = `${this.settings().paramLogCommand.replaceAll("{LOG_FILE}", logPaths[0].screen_log)} ${logPaths[0].screen_log}`;
-          result.log = logPaths[0].screen_log;
+          result.cmd = `${this.settings().paramLogCommand.replaceAll("{LOG_FILE}", logPath.screen_log)} ${logPath.screen_log}`;
+          result.log = logPath.screen_log;
+        } else {
+          result.success = false;
+          result.error = replyLogPaths.error;
         }
         break;
       }
@@ -1137,18 +1142,16 @@ export default class Provider implements IProvider {
    * @param nodes - List of node names to get log files
    * @return Returns a list of [PathItem] elements
    */
-  public getLogPaths: (nodes: string[]) => Promise<LogPathItem[]> = async (nodes) => {
+  public getLogPaths: (nodes: string[]) => Promise<TReplyLogPathItems> = async (nodes) => {
     const result = await this.makeCall(URI.ROS_PATH_GET_LOG_PATHS, [nodes], true).then((value: TResultData) => {
       if (value.result) {
-        const logPathList: LogPathItem[] = [];
-        const logPathItems = (value.data as LogPathItem[]) || [];
-        for (const p of logPathItems) {
-          logPathList.push(new LogPathItem(p.node, p.screen_log, p.screen_log_exists, p.ros_log, p.ros_log_exists));
-        }
-        return logPathList;
+        const reply: TReplyLogPathItems = { success: true, paths: (value.data as TLogPathItem[]) || [] };
+        return reply;
       }
       this.log().error(`Provider [${this.id}]: Error at getLogPaths()`, `${value.message}`);
-      return [];
+      const error = `Provider [${this.id}]: Error at getLogPaths(): ${value.message}`;
+      const reply: TReplyLogPathItems = { success: false, error: error, paths: [] };
+      return reply;
     });
 
     return Promise.resolve(result);
