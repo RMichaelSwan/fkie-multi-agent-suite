@@ -48,7 +48,7 @@ def update_package_json(new_version, current_version):
         with open(gui_file_path, 'r') as gui_file:
             content = gui_file.read()
             content = content.replace(
-                f'MIN_VERSION_DAEMON: "{current_version}"', f'MIN_VERSION_DAEMON: "{new_version}"')
+                f'MIN_VERSION_DAEMON = "{current_version}"', f'MIN_VERSION_DAEMON = "{new_version}"')
         if content:
             with open(gui_file_path, 'w') as gui_file:
                 gui_file.write(content)

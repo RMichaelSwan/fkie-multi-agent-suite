@@ -1,6 +1,12 @@
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+5.7.2 (29.06.2026)
+------------------
+* Fixed shutdown: do not stop ros2 build processes
+* Do not close terminal with remote log while Ctrl+C in less
+
 5.7.1 (13.06.2026)
 ------------------
 * Fix for issue #12

@@ -1,5 +1,18 @@
 # Changelog
 
+## 5.8.0 - 29.06.2026
+
+Show the hint about configurations only once
+Fixed shutdown: do not stop ros2 build processes
+Added info in terminal if provider is not connected
+Fixed open daemon log from Hosts panel on errors
+Do not close terminal with remote log while Ctrl+C in less
+Updated generation of bash environment for new terminals
+Added button to switch between dedicated tabs for domains or hosts
+Added global parameter for tooltip delay
+Updated flexlayout to new version
+Reduced re-renders on ros node updates
+
 ## 5.7.5 - 23.06.2026
 
 Added ros environment to host details

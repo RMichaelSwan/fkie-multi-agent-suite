@@ -392,7 +392,7 @@ interface ISettingProvider {
 export const SettingsContext = createContext<ISettingsContext | null>(null);
 
 export function SettingsProvider({ children }: ISettingProvider): ReturnType<React.FC<ISettingProvider>> {
-  const MIN_VERSION_DAEMON = "5.7.1";
+  const MIN_VERSION_DAEMON = "5.7.2";
   const [changed, forceUpdate] = useReducer((x) => x + 1, 0);
   const [updatedArgs, forceUpdateArgs] = useReducer((x) => x + 1, 0);
   const [config, setConfig] = useLocalStorage<JSONObject>("SettingsContext:config", {});
