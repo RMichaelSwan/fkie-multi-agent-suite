@@ -553,7 +553,7 @@ export default function NodeManager(): JSX.Element {
           deleteTab(LAYOUT_TABS.NO_RUNNING_DAEMONS);
         }
       }
-      setAddToLayout(newAddToLayout);
+      setAddToLayout((prev) => prev.filter((t) => t.id !== tab?.id));
     }
   }, [addToLayout]);
 
