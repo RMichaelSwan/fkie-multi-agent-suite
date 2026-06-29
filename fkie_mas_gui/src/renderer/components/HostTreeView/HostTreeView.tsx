@@ -763,8 +763,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
    * Callback when the event of reloading a launch file is triggered
    */
   const onReloadLaunch = useCallback(
-    async (providerId: string, path: string, masteruri: string): Promise<void> => {
-      console.debug(`unused masteruri: ${masteruri}`);
+    async (providerId: string, path: string, _masteruri: string): Promise<void> => {
       await rosCtx.reloadLaunchFile(providerId, path);
     },
     [rosCtx.reloadLaunchFile]

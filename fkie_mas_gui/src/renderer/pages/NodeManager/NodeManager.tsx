@@ -147,6 +147,11 @@ export default function NodeManager(): JSX.Element {
     !window.commandExecutor && window.location.href.indexOf(":6275") === -1
   );
 
+  const modelRef = useRef<Model>(model);
+  useEffect(() => {
+    modelRef.current = model;
+  }, [model]);
+
   /**
    * @deprecated will be removed with TLayoutTabConfig.reactNode
    */
@@ -281,6 +286,8 @@ export default function NodeManager(): JSX.Element {
         } else {
           model.doAction(Actions.selectTab(LAYOUT_TABS.NODES));
           model.doAction(Actions.deleteTab(tabId));
+          // Cleanup React node reference
+          delete layoutComponentsRef.current[tabId];
         }
       }
 
@@ -299,6 +306,8 @@ export default function NodeManager(): JSX.Element {
           model.doAction(Actions.selectTab(tabId));
         }
         model.doAction(Actions.deleteTab(tabId));
+        // Cleanup React node reference
+        delete layoutComponentsRef.current[tabId];
         return;
       }
       const parentNode = nodeBId.getParent();
@@ -320,6 +329,8 @@ export default function NodeManager(): JSX.Element {
       }
 
       model.doAction(Actions.deleteTab(tabId));
+      // Cleanup React node reference
+      delete layoutComponentsRef.current[tabId];
     },
     [model, monacoCtx]
   );
@@ -328,7 +339,7 @@ export default function NodeManager(): JSX.Element {
     EVENT_OPEN_COMPONENT,
     (data: TEventOpenComponent) => {
       console.log(`open component: ${data.id}`);
-      const node = model.getNodeById(data.id);
+      const node = modelRef.current.getNodeById(data.id);
       if (node) {
         if (node.getParent()?.getType() === "border") {
           const selectedNode = (node.getParent() as BorderNode)?.getSelectedNode();
@@ -339,17 +350,17 @@ export default function NodeManager(): JSX.Element {
           } else if (node.getId() === LAYOUT_TABS.LOGGING) {
             // activate logging tab if not visible
             if (!selectedNode?.isVisible()) {
-              model.doAction(Actions.selectTab(data.id));
+              modelRef.current.doAction(Actions.selectTab(data.id));
             }
           } else if (selectedNode?.isVisible()) {
             // activate existing tab if border is visible
-            model.doAction(Actions.selectTab(data.id));
+            modelRef.current.doAction(Actions.selectTab(data.id));
           } else {
-            model.doAction(Actions.selectTab(data.id));
+            modelRef.current.doAction(Actions.selectTab(data.id));
           }
         } else if (!node.getId().startsWith(`${LAYOUT_TABS.DOMAIN}-`)) {
           // normal tab: just select it
-          model.doAction(Actions.selectTab(data.id));
+          modelRef.current.doAction(Actions.selectTab(data.id));
         }
         if (data.toNodeId === LAYOUT_TAB_SETS.CENTER && data.id.startsWith(LAYOUT_TABS.DOMAIN)) {
           // hide info tab if domain tab was added
@@ -401,10 +412,10 @@ export default function NodeManager(): JSX.Element {
         return;
       }
       console.log(`toggle component: ${data.component} with id: ${data.id}`);
-      const tab = model.getNodeById(data.id);
+      const tab = modelRef.current.getNodeById(data.id);
       const createTab = tab === undefined;
       if (tab && !(tab as TabNode)?.isVisible()) {
-        model.doAction(Actions.selectTab(data.id));
+        modelRef.current.doAction(Actions.selectTab(data.id));
         return;
       }
       deleteTab(data.id);
@@ -479,13 +490,13 @@ export default function NodeManager(): JSX.Element {
 
     if (result.isBorder) {
       result.id =
-        model
+        modelRef.current
           .getBorderSet()
           .getBorders()
           .find((b) => b.getLocation() === result.location)
           ?.getId() || id;
     } else {
-      const nodeBId = model.getNodeById(toNodeId);
+      const nodeBId = modelRef.current.getNodeById(toNodeId);
       if (toNodeId === LAYOUT_TAB_SETS.CENTER && !nodeBId) {
         // no center panel group found, reset layout
         setLayoutJson(DEFAULT_LAYOUT);
@@ -506,7 +517,7 @@ export default function NodeManager(): JSX.Element {
       const tab = newAddToLayout.pop();
       console.log(`tab : ${JSON.stringify(tab)}`);
       if (tab?.id) {
-        const node = model.getNodeById(tab.id);
+        const node = modelRef.current.getNodeById(tab.id);
         if (node) {
           console.log(`node found return : ${node.getId()}`);
           return;
@@ -518,7 +529,7 @@ export default function NodeManager(): JSX.Element {
         const isDomainCenterTab = tab.component === LAYOUT_TABS.DOMAIN && panelId.id === LAYOUT_TAB_SETS.CENTER;
         let previouslySelectedTabId: string | undefined;
         if (isDomainCenterTab) {
-          const ts = model.getNodeById(LAYOUT_TAB_SETS.CENTER) as TabSetNode | undefined;
+          const ts = modelRef.current.getNodeById(LAYOUT_TAB_SETS.CENTER) as TabSetNode | undefined;
           if (ts) {
             // const children = ts.getChildren();
             previouslySelectedTabId = ts.getSelectedNode()?.getId();
@@ -528,11 +539,11 @@ export default function NodeManager(): JSX.Element {
 
         console.log(`add tab: ${tab.id}, to panel: ${panelId.id}`);
         const action = Actions.addTab(tab, panelId.id, DockLocation.CENTER, -1);
-        model.doAction(action);
+        modelRef.current.doAction(action);
 
         if (panelId.isBorder) {
           // If any tab in same border is visible, selecting the new tab can hide it
-          const border = model
+          const border = modelRef.current
             .getBorderSet()
             .getBorders()
             .find((b) => b.getLocation() === panelId.location);
@@ -541,12 +552,12 @@ export default function NodeManager(): JSX.Element {
 
           if (!hasVisible && border?.getChildren().length) {
             const editorId = border.getChildren().slice(-1)[0].getId();
-            model.doAction(Actions.selectTab(editorId));
+            modelRef.current.doAction(Actions.selectTab(editorId));
           }
         }
         // select previously selected
         if (isDomainCenterTab && previouslySelectedTabId) {
-          model.doAction(Actions.selectTab(previouslySelectedTabId));
+          modelRef.current.doAction(Actions.selectTab(previouslySelectedTabId));
         }
         if (tab.toNodeId === LAYOUT_TAB_SETS.CENTER) {
           // hide info tab if domain tab was added
@@ -1067,7 +1078,7 @@ export default function NodeManager(): JSX.Element {
 
   /** Remove all tabs from layout that are not in LAYOUT_TAB_LIST */
   const cleanAndSaveLayout = useDebounceCallback(() => {
-    const modelJson = model.toJson();
+    const modelJson = modelRef.current.toJson();
 
     for (const item of modelJson.borders || []) {
       item.selected = -1;
@@ -1165,7 +1176,7 @@ export default function NodeManager(): JSX.Element {
     // close tabs that were successfully saved
     for (const editorId of allTabs) {
       if (!failedTabs.has(editorId)) {
-        model.doAction(Actions.deleteTab(editorId));
+        modelRef.current.doAction(Actions.deleteTab(editorId));
       }
     }
 
@@ -1175,7 +1186,7 @@ export default function NodeManager(): JSX.Element {
     }
 
     setDirtyTabs([]);
-  }, [dirtyTabs, monacoCtx, model, electronCtx]);
+  }, [dirtyTabs, monacoCtx, electronCtx]);
 
   return (
     <Stack
