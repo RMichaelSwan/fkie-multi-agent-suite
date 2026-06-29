@@ -85,7 +85,11 @@ export default function ProviderPanel(): JSX.Element {
     },
   });
   const [showStartConfigurations, setShowStartConfigurations] = useState<ProviderLaunchConfiguration[]>([]);
-  const [openHintDialog, setOpenHintDialog] = useState<boolean>(startConfigurations.length === 0);
+  const [openHintDialog, setOpenHintDialog] = useLocalStorage<boolean>(
+    "Provider:openHintDialog-start-configs",
+    startConfigurations.length === 0,
+    { version: 1 }
+  );
 
   const addButtonRef = useRef<HTMLInputElement>(null);
 
