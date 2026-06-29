@@ -470,7 +470,7 @@ export default function GroupItem(props: GroupItemProps): JSX.Element {
       }}
       sx={{
         [`& .${treeItemClasses.content}`]: {
-          paddingLeft: "7px",
+          paddingLeft: "8px",
         },
       }}
       label={
