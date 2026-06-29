@@ -149,6 +149,11 @@ class MonitorServicer:
                 message = f"{e}"
         return json.dumps({"result": result, "message": message}, cls=SelfEncoder)
 
+
+    def isRos2Process(self, cmd: str) -> bool:
+        exclude = ('colcon', 'cmake')
+        return 'ros2' in cmd and not any(ex in cmd for ex in exclude)
+
     def rosShutdown(self, killRos2: bool = False) -> {bool, str}:
         Log.info(f"{self.__class__.__name__}: ros.provider.shutdown; killRos2: {killRos2}")
         result = False
@@ -161,14 +166,14 @@ class MonitorServicer:
                     cmdStr = ' '.join(ps_it.cmdline())
                     if cmdStr.find(SETTINGS_PATH) > -1:
                         # ignore mas daemon pid to kill it last
-                        if cmdStr.find('mas-daemon') == -1:
+                        if 'mas-daemon' in cmdStr:
                             found_pid, _found_name, _parents2kill = process.get_child_pid(ps_it.pid)
                             procs.append(ps_it)
                             ps_it.terminate()
                             if found_pid > -1:
                                 # store child process of the screen we found using SETTINGS_PATH for later kill
                                 screen_child_ids.append(found_pid)
-                    elif killRos2 and cmdStr.find('ros2') != -1 and cmdStr.find('mas-daemon') == -1:
+                    elif killRos2 and self.isRos2Process(cmdStr) and 'mas-daemon' not in cmdStr:
                         ps_it.terminate()
                         procs.append(ps_it)
                 except (psutil.ZombieProcess, psutil.NoSuchProcess):

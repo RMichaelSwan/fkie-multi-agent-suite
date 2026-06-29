@@ -22,6 +22,7 @@ export type TEventId = {
 
 export type TEventSelectTab = {
   tabId: string;
+  forSubLayoutOnly?: boolean;
 };
 
 export type TFilterText = {

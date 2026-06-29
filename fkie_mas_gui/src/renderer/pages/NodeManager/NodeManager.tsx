@@ -380,7 +380,9 @@ export default function NodeManager(): JSX.Element {
   );
 
   useCustomEventListener(EVENT_SELECT_TAB, (data: TEventSelectTab) => {
-    model?.doAction(Actions.selectTab(data.tabId));
+    if (!data.forSubLayoutOnly) {
+      model?.doAction(Actions.selectTab(data.tabId));
+    }
   });
 
   /** Close tabs on signals from the tab itself (e.g. ctrl+d) */
@@ -502,7 +504,7 @@ export default function NodeManager(): JSX.Element {
     if (addToLayout.length > 0) {
       const newAddToLayout = [...addToLayout];
       const tab = newAddToLayout.pop();
-      console.log(`tab : ${tab}`);
+      console.log(`tab : ${JSON.stringify(tab)}`);
       if (tab?.id) {
         const node = model.getNodeById(tab.id);
         if (node) {
@@ -510,7 +512,7 @@ export default function NodeManager(): JSX.Element {
           return;
         }
         const panelId = getPanelId(tab.id || "", tab.toNodeId);
-        console.log(`panelId: ${panelId}`);
+        console.log(`panelId: ${JSON.stringify(panelId)}`);
 
         // store current selected tab in CENTER
         const isDomainCenterTab = tab.component === LAYOUT_TABS.DOMAIN && panelId.id === LAYOUT_TAB_SETS.CENTER;
@@ -1200,7 +1202,8 @@ export default function NodeManager(): JSX.Element {
           }
           if (action.type === Actions.SELECT_TAB) {
             const tabId = action.data.tabNode as string;
-            emitSelectTab({ tabId: tabId });
+            console.log(`emit select tabId: ${tabId}`);
+            emitSelectTab({ tabId: tabId, forSubLayoutOnly: true });
           }
           return action;
         }}
