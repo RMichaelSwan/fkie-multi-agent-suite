@@ -141,8 +141,11 @@ def interpret_path(path: str, pwd: str = '.') -> str:
         full_path = os.path.normpath(os.path.join(pkg_path, path_suffix))
         if os.path.exists(full_path):
             return full_path
-        elif full_path:
-            full_path_not_exists = full_path
+        pkg_share_path = ros_pkg.get_package_share_directory(pkg_name)
+        full_share_path = os.path.normpath(os.path.join(pkg_share_path, path_suffix))
+        if os.path.exists(full_share_path):
+            return full_share_path
+        full_path_not_exists = full_share_path
 
     if path.startswith('file://'):
         result = path[7:]
