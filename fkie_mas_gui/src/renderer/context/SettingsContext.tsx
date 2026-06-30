@@ -5,6 +5,8 @@ import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import URI from "@/renderer/models/uris";
 import CliArgs from "../assets/cliArgs.json";
 
+export const SETTINGS_VERSION = 1;
+
 export const getDefaultPortFromRos: (
   connectionType: string,
   rosVersion: string,
@@ -395,7 +397,14 @@ export function SettingsProvider({ children }: ISettingProvider): ReturnType<Rea
   const MIN_VERSION_DAEMON = "5.7.2";
   const [changed, forceUpdate] = useReducer((x) => x + 1, 0);
   const [updatedArgs, forceUpdateArgs] = useReducer((x) => x + 1, 0);
-  const [config, setConfig] = useLocalStorage<JSONObject>("SettingsContext:config", {});
+  const [config, setConfig] = useLocalStorage<JSONObject, JSONObject>(
+    "SettingsContext:config",
+    {},
+    {
+      version: SETTINGS_VERSION,
+      migrate: migrateSettings,
+    }
+  );
   const [cliArgs, setCliArgs] = useState<{ [name: string]: TCliArg }>(CliArgs);
 
   function get(attribute: string): JSONValue | undefined {
@@ -415,18 +424,50 @@ export function SettingsProvider({ children }: ISettingProvider): ReturnType<Rea
     throw new Error(`Configuration attribute ${attribute} not found!`);
   }
 
+  // function set(attribute: string, value: JSONValue): void {
+  //   if (SETTINGS_DEF[attribute]) {
+  //     // TODO: check for valid value
+  //     config[attribute] = value;
+  //     setConfig(config);
+  //     if (SETTINGS_DEF[attribute].cb) {
+  //       SETTINGS_DEF[attribute].cb?.(get, set);
+  //     }
+  //     forceUpdate();
+  //   } else {
+  //     throw new Error(`Configuration attribute ${attribute} while set() not found!`);
+  //   }
+  // }
+
   function set(attribute: string, value: JSONValue): void {
-    if (SETTINGS_DEF[attribute]) {
-      // TODO: check for valid value
-      config[attribute] = value;
-      setConfig(config);
-      if (SETTINGS_DEF[attribute].cb) {
-        SETTINGS_DEF[attribute].cb?.(get, set);
-      }
-      forceUpdate();
-    } else {
+    if (!SETTINGS_DEF[attribute]) {
       throw new Error(`Configuration attribute ${attribute} while set() not found!`);
     }
+
+    // Create a new object instead of mutating
+    const newConfig = { ...config, [attribute]: value };
+
+    // Collect all changes from callbacks before writing
+    if (SETTINGS_DEF[attribute].cb) {
+      SETTINGS_DEF[attribute].cb?.(
+        // get reads from newConfig
+        (attr: string) => (attr in newConfig ? newConfig[attr] : SETTINGS_DEF[attr]?.default),
+        // set writes into newConfig (no recursion into localStorage)
+        (attr: string, val: JSONValue) => {
+          newConfig[attr] = val;
+        }
+      );
+    }
+
+    // Remove values that equal the default (keep localStorage clean)
+    for (const [key, val] of Object.entries(newConfig)) {
+      if (SETTINGS_DEF[key] && JSON.stringify(val) === JSON.stringify(SETTINGS_DEF[key].default)) {
+        delete newConfig[key];
+      }
+    }
+
+    // Single write to localStorage
+    setConfig(newConfig);
+    forceUpdate();
   }
 
   function getParamList(): { name: string; param: ISettingsParam }[] {
@@ -482,4 +523,104 @@ export function SettingsProvider({ children }: ISettingProvider): ReturnType<Rea
   return <SettingsContext.Provider value={attributesMemo}>{children}</SettingsContext.Provider>;
 }
 
-export default SettingsContext;
+function validateValue(value: JSONValue, def: ISettingsParam): JSONValue | undefined {
+  // Type validation
+  switch (def.type) {
+    case "number":
+    case "numberX": {
+      const num = Number(value);
+      if (Number.isNaN(num)) return undefined;
+      if (def.min !== undefined && num < def.min) return undefined;
+      if (def.max !== undefined && num > def.max) return undefined;
+      return num;
+    }
+    case "boolean": {
+      if (typeof value === "boolean") return value;
+      if (value === "true") return true;
+      if (value === "false") return false;
+      return undefined;
+    }
+    case "string": {
+      if (typeof value !== "string") return undefined;
+      // Check if value is included in options (when options are defined and not freeSolo)
+      if (def.options && !def.freeSolo) {
+        const options = def.options as JSONValue[];
+        if (!options.includes(value)) return undefined;
+      }
+      break;
+    }
+    case "string[]": {
+      if (!Array.isArray(value)) return undefined;
+      if (!value.every((v) => typeof v === "string")) return undefined;
+      break;
+    }
+    case "none":
+    case "button": {
+      // Invisible / non-editable fields: accept the value as is
+      break;
+    }
+    default:
+      break;
+  }
+
+  // Apply custom validate function from SETTINGS_DEF
+  let resultValue = value;
+  if (def.validate) {
+    resultValue = def.validate(value);
+  }
+
+  // Custom isValid check
+  if (def.isValid && !def.isValid(resultValue)) {
+    return undefined;
+  }
+
+  return resultValue;
+}
+
+function migrateSettings(oldValue: JSONObject, _oldVersion: number | string | undefined): JSONObject | undefined {
+  const migrated: JSONObject = {};
+
+  // Version-specific migrations
+  // if (oldVersion === undefined || oldVersion === 1) {
+  //   // Example: a setting was renamed
+  //   if ("oldSettingName" in data) {
+  //     data["newSettingName"] = data["oldSettingName"];
+  //     delete data["oldSettingName"];
+  //   }
+  // }
+
+  // Always validate
+  // Iterate over all stored keys
+  for (const [key, value] of Object.entries(oldValue)) {
+    // Key no longer exists in SETTINGS_DEF → discard
+    if (!(key in SETTINGS_DEF)) {
+      continue;
+    }
+
+    const def = SETTINGS_DEF[key];
+
+    // null/undefined → discard (default will apply)
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    // Validate value
+    const validated = validateValue(value, def);
+
+    // Invalid → do not keep (default will apply)
+    if (validated === undefined) {
+      console.warn(`[SettingsContext] Discarding invalid value for "${key}":`, value, "→ using default:", def.default);
+      continue;
+    }
+
+    // Value equals the default → do not store (saves space, default will apply)
+    if (JSON.stringify(validated) === JSON.stringify(def.default)) {
+      continue;
+    }
+    migrated[key] = validated;
+  }
+
+  return migrated;
+}
+
+export default SettingsProvider;

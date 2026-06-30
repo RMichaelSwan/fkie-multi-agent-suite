@@ -31,7 +31,7 @@ import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import useQueue from "@/renderer/hooks/useQueue";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { Result, RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import {
@@ -112,16 +112,15 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
   const { contentId } = props;
   // context objects
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
 
   // state variables
-  const [showButtonsForKeyModifiers, setShowButtonsForKeyModifiers] = useState<boolean>(
-    settingsCtx.get("showButtonsForKeyModifiers") as boolean
-  );
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
+  const [showButtonsForKeyModifiers] = useSetting<boolean>("showButtonsForKeyModifiers");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [buttonLocation] = useSetting<string>("buttonLocation");
+  const [nodeLoggerOpenLocation] = useSetting<string>("nodeLoggerOpenLocation");
+  const [nodeParamOpenLocation] = useSetting<string>("nodeParamOpenLocation");
 
   const [filterText, setFilterText] = useState<string>("");
   const [providerNodes, setProviderNodes] = useState<TProviderNodes[]>([]);
@@ -147,13 +146,6 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
   // remember last processed queue index to avoid double execution (e.g. in StrictMode)
   const lastProcessedIndexRef = useRef<number | null>(null);
   const pendingKillNodesRef = useRef<RosNode[]>([]);
-
-  // keep UI-related settings in sync with SettingsContext
-  useEffect(() => {
-    setShowButtonsForKeyModifiers(settingsCtx.get("showButtonsForKeyModifiers") as boolean);
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-    setButtonLocation(settingsCtx.get("buttonLocation") as string);
-  }, [settingsCtx.changed]);
 
   /**
    * Get list of nodes from a list of node.idGlobal
@@ -274,11 +266,11 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
         title: title,
         closable: true,
         component: LAYOUT_TABS.NODE_LOGGER,
-        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("nodeLoggerOpenLocation") as string],
+        toNodeId: LAYOUT_TAB_SETS[nodeLoggerOpenLocation],
         config: { nodeLoggerConfig: { id, node } },
       });
     },
-    [settingsCtx]
+    [nodeLoggerOpenLocation]
   );
 
   /**
@@ -354,8 +346,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
    */
   const createParameterPanel = useCallback(
     (nodes: RosNode[], providers: string[]): void => {
-      const openLocation: string = LAYOUT_TAB_SETS[settingsCtx.get("nodeParamOpenLocation") as string];
-      console.log(`openLocation: ${openLocation}`);
+      const openLocation: string = LAYOUT_TAB_SETS[nodeParamOpenLocation];
       const params: TMenuOptionsParam[] = [];
 
       for (const node of nodes) {
@@ -403,7 +394,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
         }
       }
     },
-    [rosCtx, settingsCtx]
+    [rosCtx, nodeParamOpenLocation]
   );
 
   async function startNodeQueued(node: RosNode | undefined): Promise<void> {

@@ -9,15 +9,14 @@ import { ElectronProvider } from "./context/ElectronContext";
 import { LoggingProvider } from "./context/LoggingContext";
 import { NavigationProvider } from "./context/NavigationContext";
 import { RosProviderReact } from "./context/RosContext";
-import { useSettingsContext } from "./hooks/useSettingsContext";
+import { useSetting } from "./hooks/useSetting";
 import { setupEditorWindowBridge } from "./monaco/EditorEventBridge";
 import { darkThemeDef, lightThemeDef } from "./themes";
 
 export default function ProviderStack({ children }: { children: React.ReactNode }): JSX.Element {
-  const settingsCtx = useSettingsContext();
-  const useDarkMode = settingsCtx.get("useDarkMode");
-  const fontSize = settingsCtx?.get("fontSize") as number | undefined;
-  const tooltipDelay = settingsCtx?.get("tooltipEnterDelay") as number | undefined;
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
+  const [fontSize] = useSetting<number>("fontSize");
+  const [tooltipDelay] = useSetting<number>("tooltipEnterDelay");
   const [lightTheme, setLightTheme] = useState(createTheme(lightThemeDef));
   const [darkTheme, setDarkTheme] = useState(createTheme(darkThemeDef));
 
@@ -40,7 +39,6 @@ export default function ProviderStack({ children }: { children: React.ReactNode 
   };
 
   useEffect(() => {
-    if (fontSize === undefined) return;
     lightThemeDef.typography.fontSize = fontSize;
     lightThemeDef.components.MuiCssBaseline.styleOverrides.body["& .flexlayout__layout"]["--font-size"] = fontSize;
     darkThemeDef.typography.fontSize = fontSize;
@@ -82,7 +80,7 @@ export default function ProviderStack({ children }: { children: React.ReactNode 
   }, []);
 
   return (
-    <ThemeProvider theme={settingsCtx.get("useDarkMode") ? darkTheme : lightTheme}>
+    <ThemeProvider theme={useDarkMode ? darkTheme : lightTheme}>
       <CssBaseline />
       <SnackbarProvider
         maxSnack={4}
