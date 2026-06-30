@@ -29,10 +29,10 @@ import { styled } from "@mui/material/styles";
 import { HTMLAttributes, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { CopyButton } from "@/renderer/components/UI";
+import { useCliArgs } from "@/renderer/hooks/useCliArgs";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
 import {
   CYCLONE_ALLOW_MULTICAST,
@@ -97,7 +97,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const { config } = props;
 
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
+  const cliCtx = useCliArgs();
   const launchCfgRef = useRef<ProviderLaunchConfiguration>(config);
   const launchCfg = launchCfgRef.current;
   const [_valuesChanged, forceValuesUpdate] = useReducer((x) => x + 1, 0);
@@ -112,7 +112,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
     },
   });
 
-  const hostArg: string | undefined = settingsCtx.getArgument("host") as string | undefined;
+  const hostArg: string | undefined = cliCtx.getArgument("host") as string | undefined;
   const [backgroundColor] = useSetting<string>("backgroundColor");
 
   const [openTerminalTooltip, setOpenTerminalTooltip] = useState(false);

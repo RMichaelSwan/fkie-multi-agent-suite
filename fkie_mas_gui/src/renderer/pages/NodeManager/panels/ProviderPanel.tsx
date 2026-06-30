@@ -28,12 +28,12 @@ import ConfirmModal from "@/renderer/components/SelectionModal/ConfirmModal";
 import { DraggablePaper } from "@/renderer/components/UI";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
+import { useCliArgs } from "@/renderer/hooks/useCliArgs";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
-import { TProviderLaunchParams, ZenohEnvSelection } from "@/renderer/models/ProviderLaunchConfiguration";
+import { RmwSelection, TProviderLaunchParams, ZenohEnvSelection } from "@/renderer/models/ProviderLaunchConfiguration";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import Provider, { generateProviderId } from "@/renderer/providers/Provider";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
@@ -68,9 +68,10 @@ const AccordionDetails = styled(MuiAccordionDetails)(() => ({
 
 export default function ProviderPanel(): JSX.Element {
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
+  const cliCtx = useCliArgs();
   const [expandedProviderCfg, setExpandedProviderCfg] = useState(true);
   const [noSourcedROS, setNoSourcedROS] = useState(false);
+  const [noDomainId, setNoDomainId] = useState(false);
   const [noRosVersion, setNoRosVersion] = useState(false);
   const [providerRowsFiltered, setProviderRowsFiltered] = useState<Provider[]>([]);
   const [filterText, setFilterText] = useState("");
@@ -142,77 +143,103 @@ export default function ProviderPanel(): JSX.Element {
     );
   }, [startConfigurations]);
 
-  const getDomainId = useCallback(async (): Promise<void> => {
-    if (rosCtx.providers.length === 0) {
-      if (settingsCtx.getArgument("start") && window.commandExecutor) {
+  const handleAutostart = useCallback(async (): Promise<void> => {
+    if (rosCtx.providers.length !== 0) return;
+    const doStart = cliCtx.getArgument("start") || false;
+    const doJoin = cliCtx.getArgument("join") || false;
+    if (doStart || doJoin) {
+      const rosDomainId = Number.parseInt(`${cliCtx.getArgument("ros-domain-id") || rosCtx.rosInfo?.domainId}`);
+      const rosVersion = (cliCtx.getArgument("ros-version") as string) || rosCtx.rosInfo?.version;
+      let rmwImplementation: string | undefined = cliCtx.getArgument("rmw-implementation") as string;
+      if (!rmwImplementation || rmwImplementation === "RMW_IMPLEMENTATION") {
+        rmwImplementation = rosCtx.rosInfo?.rmwImplementation;
+      }
+      const hosts = (cliCtx.getArgument("host") as string)?.split(",") || ["localhost"];
+      if (!rosDomainId) {
+        console.warn(`can't join: unknown ROS_DOMAIN_ID; use ros-domain-id to set domain id`);
+        setNoDomainId(true);
         return;
       }
-      const rosDomainId = settingsCtx.getArgument("ros-domain-id") as number;
-      // do we have a join environment parameter
-      if (settingsCtx.getArgument("join") && rosDomainId >= 0) {
-        if (!rosCtx.rosInfo?.version && !settingsCtx.getArgument("ros-version")) {
-          console.warn(`can't join to ${rosDomainId}: unknown ROS_VERSION; use --ros-version to set ros version`);
-          setNoRosVersion(true);
-          return;
-        }
+      if (!rosVersion) {
+        console.warn(`can't join to ${rosDomainId}: unknown ROS_VERSION; use --ros-version to set ros version`);
+        setNoRosVersion(true);
         return;
       }
-      for (const startCfg of startConfigurations) {
-        if (startCfg.autoConnect) {
-          rosCtx.connect(startCfg, true);
+      for (const host of hosts) {
+        const config = new ProviderLaunchConfiguration();
+        config.params.host = host;
+        config.params.domainId = rosDomainId;
+        config.params.rosVersion = rosVersion;
+        if (
+          rmwImplementation &&
+          ["rmw_connextdds", "rmw_cyclonedds_cpp", "rmw_fastrtps_cpp", "rmw_zenoh_cpp"].includes(rmwImplementation)
+        ) {
+          config.params.rmw.current = rmwImplementation as RmwSelection;
+          config.params.rmw.selected = rmwImplementation as RmwSelection;
         }
+        if (doStart) {
+          config.params.autostart = true;
+        }
+        rosCtx.startConfig(config, null);
       }
+      return;
+    }
 
-      if (startConfigurations.length === 0) {
-        addButtonRef?.current?.focus();
+    for (const startCfg of startConfigurations) {
+      if (startCfg.autoConnect) {
+        rosCtx.connect(startCfg, true);
       }
-      // try to get local domain id from running mas processes
-      if (rosCtx.rosInfo?.version) {
-        try {
-          const result = await window.commandExecutor?.exec(
-            null, // we start the subscriber always local
-            "ps aux | grep ros.fkie/screens/ | grep mas-daemon"
-          );
-          if (result?.result) {
-            const lines = result.message.split("\n");
-            let domainId = -1;
-            for (const line of lines) {
-              if (!line.includes("grep") && line.includes("ros.fkie/screens/") && line.includes("mas-daemon")) {
-                const match = line.match(/screen\.cfg/);
-                if (match) {
-                  domainId = 0;
+    }
+
+    if (startConfigurations.length === 0) {
+      addButtonRef?.current?.focus();
+    }
+    // try to get local domain id from running mas processes
+    if (rosCtx.rosInfo?.version) {
+      try {
+        const result = await window.commandExecutor?.exec(
+          null, // we start the subscriber always local
+          "ps aux | grep ros.fkie/screens/ | grep mas-daemon"
+        );
+        if (result?.result) {
+          const lines = result.message.split("\n");
+          let domainId = -1;
+          for (const line of lines) {
+            if (!line.includes("grep") && line.includes("ros.fkie/screens/") && line.includes("mas-daemon")) {
+              const match = line.match(/screen\.cfg/);
+              if (match) {
+                domainId = 0;
+              } else {
+                const match = line.match(/screen_(\d+)\.cfg/);
+                if (match?.[1]) {
+                  domainId = Number.parseInt(match[1], 10);
                 } else {
-                  const match = line.match(/screen_(\d+)\.cfg/);
-                  if (match?.[1]) {
-                    domainId = Number.parseInt(match[1], 10);
-                  } else {
-                    domainId = Number.parseInt(rosCtx.rosInfo?.domainId || "0");
-                  }
+                  domainId = Number.parseInt(rosCtx.rosInfo?.domainId || "0");
                 }
-                console.log(`found running mas-daemon with domain id ${domainId}`);
-                if (domainId >= 0) {
-                  const newProvId = generateProviderId("localhost", 0, rosCtx.rosInfo.version, domainId);
-                  if (!rosCtx.getProviderById(newProvId)) {
-                    console.log(`provId not found: ${newProvId}`);
-                    const newProvider = rosCtx.createProvider(
-                      "localhost",
-                      rosCtx.rosInfo.version,
-                      undefined,
-                      domainId,
-                      undefined
-                    );
-                    newProvider.triggeredByAutoConnect = true;
-                    rosCtx.connectToProvider(newProvider);
-                  }
+              }
+              console.log(`found running mas-daemon with domain id ${domainId}`);
+              if (domainId >= 0) {
+                const newProvId = generateProviderId("localhost", 0, rosCtx.rosInfo.version, domainId);
+                if (!rosCtx.getProviderById(newProvId)) {
+                  const newProvider = rosCtx.createProvider(
+                    "localhost",
+                    rosCtx.rosInfo.version,
+                    undefined,
+                    domainId,
+                    undefined
+                  );
+                  newProvider.triggeredByAutoConnect = true;
+                  rosCtx.connectToProvider(newProvider);
                 }
               }
             }
           }
-        } catch (error) {
-          console.log(`error while lookup for running daemons: ${error} `);
         }
+      } catch (error) {
+        console.log(`error while lookup for running daemons: ${error} `);
       }
-      if (window.commandExecutor && !(rosCtx.rosInfo?.version || settingsCtx.getArgument("ros-version"))) {
+
+      if (window.commandExecutor && !(rosCtx.rosInfo?.version || cliCtx.getArgument("ros-version"))) {
         setNoSourcedROS(true);
       }
     }
@@ -223,7 +250,7 @@ export default function ProviderPanel(): JSX.Element {
     rosCtx.getProviderById,
     rosCtx.createProvider,
     rosCtx.rosInfo,
-    settingsCtx,
+    cliCtx,
     startConfigurations,
   ]);
 
@@ -279,10 +306,11 @@ export default function ProviderPanel(): JSX.Element {
   }, [rosCtx.providers, filterText]);
 
   useEffect(() => {
-    if (settingsCtx.updatedArgs > 0 || !window.commandLine) {
-      getDomainId();
-    }
-  }, [settingsCtx.updatedArgs]);
+    if (!rosCtx.rosInfo) return;
+    if (!window.commandLine) return;
+    if (cliCtx.updatedArgs === 0) return;
+    handleAutostart();
+  }, [cliCtx.updatedArgs, window.commandLine, rosCtx.rosInfo]);
 
   const createReloadButton = useMemo(() => {
     return (
@@ -366,10 +394,20 @@ export default function ProviderPanel(): JSX.Element {
             showCancelButton={false}
           />
         )}
+        {noDomainId && (
+          <ConfirmModal
+            title={"no valid ROS domain id found"}
+            message={"--start and --join require valid ROS_DOMAIN_ID. Use --ros-domain-id to set"}
+            onConfirmCallback={() => {
+              setNoRosVersion(false);
+            }}
+            showCancelButton={false}
+          />
+        )}
         {noRosVersion && (
           <ConfirmModal
-            title={`can't join to ROS domain id ${settingsCtx.getArgument("ros-domain-id")}`}
-            message={`--join is set to ${settingsCtx.getArgument("ros-domain-id")} but ROS_VERSION is unknown. Use --ros-version to set ros version`}
+            title={"no ROS version found"}
+            message={"--start and --join require valid ROS_VERSION. Use --ros-version to set ros version"}
             onConfirmCallback={() => {
               setNoRosVersion(false);
             }}

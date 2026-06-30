@@ -1,5 +1,5 @@
 import { JSONObject, JSONValue } from "@/types";
-import React, { createContext, useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import React, { createContext, useMemo, useReducer } from "react";
 
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import URI from "@/renderer/models/uris";
@@ -24,17 +24,13 @@ export const getDefaultPortFromRos: (
   return rosVersion === "2" ? 35430 + domainId : 35685 + uriShift + domainId;
 };
 
-type TCliArg = { default: string | boolean | number | undefined; hint: string };
-
 export interface ISettingsContext {
   MIN_VERSION_DAEMON: string;
   changed: number;
-  updatedArgs: number;
   get: (attribute: string) => JSONValue | undefined;
   getDefault: (attribute: string) => JSONValue | undefined;
   set: (attribute: string, value: JSONValue, settingsCtx?: ISettingsContext) => void;
   getParamList: () => { name: string; param: ISettingsParam }[];
-  getArgument: (name: string) => string | boolean | number | undefined;
 }
 
 export const LOG_LEVEL_LIST = ["DEBUG", "INFO", "SUCCESS", "WARN", "ERROR"];
@@ -396,7 +392,6 @@ export const SettingsContext = createContext<ISettingsContext | null>(null);
 export function SettingsProvider({ children }: ISettingProvider): ReturnType<React.FC<ISettingProvider>> {
   const MIN_VERSION_DAEMON = "5.7.2";
   const [changed, forceUpdate] = useReducer((x) => x + 1, 0);
-  const [updatedArgs, forceUpdateArgs] = useReducer((x) => x + 1, 0);
   const [config, setConfig] = useLocalStorage<JSONObject, JSONObject>(
     "SettingsContext:config",
     {},
@@ -405,7 +400,6 @@ export function SettingsProvider({ children }: ISettingProvider): ReturnType<Rea
       migrate: migrateSettings,
     }
   );
-  const [cliArgs, setCliArgs] = useState<{ [name: string]: TCliArg }>(CliArgs);
 
   function get(attribute: string): JSONValue | undefined {
     if (attribute in config) {
@@ -423,20 +417,6 @@ export function SettingsProvider({ children }: ISettingProvider): ReturnType<Rea
     }
     throw new Error(`Configuration attribute ${attribute} not found!`);
   }
-
-  // function set(attribute: string, value: JSONValue): void {
-  //   if (SETTINGS_DEF[attribute]) {
-  //     // TODO: check for valid value
-  //     config[attribute] = value;
-  //     setConfig(config);
-  //     if (SETTINGS_DEF[attribute].cb) {
-  //       SETTINGS_DEF[attribute].cb?.(get, set);
-  //     }
-  //     forceUpdate();
-  //   } else {
-  //     throw new Error(`Configuration attribute ${attribute} while set() not found!`);
-  //   }
-  // }
 
   function set(attribute: string, value: JSONValue): void {
     if (!SETTINGS_DEF[attribute]) {
@@ -478,46 +458,16 @@ export function SettingsProvider({ children }: ISettingProvider): ReturnType<Rea
     return params;
   }
 
-  async function readCommandLineArgs(): Promise<void> {
-    const results = await Promise.all(
-      Object.keys(CliArgs).map(async (argName) => {
-        const result = await window.commandLine?.getArgument(argName);
-        return { name: argName, data: { default: result, hint: "" } };
-      })
-    );
-    const newCliArgs: { [name: string]: TCliArg } = {};
-    for (const { name, data } of results) {
-      newCliArgs[name] = data;
-    }
-    setCliArgs(newCliArgs);
-    forceUpdateArgs();
-  }
-
-  useEffect(() => {
-    if (window.commandLine) {
-      readCommandLineArgs();
-    }
-  }, [window.commandLine]);
-
-  const getArgument = useCallback(
-    (name: string): string | boolean | number | undefined => {
-      return cliArgs[name]?.default;
-    },
-    [cliArgs]
-  );
-
   const attributesMemo = useMemo(
     () => ({
       MIN_VERSION_DAEMON,
       changed,
-      updatedArgs,
       get,
       getDefault,
       set,
       getParamList,
-      getArgument,
     }),
-    [changed, updatedArgs]
+    [changed]
   );
 
   return <SettingsContext.Provider value={attributesMemo}>{children}</SettingsContext.Provider>;
