@@ -8,7 +8,7 @@ import { editor } from "monaco-editor";
 import React, { ForwardedRef, useCallback, useEffect, useMemo, useState } from "react";
 
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { getFileAbb, getFileName, LaunchIncludedFile } from "@/renderer/models";
 import { fileFromUriPath } from "@/renderer/monaco/utils";
 import { TFileRange, TLaunchArg } from "@/types";
@@ -67,20 +67,15 @@ export function EditorToolbar(props: EditorToolbarProps): JSX.Element {
   } = props;
 
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const [historyModels, setHistoryModels] = useState<THistoryModel[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
   const [selectParentFiles, setSelectParentFiles] = useState<LaunchIncludedFile[]>([]);
   const modifiedFileSet = useMemo(() => new Set(modifiedFiles.map(fileFromUriPath)), [modifiedFiles]);
   const selectableFiles = useMemo(
     () => Array.from(new Set([rootFilePath, ...includedFiles.map((f) => f.inc_path)])),
     [rootFilePath, includedFiles]
   );
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
 
   const addToHistory = useCallback(
     (model: THistoryModel) => {

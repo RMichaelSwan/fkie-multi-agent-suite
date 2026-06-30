@@ -5,7 +5,7 @@ import { SnackbarContent, SnackbarKey, SnackbarMessage, VariantType, useSnackbar
 import React, { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
 import JsonView from "react18-json-view";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { levelColorsWbg } from "./Colors";
 
 interface LoggingDetailsComponentProps {
@@ -17,7 +17,7 @@ interface LoggingDetailsComponentProps {
 }
 
 const LoggingDetailsComponent = forwardRef<HTMLDivElement, LoggingDetailsComponentProps>((props, ref) => {
-  const settingsCtx = useSettingsContext();
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
   const { id, message, details, variant, onDetailsClick } = props;
 
   const { closeSnackbar } = useSnackbar();
@@ -105,7 +105,7 @@ const LoggingDetailsComponent = forwardRef<HTMLDivElement, LoggingDetailsCompone
               {!(typeof detailsObject === "string" || detailsObject instanceof String) && (
                 <JsonView
                   src={detailsObject}
-                  dark={settingsCtx.get("useDarkMode") as boolean}
+                  dark={useDarkMode}
                   theme="a11y"
                   enableClipboard={false}
                   ignoreLargeArray={false}

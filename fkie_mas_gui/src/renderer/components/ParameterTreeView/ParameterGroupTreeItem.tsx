@@ -7,10 +7,10 @@ import {
   UseTreeItemContentSlotOwnProps,
   UseTreeItemIconContainerSlotOwnProps,
 } from "@mui/x-tree-view";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback } from "react";
 
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import StyledTreeItem from "./StyledTreeItem";
 
 interface ParameterGroupTreeItemProps {
@@ -39,12 +39,7 @@ export default function ParameterGroupTreeItem(props: ParameterGroupTreeItemProp
   } = props;
 
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   const getHostStyle = useCallback(
     function getHostStyle(): object {

@@ -19,7 +19,7 @@ import { levelColors } from "@/renderer/components/UI/Colors";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { LogEvent, LoggingLevel } from "@/renderer/models";
 import "./TableResizable.css";
 
@@ -55,7 +55,7 @@ function exportLogs(logs: LogEvent[]): void {
 
 export default function LoggingPanel(): JSX.Element {
   const logCtx = useLoggingContext();
-  const settingsCtx = useSettingsContext();
+  const [backgroundColor] = useSetting<string>("backgroundColor");
   const [logLevel, setLogLevel] = useLocalStorage<LoggingLevel>("LoggingPanel:level", LoggingLevel.INFO);
   const [showDetails, setShowDetails] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -166,12 +166,14 @@ export default function LoggingPanel(): JSX.Element {
                   overflowWrap: "anywhere",
                   wordBreak: "break-word",
                   textOverflow: "ellipsis",
-                  cursor: detailsSize > 150 ? "pointer" : "auto"
+                  cursor: detailsSize > 150 ? "pointer" : "auto",
                   // whiteSpace: "pre-line",
                 }}
-                onClick={() => { setExpandedIndex((prev) => prev != index ? index : -1) }}
+                onClick={() => {
+                  setExpandedIndex((prev) => (prev !== index ? index : -1));
+                }}
               >
-                {expandedIndex != index && detailsSize > 150 ? `${details.slice(0, 150)}...` : details}
+                {expandedIndex !== index && detailsSize > 150 ? `${details.slice(0, 150)}...` : details}
               </Typography>
             )}
           </Stack>
@@ -181,12 +183,7 @@ export default function LoggingPanel(): JSX.Element {
   }
 
   return (
-    <Stack
-      direction="column"
-      spacing={1}
-      height="100%"
-      sx={{ backgroundColor: settingsCtx.get("backgroundColor") as string }}
-    >
+    <Stack direction="column" spacing={1} height="100%" sx={{ backgroundColor: backgroundColor }}>
       <Stack direction="row" spacing={0.5}>
         <SearchBar
           onSearch={(value) => {
@@ -252,7 +249,7 @@ export default function LoggingPanel(): JSX.Element {
         // useWindowScroll
         style={{
           overflow: "auto",
-          backgroundColor: settingsCtx.get("backgroundColor") as string,
+          backgroundColor: backgroundColor,
         }}
         data={logCtx.logs.filter((log) => showLogLevel(log.level) && log.description.includes(searchTerm))}
         components={VirtuosoTableComponents}

@@ -14,6 +14,7 @@ import Tag from "@/renderer/components/UI/Tag";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import {
   LifecycleState,
@@ -71,15 +72,9 @@ export default function DetailsPanel(): JSX.Element {
   const [showServices, setShowServices] = useLocalStorage("DetailsPanel:showServices", true);
   const [showConnections] = useLocalStorage("DetailsPanel:showConnections", true);
   const [showLaunchParameter, setShowLaunchParameter] = useLocalStorage("DetailsPanel:showLaunchParameter", true);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(settingsCtx.get("useDarkMode") as boolean);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setIsDarkMode(settingsCtx.get("useDarkMode") as boolean);
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-  }, [settingsCtx.changed]);
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [isDarkMode] = useSetting<boolean>("useDarkMode");
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   useEffect(() => {
     const idToShow = navCtx.selection.selectedNodes[indexOfSelected];
@@ -213,7 +208,7 @@ export default function DetailsPanel(): JSX.Element {
       );
     }
     return <></>;
-  }, [nodeShow, updateDiagnostics, showDiagnosticHistory]);
+  }, [nodeShow, updateDiagnostics, showDiagnosticHistory, isDarkMode]);
 
   const createNodeDetailsInfo = useMemo(() => {
     if (!nodeShow) return <></>;
@@ -740,7 +735,7 @@ export default function DetailsPanel(): JSX.Element {
           })}
       </Stack>
     );
-  }, [nodeShow, showServices, showLaunchParameter]);
+  }, [nodeShow, showServices, showLaunchParameter, isDarkMode]);
 
   const createDetailsView = useMemo(() => {
     if (!nodeShow) return <></>;
@@ -872,7 +867,8 @@ export default function DetailsPanel(): JSX.Element {
     logPaths,
     navCtx.history,
     navCtx.selection,
-    settingsCtx.changed,
+    isDarkMode,
+    colorizeHosts,
   ]);
 
   return (

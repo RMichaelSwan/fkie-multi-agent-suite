@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { ServiceExtendedInfo, TServiceNodeInfo } from "@/renderer/models";
 
 interface ServiceTreeItemProps {
@@ -39,19 +39,13 @@ export default function ServiceTreeItem({
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   const [name, setName] = useState<string>("");
   const [namespace, setNamespace] = useState<string>("");
   const [showExtendedInfo, setShowExtendedInfo] = useState<boolean>(false);
   const [ignoreNextClick, setIgnoreNextClick] = useState<boolean>(true);
   const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(null);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  // update colorize setting when context value changes
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed, settingsCtx]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   /**
    * Reset local click/extended-info state when this item is no longer selected

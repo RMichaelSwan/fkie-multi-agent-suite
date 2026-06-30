@@ -31,7 +31,7 @@ import SearchBar from "@/renderer/components/UI/SearchBar";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosNode, RosQos, SubscriberFilter, TSubscriberEventExt } from "@/renderer/models";
 import { Provider } from "@/renderer/providers";
 import { EventProviderSubscriberEvent } from "@/renderer/providers/events";
@@ -51,7 +51,6 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
 
   const rosCtx = useRosContext();
   const logCtx = useLoggingContext();
-  const settingsCtx = useSettingsContext();
 
   const [selectedProvider] = useState(provider.id);
   const [currentProvider, setCurrentProvider] = useState<Provider>();
@@ -86,14 +85,10 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
   const [qosAnchorEl, setQosAnchorEl] = useState(null);
   const [currentQos, setCurrentQos] = useState<RosQos | undefined>(undefined);
   const openQos = Boolean(qosAnchorEl);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  // let receivedIndex = 0;
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
 
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-  }, [settingsCtx.changed]);
+  // let receivedIndex = 0;
 
   function handleQosClick(event): void {
     setQosAnchorEl(event.currentTarget);
@@ -285,7 +280,7 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
         />
       );
     });
-  }, [history, settingsCtx.changed, collapsedKeys, filterText, showWholeFilteredMessage]);
+  }, [history, collapsedKeys, filterText, showWholeFilteredMessage]);
 
   const createStatistics = useMemo(() => {
     return (

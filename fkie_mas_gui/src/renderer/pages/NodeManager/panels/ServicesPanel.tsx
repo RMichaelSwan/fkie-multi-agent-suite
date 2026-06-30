@@ -11,7 +11,7 @@ import TopicGroupTreeItem from "@/renderer/components/TopicTreeView/TopicGroupTr
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { ServiceExtendedInfo } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { findIn } from "@/renderer/utils/index";
@@ -36,12 +36,6 @@ type TTreeResult = {
   groupKeys: string[];
 };
 
-type TSettings = {
-  avoidGroupWithOneItem: boolean;
-  backgroundColor: string;
-  buttonLocation: string;
-};
-
 // Selected item is now just the id (no domain tracking needed)
 type TSelected = string | null;
 
@@ -62,7 +56,6 @@ const EXPAND_ON_SEARCH_MIN_CHARS = 2;
 
 export default function ServicesPanel({ contentId, initialSearchTerm = "" }: ServicesPanelProps): JSX.Element {
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   // Flat list of services for this panel (filtered by contentId)
   const [services, setServices] = useState<ServiceExtendedInfo[]>([]);
@@ -72,11 +65,9 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
   const [selected, setSelected] = useState<TSelected>(null);
   const [serviceForSelected, setServiceForSelected] = useState<ServiceExtendedInfo | undefined>();
 
-  const [settings, setSettings] = useState<TSettings>({
-    avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
-    backgroundColor: settingsCtx.get("backgroundColor") as string,
-    buttonLocation: settingsCtx.get("buttonLocation") as string,
-  });
+  const [avoidGroupWithOneItem] = useSetting<boolean>("avoidGroupWithOneItem");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [buttonLocation] = useSetting<string>("buttonLocation");
 
   const genKey = useCallback((items: string[]): string => items.join("#"), []);
 
@@ -329,19 +320,10 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
   const treeData = useMemo(() => {
     const treeResult = buildTree(
       filteredServices,
-      searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? settings.avoidGroupWithOneItem : false
+      searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? avoidGroupWithOneItem : false
     );
     return treeResult.services;
-  }, [filteredServices, settings.avoidGroupWithOneItem, searchTerm.length, buildTree]);
-
-  // react to settings changes from context
-  useEffect(() => {
-    setSettings({
-      avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
-      backgroundColor: settingsCtx.get("backgroundColor") as string,
-      buttonLocation: settingsCtx.get("buttonLocation") as string,
-    });
-  }, [settingsCtx.changed, settingsCtx]);
+  }, [filteredServices, avoidGroupWithOneItem, searchTerm.length, buildTree]);
 
   // initial & event-driven updates
   useEffect(() => {
@@ -413,7 +395,7 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
         return;
       }
 
-      if (settings.avoidGroupWithOneItem && node.services.length === 1) {
+      if (avoidGroupWithOneItem && node.services.length === 1) {
         const nextRoot = rootPath ? `${rootPath}/${node.groupName}` : node.groupName;
         walk(node.services[0], depth, nextRoot);
         return;
@@ -455,7 +437,7 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
     }
 
     return rows;
-  }, [rootDataList, expandedItems, settings.avoidGroupWithOneItem, genKey]);
+  }, [rootDataList, expandedItems, avoidGroupWithOneItem, genKey]);
 
   /**
    * Open "call service" panel for the selected service.
@@ -578,21 +560,21 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
   );
 
   return (
-    <Box height="100%" overflow="hidden" sx={{ backgroundColor: settings.backgroundColor }}>
+    <Box height="100%" overflow="hidden" sx={{ backgroundColor: backgroundColor }}>
       <Stack spacing={1} height="100%">
         <Stack direction="row" spacing={0.5} alignItems="center">
-          {settings.buttonLocation === BUTTON_LOCATIONS.LEFT && reloadButton}
+          {buttonLocation === BUTTON_LOCATIONS.LEFT && reloadButton}
           <SearchBar
             onSearch={onSearch}
             placeholder="Filter Services (OR: <space>, AND: +, NOT: !)"
             defaultValue={searchTerm}
             fullWidth
           />
-          {settings.buttonLocation === BUTTON_LOCATIONS.RIGHT && reloadButton}
+          {buttonLocation === BUTTON_LOCATIONS.RIGHT && reloadButton}
         </Stack>
 
         <Stack direction="row" height="100%" overflow="hidden">
-          {settings.buttonLocation === BUTTON_LOCATIONS.LEFT && (
+          {buttonLocation === BUTTON_LOCATIONS.LEFT && (
             <Box height="100%" sx={{ boxShadow: `0px 0px 1px ${alpha(grey[600], 0.4)}` }}>
               {buttonBox}
             </Box>
@@ -610,7 +592,7 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
             {treeView}
           </Box>
 
-          {settings.buttonLocation === BUTTON_LOCATIONS.RIGHT && (
+          {buttonLocation === BUTTON_LOCATIONS.RIGHT && (
             <Box height="100%" sx={{ boxShadow: `0px 0px 1px ${alpha(grey[600], 0.4)}` }}>
               {buttonBox}
             </Box>

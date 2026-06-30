@@ -15,7 +15,7 @@ import { useCallback } from "react";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { getFileName, LaunchContent } from "@/renderer/models";
 
 function compareLaunchFiles(a: LaunchContent, b: LaunchContent): number {
@@ -48,15 +48,23 @@ export default function LaunchFileList(props: LaunchFileListProps): JSX.Element 
   } = props;
 
   const navCtx = useNavigationContext();
-  const settingsCtx = useSettingsContext();
   const logCtx = useLoggingContext();
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
 
   /**
    * Create and open a new panel with a [FileEditorPanel] for a given file path and host
    */
   const createFileEditorPanel = useCallback(
     async (provId: string, launchContent: LaunchContent, external: boolean): Promise<void> => {
-      navCtx.openEditor(provId, launchContent.path, launchContent.path, null, launchContent.args || [], launchContent.args || [], external);
+      navCtx.openEditor(
+        provId,
+        launchContent.path,
+        launchContent.path,
+        null,
+        launchContent.args || [],
+        launchContent.args || [],
+        external
+      );
     },
     [navCtx]
   );
@@ -205,7 +213,7 @@ export default function LaunchFileList(props: LaunchFileListProps): JSX.Element 
                   <ListItemText
                     primary={`${launchName} [${lc.nodes ? lc.nodes.length : 0}]`}
                     sx={{
-                      color: settingsCtx.get("useDarkMode") ? blue[300] : blue[800],
+                      color: useDarkMode ? blue[300] : blue[800],
                     }}
                   />
                 </ListItemButton>

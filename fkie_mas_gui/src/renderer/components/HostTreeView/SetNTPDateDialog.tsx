@@ -1,7 +1,7 @@
 import { Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from "@mui/material";
 import { useEffect, useState } from "react";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 
 interface SetNTPDateDialogProps {
   open: boolean;
@@ -12,9 +12,8 @@ interface SetNTPDateDialogProps {
 export default function SetNTPDateDialog(props: SetNTPDateDialogProps): JSX.Element {
   const { open, defaultCmd, onClose = (): void => {} } = props;
 
-  const settingsCtx = useSettingsContext();
   const [value, setValue] = useState<string>(defaultCmd);
-  const [timerServer, setTimerServer] = useState<string[]>(settingsCtx.get("ntpServer") as string[]);
+  const [timerServer, setTimerServer] = useSetting<string[]>("ntpServer");
   const [timerServerValue, setTimerServerValue] = useState(timerServer?.length > 0 ? timerServer[0] : "");
 
   useEffect(() => {
@@ -29,9 +28,8 @@ export default function SetNTPDateDialog(props: SetNTPDateDialogProps): JSX.Elem
 
   function handleOk(): void {
     if (timerServerValue) {
-      if (!(settingsCtx.get("ntpServer") as string[])?.includes(timerServerValue)) {
-        setTimerServer([timerServerValue, ...(settingsCtx.get("ntpServer") as string[])]);
-        settingsCtx.set("ntpServer", [timerServerValue, ...(settingsCtx.get("ntpServer") as string[])]);
+      if (!timerServer?.includes(timerServerValue)) {
+        setTimerServer([timerServerValue, ...timerServer]);
       }
     }
     onClose(timerServerValue ? `${value} ${timerServerValue}` : "");

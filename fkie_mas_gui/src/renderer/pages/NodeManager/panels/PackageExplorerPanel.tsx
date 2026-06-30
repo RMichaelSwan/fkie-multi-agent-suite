@@ -27,7 +27,7 @@ import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { getFileExtension, getFileName, PathItem, RosPackage } from "@/renderer/models";
 import { ConnectionState } from "@/renderer/providers";
 import { EventProviderState } from "@/renderer/providers/events";
@@ -76,7 +76,6 @@ export default function PackageExplorerPanel(): JSX.Element {
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<PathItem | undefined>(undefined);
@@ -92,20 +91,16 @@ export default function PackageExplorerPanel(): JSX.Element {
   const [packageItemsTree, setPackageItemsTree] = useState<TPackageItemsTree>({});
   const [packageItemList, setPackageItemList] = useState<PathItem[]>([]);
   const [firstLaunchDirItem, setFirstLaunchDirItem] = useState<string>("");
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-  const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
+  const [buttonLocation] = useSetting<string>("buttonLocation");
+  const [launchHistoryLength] = useSetting<number>("launchHistoryLength");
+  const [dedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
 
   const [launchFileHistory, setLaunchFileHistory] = useLocalStorage<PathItem[]>(
     "PackageExplorer:launchFileHistory",
     []
   );
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setButtonLocation(settingsCtx.get("buttonLocation") as string);
-  }, [settingsCtx.changed]);
 
   async function updatePackageList(force: boolean = false): Promise<void> {
     if (!rosCtx.initialized) return;
@@ -422,8 +417,7 @@ export default function PackageExplorerPanel(): JSX.Element {
       hostHistory.unshift(launchFile);
 
       // Limit history length per provider/host
-      const max = settingsCtx.get("launchHistoryLength") as number;
-      const trimmedHostHistory = hostHistory.slice(0, max);
+      const trimmedHostHistory = hostHistory.slice(0, launchHistoryLength);
 
       // Merge provider/host‑specific history with all other entries
       const merged = [...trimmedHostHistory, ...otherHistory];
@@ -438,14 +432,14 @@ export default function PackageExplorerPanel(): JSX.Element {
     });
 
     // Notify other components that a launch file has been opened
-    if ((settingsCtx.get("dedicatedTabsFor") as string) === "HOSTS") {
+    if (dedicatedTabsFor === "HOSTS") {
       emitSelectTab({ tabId: `${LAYOUT_TABS.DOMAIN}-${provider.id}` });
       emitSelectTab({ tabId: `${LAYOUT_TABS.NODES}-${provider.id}` });
     } else {
       emitSelectTab({ tabId: `${LAYOUT_TABS.DOMAIN}-${provider.connection.domainId}` });
       emitSelectTab({ tabId: `${LAYOUT_TABS.NODES}-${provider.connection.domainId}` });
     }
-  }, [rosCtx, selectedLaunchFile, settingsCtx]);
+  }, [rosCtx, selectedLaunchFile, launchHistoryLength, dedicatedTabsFor]);
 
   useEffect(() => {
     if (selectedLaunchFile) {

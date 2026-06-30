@@ -58,7 +58,6 @@ import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { getBaseName, getFileName } from "@/renderer/models";
 import { SaveResult } from "@/renderer/monaco/types";
 import { isEditorEditorId } from "@/renderer/monaco/utils";
@@ -90,6 +89,7 @@ import LoggingPanel from "./panels/LoggingPanel";
 // import OverflowMenuNodeDetails from "./panels/OverflowMenuNodeDetails";
 import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { pAddTabStickyButton } from "./layout/helpers";
 import { LAYOUT_DOMAIN_TAB_SET, LAYOUT_NO_RUNNING_DAEMONS } from "./layout/LayoutJson";
 import ExternalAppsPanel from "./panels/ExternalAppsPanel";
@@ -125,7 +125,12 @@ export default function NodeManager(): JSX.Element {
   const logCtx = useLoggingContext();
   const monacoCtx = useMonacoContext();
   const navCtx = useNavigationContext();
-  const settingsCtx = useSettingsContext();
+
+  const [tabFullName] = useSetting<boolean>("tabFullName");
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
+  const [resetLayout, setResetLayout] = useSetting<boolean>("resetLayout");
+  const [dedicatedTabsFor, setDedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
+  const [fontSize, setFontSize] = useSetting<number>("fontSize");
 
   const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 2 });
   const [model, setModel] = useState<Model>(() => Model.fromJson(layoutJson));
@@ -135,9 +140,6 @@ export default function NodeManager(): JSX.Element {
   const [addToLayout, setAddToLayout] = useState<ITabAttributesExt[]>([]);
   const [dirtyTabs, setDirtyTabs] = useState<string[]>([]);
   const [passwordRequests, setPasswordRequests] = useState<React.ReactNode[]>([]);
-
-  const [tabFullName, setTabFullName] = useState<boolean>(settingsCtx.get("tabFullName") as boolean);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(settingsCtx.get("useDarkMode") as boolean);
 
   const [infoStates, setInfoStates] = useState<TInfoState[]>([]);
   const [infoStateTimer, setInfoStateTimer] = useState<NodeJS.Timeout | undefined>();
@@ -156,12 +158,6 @@ export default function NodeManager(): JSX.Element {
    * @deprecated will be removed with TLayoutTabConfig.reactNode
    */
   const layoutComponentsRef = useRef<Record<string, React.ReactNode>>({});
-
-  // sync settings dependent state
-  useEffect(() => {
-    setTabFullName(settingsCtx.get("tabFullName") as boolean);
-    setIsDarkMode(settingsCtx.get("useDarkMode") as boolean);
-  }, [settingsCtx.changed]);
 
   // enable/disable popout depending on environment
   useEffect(() => {
@@ -260,15 +256,15 @@ export default function NodeManager(): JSX.Element {
   }, [layoutJson]);
 
   useEffect(() => {
-    const needsReset = settingsCtx.get("resetLayout") || !hasTab(layoutJson.layout, LAYOUT_TABS.DETAILS);
+    const needsReset = resetLayout || !hasTab(layoutJson.layout, LAYOUT_TABS.DETAILS);
 
     if (needsReset) {
       setLayoutJson(DEFAULT_LAYOUT);
       setModel(Model.fromJson(DEFAULT_LAYOUT));
-      settingsCtx.set("resetLayout", false);
+      setResetLayout(false);
       logCtx.success("Layout reset!", "", "layout reset");
     }
-  }, [settingsCtx.changed, layoutJson, hasTab, logCtx, setLayoutJson]);
+  }, [resetLayout, layoutJson, hasTab, logCtx, setLayoutJson]);
 
   /** Hide bottom panel when last terminal is closed and handle editor tabs with unsaved changes */
   const deleteTab = useCallback(
@@ -931,7 +927,6 @@ export default function NodeManager(): JSX.Element {
 
   function onRenderTabSet(node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues): void {
     if (node.getId() === LAYOUT_TAB_SETS.CENTER) {
-      const dedicatedTabsFor = settingsCtx.get("dedicatedTabsFor") as string;
       renderValues.leading =
         dedicatedTabsFor === "HOSTS" ? (
           <Tooltip
@@ -942,10 +937,10 @@ export default function NodeManager(): JSX.Element {
             <IconButton
               sx={{
                 padding: "0em",
-                color: settingsCtx.get("useDarkMode") ? "#fff" : "rgba(0, 0, 0, 0.54)",
+                color: useDarkMode ? "#fff" : "rgba(0, 0, 0, 0.54)",
               }}
               onClick={() => {
-                settingsCtx.set("dedicatedTabsFor", "DOMAINS");
+                setDedicatedTabsFor("DOMAINS");
               }}
             >
               <DesktopWindowsIcon sx={{ fontSize: "inherit" }} />
@@ -960,10 +955,10 @@ export default function NodeManager(): JSX.Element {
             <IconButton
               sx={{
                 padding: "0em",
-                color: settingsCtx.get("useDarkMode") ? "#fff" : "rgba(0, 0, 0, 0.54)",
+                color: useDarkMode ? "#fff" : "rgba(0, 0, 0, 0.54)",
               }}
               onClick={() => {
-                settingsCtx.set("dedicatedTabsFor", "HOSTS");
+                setDedicatedTabsFor("HOSTS");
               }}
             >
               <DomainIcon sx={{ fontSize: "inherit" }} />
@@ -976,7 +971,7 @@ export default function NodeManager(): JSX.Element {
       if (currentInfoState) {
         renderValues.buttons.push(
           <Tooltip key="tooltip-log" title="" disableInteractive>
-            <Typography style={{ color: getInfoStateColor(currentInfoState.level, isDarkMode) }}>
+            <Typography style={{ color: getInfoStateColor(currentInfoState.level, useDarkMode) }}>
               {currentInfoState.message}
             </Typography>
           </Tooltip>
@@ -1142,15 +1137,14 @@ export default function NodeManager(): JSX.Element {
   );
 
   function onKeyDown(event: React.KeyboardEvent): void {
-    const currFontSize = settingsCtx.get("fontSize") as number;
     if (event.ctrlKey && event.key === "+") {
-      settingsCtx.set("fontSize", currFontSize + 1);
+      setFontSize(fontSize + 1);
     }
     if (event.ctrlKey && event.key === "-") {
-      settingsCtx.set("fontSize", currFontSize - 1);
+      setFontSize(fontSize - 1);
     }
     if (event.ctrlKey && event.key === "0") {
-      settingsCtx.set("fontSize", 14);
+      setFontSize(14);
     }
   }
 

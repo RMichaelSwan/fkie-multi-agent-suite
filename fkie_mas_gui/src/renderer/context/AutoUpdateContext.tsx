@@ -7,9 +7,9 @@ import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { JSONObject, TAutoUpdateManager } from "@/types";
 import packageJson from "../../../package.json";
+import { useSetting } from "../hooks/useSetting";
 import { CmdType } from "../providers";
 
 /**
@@ -47,9 +47,10 @@ export const AutoUpdateProvider = ({
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   const MIN_DELAY_AUTO_CHECK = 86400; // 1 day (in seconds)
+
+  const [checkForUpdates] = useSetting<boolean>("checkForUpdates");
 
   // ==== State ====
   const [autoUpdateManager, setAutoUpdateManager] = useState<TAutoUpdateManager | null>(null);
@@ -104,7 +105,7 @@ export const AutoUpdateProvider = ({
 
     credentialsResolverRef.current?.resolve(creds);
     credentialsResolverRef.current = null;
-  }, []);
+  }, [setStoredCredentials]);
 
   const handleCredentialsCancel = useCallback(() => {
     setShowCredentialsDialog(false);
@@ -291,11 +292,11 @@ export const AutoUpdateProvider = ({
     async (manager: TAutoUpdateManager): Promise<void> => {
       const result = await manager.isAppImage();
       setIsAppImage(result);
-      if (settingsCtx.get("checkForUpdates") && result && autoCheckAllowed(checkTimestamp)) {
+      if (checkForUpdates && result && autoCheckAllowed(checkTimestamp)) {
         checkForUpdate(updateChannel);
       }
     },
-    [settingsCtx, checkTimestamp, updateChannel]
+    [checkForUpdates, checkTimestamp, updateChannel]
   );
 
   // ==== Effects ====

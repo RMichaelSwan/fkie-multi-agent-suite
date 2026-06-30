@@ -32,6 +32,7 @@ import semver from "semver";
 import { useAutoUpdateContext } from "@/renderer/context/AutoUpdateContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosNode } from "@/renderer/models";
 import { CmdType, ConnectionState, Provider } from "@/renderer/providers";
@@ -57,11 +58,8 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
   const settingsCtx = useSettingsContext();
   const [providersActivity, setProvidersActivity] = useState(false);
   const [updated, forceUpdate] = useReducer((x) => x + 1, 0);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
+  const [dedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
 
   const closeProviderHandler = useCallback(
     async (providerId: string) => {
@@ -123,7 +121,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
           return value[0];
         });
       navCtx.setSelected("provider-panel", [provider.id, ...nodes], true);
-      if ((settingsCtx.get("dedicatedTabsFor") as string) === "HOSTS") {
+      if (dedicatedTabsFor === "HOSTS") {
         emitSelectTab({ tabId: `${LAYOUT_TABS.DOMAIN}-${provider.id}` });
         emitSelectTab({ tabId: `${LAYOUT_TABS.NODES}-${provider.id}` });
       } else {

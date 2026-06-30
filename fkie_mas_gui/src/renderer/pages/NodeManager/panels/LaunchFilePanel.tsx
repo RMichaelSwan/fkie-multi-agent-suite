@@ -4,7 +4,7 @@ import { Alert, AlertTitle, Box, Chip, ListItem, ListItemButton, ListItemText, S
 import { SimpleTreeView, TreeItem } from "@mui/x-tree-view";
 import { VariableSizeList } from "react-window";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { LaunchContent, LaunchNodeInfo } from "@/renderer/models";
 
 type TComposableNodes = {
@@ -19,7 +19,7 @@ interface LaunchFilePanelProps {
 export default function LaunchFilePanel(props: LaunchFilePanelProps): JSX.Element {
   const { launchContent } = props;
 
-  const settingsCtx = useSettingsContext();
+  const [backgroundColor] = useSetting<string>("backgroundColor");
   const nodes: LaunchNodeInfo[] = launchContent.nodes?.filter((e) => !e.composable_container) || [];
   const composableNodes: TComposableNodes[] = (launchContent.nodes || [])
     .filter((e: LaunchNodeInfo) => e.composable_container && e.composable_container !== e.node_name)
@@ -84,7 +84,7 @@ export default function LaunchFilePanel(props: LaunchFilePanelProps): JSX.Elemen
       // width="100%"
       height="100%"
       overflow="auto"
-      style={{ backgroundColor: settingsCtx.get("backgroundColor") as string }}
+      style={{ backgroundColor: backgroundColor }}
     >
       <Stack spacing={1}>
         <Stack direction="row" spacing={1}>

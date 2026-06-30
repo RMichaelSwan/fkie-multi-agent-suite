@@ -3,11 +3,11 @@ import React, { createContext, useCallback, useMemo, useState } from "react";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { getBaseName } from "@/renderer/models";
 import { emitEditorSelectRange, emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { xor } from "@/renderer/utils/index";
 import { TFileRange, TLaunchArg } from "@/types";
+import { useSetting } from "../hooks/useSetting";
 import { createEditorId } from "../monaco/utils";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../pages/NodeManager/layout";
 import { CmdType } from "../providers";
@@ -78,7 +78,14 @@ interface INavigationProvider {
 export function NavigationProvider({ children }: INavigationProvider): JSX.Element {
   const logCtx = useLoggingContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
+  const [editorOpenExternal] = useSetting<boolean>("editorOpenExternal");
+  const [editorOpenLocation] = useSetting<string>("editorOpenLocation");
+  const [publisherOpenExternal] = useSetting<boolean>("publisherOpenExternal");
+  const [publisherOpenLocation] = useSetting<string>("publisherOpenLocation");
+  const [subscriberOpenExternal] = useSetting<boolean>("subscriberOpenExternal");
+  const [subscriberOpenLocation] = useSetting<string>("subscriberOpenLocation");
+  const [screenOpenExternal] = useSetting<boolean>("screenOpenExternal");
+  const [logOpenExternal] = useSetting<boolean>("logOpenExternal");
 
   const [selection, setSelection] = useState<TNavSelection>(NO_SELECTION);
 
@@ -142,8 +149,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       if (!provider) return;
 
       const id = createEditorId(rootLaunch, provider.id);
-      const openExternal =
-        xor(settingsCtx.get("editorOpenExternal") as boolean, externalKeyModifier) && !layoutModel?.getNodeById(id);
+      const openExternal = xor(editorOpenExternal, externalKeyModifier) && !layoutModel?.getNodeById(id);
 
       const hasExtEditor = await window.editorManager?.has(id);
       if (hasExtEditor) {
@@ -174,7 +180,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         title: getBaseName(rootLaunch),
         closable: true,
         component: LAYOUT_TABS.EDITOR,
-        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("editorOpenLocation") as string],
+        toNodeId: LAYOUT_TAB_SETS[editorOpenLocation],
         config: {
           contentId: { domainId: provider.connection.domainId },
           openExternal: true,
@@ -193,7 +199,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, settingsCtx, layoutModel]
+    [rosCtx, editorOpenExternal, editorOpenLocation, layoutModel]
   );
 
   const startPublisher = useCallback(
@@ -210,8 +216,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       const topic = topicName || "";
       const type = topicType || "";
       const id = `pub-${provider.connection.host}-${provider.connection.port}-${topic}`;
-      const openExternal =
-        xor(settingsCtx.get("publisherOpenExternal") as boolean, externalKeyModifier) && !layoutModel?.getNodeById(id);
+      const openExternal = xor(publisherOpenExternal, externalKeyModifier) && !layoutModel?.getNodeById(id);
 
       if (forceOpenTerminal) {
         try {
@@ -241,7 +246,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         title: topic || "unknown",
         closable: true,
         component: LAYOUT_TABS.TOPIC_PUBLISHER,
-        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("publisherOpenLocation") as string],
+        toNodeId: LAYOUT_TAB_SETS[publisherOpenLocation],
         config: {
           openExternal: true,
           tabType: `${CmdType.PUB}`,
@@ -256,7 +261,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, settingsCtx, layoutModel, logCtx]
+    [rosCtx, publisherOpenExternal, publisherOpenLocation, layoutModel, logCtx]
   );
 
   const openSubscriber = useCallback(
@@ -272,8 +277,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       if (!provider) return;
 
       const id = `echo-${provider.connection.host}-${provider.connection.port}-${topic}`;
-      const openExternal =
-        xor(settingsCtx.get("subscriberOpenExternal") as boolean, externalKeyModifier) && !layoutModel?.getNodeById(id);
+      const openExternal = xor(subscriberOpenExternal, externalKeyModifier) && !layoutModel?.getNodeById(id);
 
       if (forceOpenTerminal) {
         try {
@@ -310,7 +314,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         title: topic || "unknown",
         closable: true,
         component: LAYOUT_TABS.TOPIC_ECHO,
-        toNodeId: LAYOUT_TAB_SETS[settingsCtx.get("subscriberOpenLocation") as string],
+        toNodeId: LAYOUT_TAB_SETS[subscriberOpenLocation],
         config: {
           openExternal: true,
           tabType: `${CmdType.ECHO}`,
@@ -326,7 +330,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, settingsCtx, layoutModel, logCtx]
+    [rosCtx, subscriberOpenExternal, subscriberOpenLocation, layoutModel, logCtx]
   );
 
   const openTerminal = useCallback(
@@ -347,8 +351,8 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       const id = `terminal-${type}-${provider.connection.host}-${provider.connection.port}-${screen || node}`;
       const openExternal =
         type === CmdType.SCREEN
-          ? xor(settingsCtx.get("screenOpenExternal") as boolean, externalKeyModifier)
-          : xor(settingsCtx.get("logOpenExternal") as boolean, externalKeyModifier) && !layoutModel?.getNodeById(id);
+          ? xor(screenOpenExternal, externalKeyModifier)
+          : xor(logOpenExternal, externalKeyModifier) && !layoutModel?.getNodeById(id);
 
       const env = provider.createRosEnv();
       if (forceOpenTerminal) {
@@ -409,7 +413,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, settingsCtx, layoutModel, logCtx]
+    [rosCtx, layoutModel, logCtx, logOpenExternal, screenOpenExternal]
   );
 
   const value = useMemo<INavigationContext>(

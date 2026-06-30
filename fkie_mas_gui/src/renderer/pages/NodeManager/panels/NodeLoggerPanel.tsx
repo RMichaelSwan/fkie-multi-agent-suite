@@ -21,7 +21,7 @@ import { useCustomEventListener } from "react-custom-events";
 
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { LoggerConfig, LogLevelType, RosNode } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_NODES } from "@/renderer/providers/eventTypes";
 import { findIn } from "@/renderer/utils/index";
@@ -34,7 +34,6 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
   const { node } = props;
 
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const [filterText, setFilterText] = useState("");
   const [currentNode] = useState(node);
   const [isRequesting, setIsRequesting] = useState(false);
@@ -42,13 +41,8 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
   const [error, setError] = useState<string>("");
   const [loggers, setLoggers] = useState<LoggerConfig[]>([]);
   const [loggersFiltered, setLoggersFiltered] = useState<LoggerConfig[]>([]);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-  }, [settingsCtx.changed]);
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   const setLoggersOnProvider = useCallback(
     async (rosNode: RosNode, newLoggers) => {

@@ -17,7 +17,7 @@ import { SnackbarContent, SnackbarKey, SnackbarMessage, useSnackbar } from "noti
 import { forwardRef, useEffect, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { PATH_EVENT_TYPE } from "@/renderer/models";
 import Provider from "@/renderer/providers/Provider";
 import { EVENT_PROVIDER_LAUNCH_LOADED } from "@/renderer/providers/eventTypes";
@@ -38,7 +38,7 @@ const ReloadFileAlertComponent = forwardRef<HTMLDivElement, ReloadFileComponentP
   function ReloadFileAlertComponent(props, ref) {
     const { id, message, provider, modifiedFile, modification, launchFile, onReload, onReloaded } = props;
 
-    const settingsCtx = useSettingsContext();
+    const [actionOnChangeLaunch, setActionOnChangeLaunch] = useSetting<string>("actionOnChangeLaunch");
     const { closeSnackbar } = useSnackbar();
     const [expanded, setExpanded] = useState(false);
     const [rememberChange, setRememberChange] = useState(false);
@@ -49,7 +49,7 @@ const ReloadFileAlertComponent = forwardRef<HTMLDivElement, ReloadFileComponentP
 
     function handleReload(): void {
       if (rememberChange) {
-        settingsCtx.set("actionOnChangeLaunch", "RELOAD");
+        setActionOnChangeLaunch("RELOAD");
       }
       if (onReload) onReload(provider.id, launchFile);
       closeSnackbar(id);
@@ -57,13 +57,13 @@ const ReloadFileAlertComponent = forwardRef<HTMLDivElement, ReloadFileComponentP
 
     function handleDismiss(): void {
       if (rememberChange) {
-        settingsCtx.set("actionOnChangeLaunch", "DISMISS");
+        setActionOnChangeLaunch("DISMISS");
       }
       closeSnackbar(id);
     }
 
     useEffect(() => {
-      switch (settingsCtx.get("actionOnChangeLaunch")) {
+      switch (actionOnChangeLaunch) {
         case "RELOAD":
           if (provider.className === "Provider") {
             handleReload();
@@ -77,7 +77,7 @@ const ReloadFileAlertComponent = forwardRef<HTMLDivElement, ReloadFileComponentP
         default:
           break;
       }
-    }, [settingsCtx]);
+    }, [actionOnChangeLaunch]);
 
     // close this alert if launch file was loaded
     useCustomEventListener(

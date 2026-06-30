@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DEFAULT_BUG_TEXT } from "@/renderer/context/LoggingContext";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosNode, RosParameter } from "@/renderer/models";
 import { Provider } from "@/renderer/providers";
 import { TParamListResult } from "@/renderer/providers/Provider";
@@ -48,7 +48,6 @@ export default function ParameterRootTree(props: ParameterRootTreeProps): JSX.El
 
   const EXPAND_ON_SEARCH_MIN_CHARS = 2;
   const logCtx = useLoggingContext();
-  const settingsCtx = useSettingsContext();
 
   const [itemId] = useState<string>(rosNode ? rosNode.idGlobal : provider.id);
   const [rosParameters, setRosParameters] = useState<RosParameter[]>();
@@ -60,13 +59,7 @@ export default function ParameterRootTree(props: ParameterRootTreeProps): JSX.El
   const [selectedItem, setSelectedItem] = useState<string>("");
   const [requestError, setRequestError] = useState<string>("");
   const [requesting, setRequesting] = useState<boolean>(false);
-  const [avoidGroupWithOneItem, setAvoidGroupWithOneItem] = useState<string>(
-    settingsCtx.get("avoidGroupWithOneItem") as string
-  );
-
-  useEffect(() => {
-    setAvoidGroupWithOneItem(settingsCtx.get("avoidGroupWithOneItem") as string);
-  }, [settingsCtx.changed]);
+  const [avoidGroupWithOneItem] = useSetting<boolean>("avoidGroupWithOneItem");
 
   useEffect(() => {
     setSearched(filterText);

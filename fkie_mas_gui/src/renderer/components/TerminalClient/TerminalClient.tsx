@@ -7,6 +7,7 @@ Copyright (c) 2016 Shuanglei Tao <tsl0922@gmail.com>
 
 import { ITerminalOptions, ITheme } from "@xterm/xterm";
 
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { CmdType } from "@/renderer/providers";
 import Provider from "@/renderer/providers/Provider";
@@ -86,8 +87,9 @@ export default function TerminalClient(props: ITerminalClient): JSX.Element {
     onCtrlD,
   } = props;
   const settingsCtx = useSettingsContext();
+  const [fontSizeTerminal] = useSetting<number>("fontSizeTerminal");
 
-  termOptions.fontSize = settingsCtx.get("fontSizeTerminal") as number;
+  termOptions.fontSize = fontSizeTerminal;
   termOptions.theme = {
     foreground: "#d2d2d2",
     background: errorHighlighting ? "#4d0400" : "#2b2b2b",

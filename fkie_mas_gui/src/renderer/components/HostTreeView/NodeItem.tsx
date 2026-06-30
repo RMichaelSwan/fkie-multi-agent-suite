@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileIcon } from "react-file-icon";
 
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import {
   DiagnosticLevel,
   getFileExtension,
@@ -61,25 +61,17 @@ export default function NodeItem(props: NodeItemProps): JSX.Element {
   } = props;
 
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const [labelText, setLabelText] = useState(nodeNameWithoutNamespace(node));
   const [lifecycle, setLifecycle] = useState<LifecycleState | undefined>();
   const [composableTag, setComposableTag] = useState<TTag | undefined>();
   const [sameIdTag, setSameIdTag] = useState<TTag | undefined>();
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(settingsCtx.get("useDarkMode") as boolean);
-  const [showLaunchFile, setShowLaunchFile] = useState<boolean>(
-    settingsCtx.get("showLaunchFileIndicatorForNodes") as boolean
-  );
+  const [isDarkMode] = useSetting<boolean>("useDarkMode");
+  const [showLaunchFile] = useSetting<boolean>("showLaunchFileIndicatorForNodes");
   const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(null);
   const [diagnosticColor, setDiagnosticColor] = useState<string>(getDiagnosticColor(DiagnosticLevel.OK, isDarkMode));
   const [timerPeriod, setTimerPeriod] = useState<number[]>([]);
   const [sigKillTimeout, setSigKillTimeout] = useState<number[]>([]);
   const [associations, setAssociations] = useState<string[]>([]);
-
-  useEffect(() => {
-    setIsDarkMode(settingsCtx.get("useDarkMode") as boolean);
-    setShowLaunchFile(settingsCtx.get("showLaunchFileIndicatorForNodes") as boolean);
-  }, [settingsCtx.changed]);
 
   function getColorFromLifecycle(state: string, isDarkMode = false): string {
     switch (state) {

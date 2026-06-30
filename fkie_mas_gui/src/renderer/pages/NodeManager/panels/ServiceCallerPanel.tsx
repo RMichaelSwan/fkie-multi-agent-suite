@@ -23,7 +23,7 @@ import SearchBar from "@/renderer/components/UI/SearchBar";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { LaunchCallService, rosMessageStructToString, TRosMessageStruct } from "@/renderer/models";
 import { Provider } from "@/renderer/providers";
 import InputElements from "./MessageDialogPanel/InputElements";
@@ -38,7 +38,6 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
   const { serviceName, serviceType, providerId } = props;
 
   const logCtx = useLoggingContext();
-  const settingsCtx = useSettingsContext();
   const [history, setHistory] = useLocalStorage("ServiceStruct:history", {});
   const [historyLength, setHistoryLength] = useState(0);
   const rosCtx = useRosContext();
@@ -54,13 +53,9 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
   const [resultMessage, setResultMessage] = useState<TRosMessageStruct>();
   const [timeoutObj, setTimeoutObj] = useState<NodeJS.Timeout | null>(null);
 
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   // get item history after the history was loaded
   const fromHistory = useDebounceCallback((index) => {
@@ -273,7 +268,7 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
     return (
       <JsonView
         src={resultMessage}
-        dark={settingsCtx.get("useDarkMode") as boolean}
+        dark={useDarkMode}
         theme="a11y"
         enableClipboard={false}
         ignoreLargeArray={false}
@@ -291,7 +286,7 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
         }}
       />
     );
-  }, [resultMessage, settingsCtx.changed]);
+  }, [resultMessage, useDarkMode]);
 
   return (
     <Box height="100%" overflow="auto" alignItems="center" sx={getHostStyle()}>

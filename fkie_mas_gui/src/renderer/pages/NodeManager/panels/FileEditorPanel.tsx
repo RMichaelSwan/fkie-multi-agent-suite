@@ -14,7 +14,7 @@ import { useEditorLayout } from "@/renderer/hooks/editor/useEditorLayout";
 import { useIncludedFiles } from "@/renderer/hooks/useIncludedFiles";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useMonacoInitContext } from "@/renderer/hooks/useMonacoInitContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { getFileName } from "@/renderer/models";
 import { cleanUpXmlComment } from "@/renderer/monaco/setup";
 import { TModelResult } from "@/renderer/monaco/types";
@@ -47,7 +47,6 @@ interface FileEditorPanelProps {
 
 export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Element {
   const { editorId, provider, rootFilePath, currentFilePath, fileRange, launchArgs, topLevelLaunchArgs } = props;
-  const settingsCtx = useSettingsContext();
   const logCtx = useLoggingContext();
   const monacoInitCtx = useMonacoInitContext();
   const monacoCtx = monacoInitCtx.monacoCtx;
@@ -61,8 +60,8 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
   const [selectionRange, setSelectionRange] = useState<TFileRange>();
   const [currentLaunchArgs, setCurrentLaunchArgs] = useState<TLaunchArg[]>(launchArgs);
   const [notificationDescription, setNotificationDescription] = useState<TAlertNotification | undefined>();
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(settingsCtx.get("useDarkMode") as boolean);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
+  const [isDarkMode] = useSetting<boolean>("useDarkMode");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
   const [historyModel, setHistoryModel] = useState<THistoryModel | undefined>();
   const [eventButton, setEventButton] = useState<React.MouseEvent<HTMLDivElement, MouseEvent> | undefined>(undefined);
   const [keyboardEvent, setKeyboardEvent] = useState<React.KeyboardEvent | undefined>();
@@ -109,11 +108,6 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
     const id = createEditorId(rootFilePath, provider.id);
     emitCloseComponent({ id: id });
   });
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-    setIsDarkMode(settingsCtx.get("useDarkMode") as boolean);
-  }, [settingsCtx.changed]);
 
   useEffect(() => {
     return (): void => {
@@ -523,7 +517,7 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
             key="editor"
             height={editorHeight}
             width={editorWidth}
-            theme={settingsCtx.get("useDarkMode") ? "vs-ros-dark" : "vs-ros-light"}
+            theme={isDarkMode ? "vs-ros-dark" : "vs-ros-light"}
             onMount={(editor: editor.IStandaloneCodeEditor) => handleEditorDidMount(editor)}
             onChange={(value: string | undefined, ev: editor.IModelContentChangedEvent) =>
               handleEditorChange(value, ev)

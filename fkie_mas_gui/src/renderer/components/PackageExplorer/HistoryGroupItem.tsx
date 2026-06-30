@@ -1,9 +1,9 @@
 import HistoryIcon from "@mui/icons-material/History";
 import { Box, Stack, Tooltip, Typography } from "@mui/material";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import StyledRootTreeItem from "./StyledRootTreeItem";
 
 interface HistoryGroupItemProps {
@@ -26,12 +26,7 @@ export default function HistoryGroupItem(props: HistoryGroupItemProps): JSX.Elem
   } = props;
 
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   const getHostStyle = useCallback(
     (providerId: string | undefined): object => {

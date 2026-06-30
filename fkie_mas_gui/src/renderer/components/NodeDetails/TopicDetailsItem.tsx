@@ -10,7 +10,7 @@ import { useCustomEventListener } from "react-custom-events";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosTopic, RosTopicId, TopicExtendedInfo } from "@/renderer/models";
 import { durabilityToString, livelinessToString, reliabilityToString } from "@/renderer/models/RosQos";
 import { EndpointExtendedInfo } from "@/renderer/models/TopicExtendedInfo";
@@ -34,16 +34,10 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const [topicInfo, setTopicInfo] = useState<TopicExtendedInfo | undefined>(undefined);
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [hasIncompatibleQos, setHasIncompatibleQos] = useState<boolean>(false);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   function onEchoClick(topic: TopicExtendedInfo, external: boolean = false, openInTerminal: boolean = false): void {
     navCtx.openSubscriber(providerId || "", topic.name, true, false, external, openInTerminal);

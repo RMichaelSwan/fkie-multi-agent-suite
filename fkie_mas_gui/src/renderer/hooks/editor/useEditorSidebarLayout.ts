@@ -1,7 +1,7 @@
 import { RefObject, useEffect, useRef, useState } from "react";
 
 import useLocalStorage from "../useLocalStorage";
-import { useSettingsContext } from "../useSettingsContext";
+import { useSetting } from "../useSetting";
 
 interface UseEditorSidebarProps {
   panelRef: RefObject<HTMLDivElement>;
@@ -13,12 +13,10 @@ interface UseEditorSidebarProps {
 export function useEditorSidebarLayout(props: UseEditorSidebarProps) {
   const { panelRef, sideBarWidth, enableExplorer, enableGlobalSearch } = props;
 
-  const settingsCtx = useSettingsContext();
-
   const resizeObserver = useRef<ResizeObserver>();
 
   const [panelSize, setPanelSize] = useState<DOMRect>();
-  const [fontSize, setFontSize] = useState<number>(settingsCtx.get("fontSize") as number);
+  const [fontSize] = useSetting<number>("fontSize");
   const [savedExplorerBarHight, setSavedExplorerBarHight] = useLocalStorage<number>(
     "Editor:explorerBarHight",
     fontSize * 20
@@ -28,10 +26,6 @@ export function useEditorSidebarLayout(props: UseEditorSidebarProps) {
   const [explorerBarHeight, _setExplorerBarHeight] = useState<number>(fontSize * 2);
   const [globalSearchHeight, setGlobalSearchHeight] = useState<number>(100);
   const [showExplorerName, setShowExplorerName] = useState<boolean>(false);
-
-  useEffect(() => {
-    setFontSize(settingsCtx.get("fontSize") as number);
-  }, [settingsCtx.changed]);
 
   useEffect(() => {
     setExplorerBarMinSize(fontSize * 2 + 2);

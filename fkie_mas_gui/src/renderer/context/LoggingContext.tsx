@@ -1,14 +1,14 @@
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useMemo, useState } from "react";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { LogEvent, LoggingLevel } from "@/renderer/models";
 import {
-    emitStateError,
-    emitStateInfo,
-    emitStateSuccess,
-    emitStateWarn,
+  emitStateError,
+  emitStateInfo,
+  emitStateSuccess,
+  emitStateWarn,
 } from "@/renderer/pages/NodeManager/layout/events";
 import { JSONObject, TResult } from "@/types";
+import { useSetting } from "../hooks/useSetting";
 
 export interface ILoggingContext {
   logs: LogEvent[];
@@ -45,18 +45,11 @@ export const DEFAULT_BUG_TEXT = "A bug occurred, please consider report it as an
 export const LoggingContext = createContext<ILoggingContext>(DEFAULT_LOGGING);
 
 export function LoggingProvider({ children }: ILoggingProvider) {
-  const settingsCtx = useSettingsContext();
-
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [countErrors, setCountErrors] = useState(0);
 
-  const [debugByUri, setDebugByUri] = useState<string[]>([]);
-  const [printToConsole, setPrintToConsole] = useState(false);
-
-  useEffect(() => {
-    setDebugByUri(settingsCtx.get("debugByUri") as string[]);
-    setPrintToConsole(settingsCtx.get("logPrintToConsole") as boolean);
-  }, [settingsCtx.changed]);
+  const [debugByUri] = useSetting<string[]>("debugByUri");
+  const [printToConsole] = useSetting<boolean>("logPrintToConsole");
 
   const createLog = useCallback(
     (level: LoggingLevel, description: string, details: string) => {

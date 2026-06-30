@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosParameter, RosParameterRange, RosParameterValue } from "@/renderer/models";
 import { Provider } from "@/renderer/providers";
 import { treeItemClasses } from "@mui/x-tree-view";
@@ -47,7 +47,6 @@ export default function ParameterTreeItem(props: ParameterTreeItemProps): JSX.El
 
   const rosCtx = useRosContext();
   const logCtx = useLoggingContext();
-  const settingsCtx = useSettingsContext();
   const [parameterType, setParameterType] = useState<string>(paramInfo.type);
   const [changed, setChanged] = useState<boolean>(false);
   const [value, setValue] = useState(fixStringArray(paramInfo.value));
@@ -56,11 +55,7 @@ export default function ParameterTreeItem(props: ParameterTreeItemProps): JSX.El
   const [namespace, setNamespace] = useState<string>("");
   const [showDescription, setShowDescription] = useState<boolean>(false);
   const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(null);
-  const [showParameterType, setShowParameterType] = useState<boolean>(settingsCtx.get("showParameterType") as boolean);
-
-  useEffect(() => {
-    setShowParameterType(settingsCtx.get("showParameterType") as boolean);
-  }, [settingsCtx.changed]);
+  const [showParameterType] = useSetting<boolean>("showParameterType");
 
   function updateValue(val: RosParameterValue): void {
     setValue(fixStringArray(val));

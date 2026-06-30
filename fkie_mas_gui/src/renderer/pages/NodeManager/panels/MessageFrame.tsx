@@ -4,7 +4,7 @@ import JsonView from "react18-json-view";
 
 import { CopyButton } from "@/renderer/components/UI";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosQos, TSubscriberEventExt } from "@/renderer/models";
 import { qosFromJson } from "@/renderer/models/RosQos";
 import { findIn } from "@/renderer/utils";
@@ -29,7 +29,7 @@ export default function MessageFrame(props: MessageFrameProps): JSX.Element {
     initRootCollapsed = false,
     initCollapsed = ["stamp", "covariance"],
   } = props;
-  const settingsCtx = useSettingsContext();
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
 
   const isCtrlPressed = useRef(false);
   const [rootIsCollapsed, setRootIsCollapsed] = useState(initRootCollapsed);
@@ -137,7 +137,7 @@ export default function MessageFrame(props: MessageFrameProps): JSX.Element {
         <JsonView
           key={`${event.key}`}
           src={filterJson(event?.data, filter)}
-          dark={settingsCtx.get("useDarkMode") as boolean}
+          dark={useDarkMode}
           theme="a11y"
           enableClipboard={false}
           ignoreLargeArray={false}

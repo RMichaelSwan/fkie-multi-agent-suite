@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import TerminalClient from "@/renderer/components/TerminalClient/TerminalClient";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import CmdType from "@/renderer/providers/CmdType";
 import Provider from "@/renderer/providers/Provider";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
@@ -26,7 +26,6 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
   const { id, type, provider, nodeName = "", screen = "", cmd = "", env = [] } = props;
 
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const [initialCommands, setInitialCommands] = useState<string[]>([]);
   const [providerId, setProviderId] = useState("");
   const [currentHost, setCurrentHost] = useState<string>();
@@ -34,15 +33,9 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
   const [lastScreenUsed, setLastScreenUsed] = useState("");
   const [tokenUrl, setTokenUrl] = useState(provider.id);
   const [errorHighlighting, setErrorHighlighting] = useState(false);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
   const [error, setError] = useState<string | undefined>();
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-  }, [settingsCtx.changed]);
 
   const initializeTerminal = useCallback(
     async (newScreen = "") => {

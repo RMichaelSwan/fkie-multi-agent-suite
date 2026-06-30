@@ -21,7 +21,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import DraggablePaper from "../UI/DraggablePaper";
 
 const headers = [
@@ -106,10 +106,10 @@ const applicationRows: RowType[] = [
 
 export default function ExternalAppsModal(): JSX.Element {
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   const [open, setOpen] = useState(false);
   const [localProviderDomains, setLocalProviderDomains] = useState<number[]>([]);
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
 
   useEffect(() => {
     const localProvs = rosCtx.getLocalProvider();
@@ -256,13 +256,12 @@ export default function ExternalAppsModal(): JSX.Element {
       <Tooltip
         title="External Apps"
         placement="right"
-        enterDelay={settingsCtx.get("tooltipEnterDelay") as number}
         disableInteractive
       >
         <IconButton
           sx={{
             padding: "0em",
-            color: settingsCtx.get("useDarkMode") ? "#fff" : "rgba(0, 0, 0, 0.54)",
+            color: useDarkMode ? "#fff" : "rgba(0, 0, 0, 0.54)",
           }}
           onClick={handleOpen}
         >

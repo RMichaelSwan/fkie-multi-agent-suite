@@ -30,6 +30,7 @@ import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
 import { TProviderLaunchParams, ZenohEnvSelection } from "@/renderer/models/ProviderLaunchConfiguration";
@@ -73,8 +74,8 @@ export default function ProviderPanel(): JSX.Element {
   const [noRosVersion, setNoRosVersion] = useState(false);
   const [providerRowsFiltered, setProviderRowsFiltered] = useState<Provider[]>([]);
   const [filterText, setFilterText] = useState("");
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [buttonLocation] = useSetting<string>("buttonLocation");
   const [startConfigurations] = useLocalStorage<TProviderLaunchParams[]>("Provider:startConfigurations", [], {
     version: 1,
     migrate: (oldValue, oldVersion) => {
@@ -92,11 +93,6 @@ export default function ProviderPanel(): JSX.Element {
   );
 
   const addButtonRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-    setButtonLocation(settingsCtx.get("buttonLocation") as string);
-  }, [settingsCtx.changed]);
 
   useEffect(() => {
     setShowStartConfigurations(

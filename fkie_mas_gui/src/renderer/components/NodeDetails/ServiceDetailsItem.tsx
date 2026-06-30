@@ -8,7 +8,7 @@ import { useCustomEventListener } from "react-custom-events";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosService, RosTopicId, ServiceExtendedInfo, TServiceNodeInfo } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
@@ -28,15 +28,9 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const [serviceInfo, setServiceInfo] = useState<ServiceExtendedInfo | undefined>();
   const [showInfo, setShowInfo] = useState<boolean>(false);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   function onServiceCallClick(service: ServiceExtendedInfo): void {
     const id = `call-service-${generateUniqueId()}`;

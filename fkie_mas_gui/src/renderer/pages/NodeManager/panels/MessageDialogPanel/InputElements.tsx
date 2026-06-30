@@ -16,7 +16,7 @@ import MuiAccordionSummary, { AccordionSummaryProps } from "@mui/material/Accord
 import { styled } from "@mui/material/styles";
 import React, { useCallback, useEffect, useState } from "react";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { TRosMessageStruct } from "@/renderer/models";
 import { blue } from "@mui/material/colors";
 import BoolInput from "./BoolInput";
@@ -87,18 +87,13 @@ interface InputElementsProps {
 export default function InputElements(props: InputElementsProps): JSX.Element {
   const { messageStruct, parentName = "undefined", filterText = "", expanded = true, showRoot = true } = props;
 
-  const settingsCtx = useSettingsContext();
   const [arrayCount, setArrayCount] = useState<number>(0);
   const [idSuffix] = useState<string>(`${parentName}-${messageStruct.name}`);
   const [expandedElement, setExpanded] = useState<boolean>(
     expanded || (messageStruct.type !== "std_msgs/Header" && messageStruct.type !== "builtin_interfaces/Time")
   );
   const [useNow, setUseNow] = useState<boolean>(messageStruct.useNow || false);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-  }, [settingsCtx.changed]);
+  const [backgroundColor] = useSetting<string>("backgroundColor");
 
   useEffect(() => {
     if (messageStruct?.value !== undefined) {

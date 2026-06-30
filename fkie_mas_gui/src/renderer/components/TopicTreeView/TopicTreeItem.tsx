@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { IncompatibleQos, TopicExtendedInfo } from "@/renderer/models";
 import { durabilityToString, livelinessToString, reliabilityToString } from "@/renderer/models/RosQos";
 import { EndpointExtendedInfo } from "@/renderer/models/TopicExtendedInfo";
@@ -37,7 +37,6 @@ export default function TopicTreeItem({
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   const [name, setName] = useState("");
   const [namespace, setNamespace] = useState("");
@@ -45,12 +44,7 @@ export default function TopicTreeItem({
   const [incompatibleQos, setIncompatibleQos] = useState<IncompatibleQos[]>([]);
   const [ignoreNextClick, setIgnoreNextClick] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(null);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-
-  // update colorize setting when context value changes
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   /**
    * Reset local click/extended-info state when this item is no longer selected

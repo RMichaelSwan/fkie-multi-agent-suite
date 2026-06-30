@@ -9,7 +9,7 @@ import Tag from "@/renderer/components/UI/Tag";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { SystemWarning } from "@/renderer/models";
 import { envFromSystemEnv } from "@/renderer/models/ProviderLaunchConfiguration";
 import { Provider } from "@/renderer/providers";
@@ -28,7 +28,6 @@ export default function SystemInformationPanel(props: SystemInformationPanelProp
 
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   const [showProviderDetails, setShowProviderDetails] = useLocalStorage("DetailsPanel:showProviderDetails", true);
   const [systemInfoContent, setSystemInfoContent] = useState<TSystemInfo | null>(null);
@@ -36,15 +35,9 @@ export default function SystemInformationPanel(props: SystemInformationPanelProp
   const [providerDetails, setProviderDetails] = useState<JSONObject | TSystemInfo | null>(null);
   const [providerWarnings, setProviderWarnings] = useState<SystemWarning[]>([]);
   const [filter, setFilter] = useState("");
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-  const [useDarkMode, setUseDarkMode] = useState<boolean>(settingsCtx.get("useDarkMode") as boolean);
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setUseDarkMode(settingsCtx.get("useDarkMode") as boolean);
-  }, [settingsCtx.changed]);
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
 
   /** filter dictionaries with system information by given filter */
   function filterNestObject(item: TSystemInfo | JSONObject | null): TSystemInfo | JSONObject | null {

@@ -2,12 +2,12 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip } from "@mui/material";
 import { useRef, useState } from "react";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import DraggablePaper from "../UI/DraggablePaper";
 import About from "./About";
 
 export default function AboutModal(): JSX.Element {
-  const settingsCtx = useSettingsContext();
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
   const [open, setOpen] = useState(false);
   function handleOpen(): void {
     setOpen(true);
@@ -51,11 +51,11 @@ export default function AboutModal(): JSX.Element {
           </Button>
         </DialogActions>
       </Dialog>
-      <Tooltip title="About" placement="right" enterDelay={settingsCtx.get("tooltipEnterDelay") as number}>
+      <Tooltip title="About" placement="right">
         <IconButton
           sx={{
             // padding: "0.8em",
-            color: settingsCtx.get("useDarkMode") ? "#fff" : "rgba(0, 0, 0, 0.54)",
+            color: useDarkMode ? "#fff" : "rgba(0, 0, 0, 0.54)",
           }}
           onClick={() => handleOpen()}
         >

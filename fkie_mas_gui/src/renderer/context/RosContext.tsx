@@ -50,6 +50,7 @@ import {
   EventProviderWarnings,
 } from "@/renderer/providers/events";
 import { TResult, TRosInfo, TSystemInfo } from "@/types";
+import { useSetting } from "../hooks/useSetting";
 import { TProviderLaunchParams } from "../models/ProviderLaunchConfiguration";
 import { LAYOUT_TABS, LAYOUT_TAB_SETS } from "../pages/NodeManager/layout";
 import { emitCloseComponent, emitOpenComponent } from "../pages/NodeManager/layout/events";
@@ -142,7 +143,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   const [mapProviderRosNodes, setMapProviderRosNodes] = useState(new Map<string, RosNode[]>());
 
   const providerColors = useRef<Map<string, string>>(new Map());
-  const [dedicatedTabsFor, setDedicatedTabsFor] = useState<string>(settingsCtx.get("dedicatedTabsFor") as string);
+  const [dedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
 
   // ── Stable refs (avoids stale-closure bugs in callbacks / event handlers) ──
   const logCtxRef = useAlwaysCurrentRef(logCtx);
@@ -1053,10 +1054,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   useEffect(() => {
     init();
   }, [init]);
-
-  useEffect(() => {
-    setDedicatedTabsFor(settingsCtx.get("dedicatedTabsFor") as string);
-  }, [settingsCtx.changed]);
 
   useEffect(() => {
     switchDedicatedTabs(dedicatedTabsFor);

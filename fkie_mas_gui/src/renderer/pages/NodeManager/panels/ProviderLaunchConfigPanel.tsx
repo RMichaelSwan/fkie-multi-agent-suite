@@ -31,6 +31,7 @@ import { HTMLAttributes, useCallback, useEffect, useMemo, useReducer, useRef, us
 import { CopyButton } from "@/renderer/components/UI";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
 import {
@@ -101,22 +102,18 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const launchCfg = launchCfgRef.current;
   const [_valuesChanged, forceValuesUpdate] = useReducer((x) => x + 1, 0);
 
-  const [_, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>(
-    "Provider:startConfigurations",
-    [],
-    {
-      version: 1,
-      migrate: (oldValue, oldVersion) => {
-        if (oldVersion === undefined) {
-          return oldValue as TProviderLaunchParams[];
-        }
-        return [];
-      },
-    }
-  );
+  const [_, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>("Provider:startConfigurations", [], {
+    version: 1,
+    migrate: (oldValue, oldVersion) => {
+      if (oldVersion === undefined) {
+        return oldValue as TProviderLaunchParams[];
+      }
+      return [];
+    },
+  });
 
   const hostArg: string | undefined = settingsCtx.getArgument("host") as string | undefined;
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
+  const [backgroundColor] = useSetting<string>("backgroundColor");
 
   const [openTerminalTooltip, setOpenTerminalTooltip] = useState(false);
   const [startCmdDaemon, setStartCmdDaemon] = useState<string>("");
@@ -181,10 +178,6 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
     launchCfg.params.host = selectedHost?.host || selectedHost?.ip || "";
     forceValuesUpdate();
   }, [selectedHost]);
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-  }, [settingsCtx.changed]);
 
   const saveLaunchConfiguration = useCallback(
     (config: ProviderLaunchConfiguration) => {

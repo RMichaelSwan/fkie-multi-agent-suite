@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
 import useLocalStorage from "../useLocalStorage";
-import { useSettingsContext } from "../useSettingsContext";
+import { useSetting } from "../useSetting";
 
 export function useEditorLayout() {
-  const settingsCtx = useSettingsContext();
   const panelRef = useRef<HTMLDivElement>(null);
   const resizeObserver = useRef<ResizeObserver>();
 
-  const [fontSize, setFontSize] = useState<number>(settingsCtx.get("fontSize") as number);
+  const [fontSize] = useSetting<number>("fontSize");
   const [panelSize, setPanelSize] = useState<DOMRect>();
 
   const [sideBarWidth, setSideBarWidth] = useState(fontSize * 20);
@@ -28,10 +27,6 @@ export function useEditorLayout() {
     setSideBarMinSize(fontSize * 2 + 2);
     setSideBarWidth(fontSize * 2 + 2);
   }, [fontSize]);
-
-  useEffect(() => {
-    setFontSize(settingsCtx.get("fontSize") as number);
-  }, [settingsCtx.changed]);
 
   useEffect(() => {
     if (!panelRef.current) return;

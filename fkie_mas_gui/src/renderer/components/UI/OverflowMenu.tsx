@@ -15,7 +15,7 @@ import { styled } from "@mui/material/styles";
 import { OverridableStringUnion } from "@mui/types";
 import React, { useState } from "react";
 
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { colorFromHostname } from "./Colors";
 
 const StyledBadge = styled(Badge)((/*{ theme }*/) => ({
@@ -64,7 +64,7 @@ export default function OverflowMenu(props: OverflowMenuProps): JSX.Element {
     sx = { padding: 0, margin: 0 },
   } = props;
 
-  const settingsCtx = useSettingsContext();
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -84,7 +84,7 @@ export default function OverflowMenu(props: OverflowMenuProps): JSX.Element {
 
   /** create style to colorize the menu item depends on the provider name */
   function getSxPropByName(name: string | React.ReactNode): object {
-    if (colorizeItems && typeof name === "string" && (settingsCtx.get("colorizeHosts") as boolean)) {
+    if (colorizeItems && typeof name === "string" && colorizeHosts) {
       return {
         borderLeftStyle: "solid",
         borderLeftColor: colorFromHostname(name),

@@ -23,12 +23,12 @@ import {
   UseTreeItemContentSlotOwnProps,
   UseTreeItemIconContainerSlotOwnProps,
 } from "@mui/x-tree-view";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
@@ -59,7 +59,6 @@ export default function HostItem(props: HostItemProps): JSX.Element {
     nodeRunningCount,
     ...children
   } = props;
-  const settingsCtx = useSettingsContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
   const logCtx = useLoggingContext();
@@ -68,13 +67,8 @@ export default function HostItem(props: HostItemProps): JSX.Element {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showHelpTime, setShowHelpTime] = useState<boolean>(false);
   const [openNtpdateDialog, setOpenNtpdateDialog] = useState<boolean>(false);
-  const [colorizeHosts, setColorizeHosts] = useState<string>(settingsCtx.get("colorizeHosts") as string);
-  const [timeDiffThreshold, setTimeDiffThreshold] = useState<number>(settingsCtx.get("timeDiffThreshold") as number);
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as string);
-    setTimeDiffThreshold(settingsCtx.get("timeDiffThreshold") as number);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
+  const [timeDiffThreshold] = useSetting<number>("timeDiffThreshold");
 
   async function updateTime(local = true): Promise<void> {
     if (provider) {

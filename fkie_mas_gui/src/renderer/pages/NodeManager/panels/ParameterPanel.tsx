@@ -10,6 +10,7 @@ import { DEFAULT_BUG_TEXT } from "@/renderer/context/LoggingContext";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosNode, RosNodeStatus, RosParameter } from "@/renderer/models";
 import { Provider } from "@/renderer/providers";
@@ -39,15 +40,9 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
   const [searched, setSearched] = useState<string>("");
   const [selectedParameter, setSelectedParameter] = useState<{ provider: Provider; params: RosParameter[] }>();
   const [showWarning, setShowWarning] = useState<boolean>(false);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-  const [buttonLocation, setButtonLocation] = useState<string>(settingsCtx.get("buttonLocation") as string);
-  const [showParameterType, setShowParameterType] = useState<boolean>(settingsCtx.get("showParameterType") as boolean);
-
-  useEffect(() => {
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-    setButtonLocation(settingsCtx.get("buttonLocation") as string);
-    setShowParameterType(settingsCtx.get("showParameterType") as boolean);
-  }, [settingsCtx.changed]);
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [showParameterType, setShowParameterType] = useSetting<boolean>("showParameterType");
+  const [buttonLocation] = useSetting<string>("buttonLocation");
 
   async function deleteSelectedParameters(): Promise<void> {
     if (selectedParameter) {
@@ -198,7 +193,7 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
             size="small"
             value="check"
             selected={showParameterType}
-            onChange={() => settingsCtx.set("showParameterType", !showParameterType)}
+            onChange={() => setShowParameterType(!showParameterType)}
           >
             <TypeSpecimenIcon sx={{ fontSize: "inherit" }} />
           </ToggleButton>
@@ -222,7 +217,7 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
         )}
       </Stack>
     );
-  }, [selectedParameter, showParameterType]);
+  }, [selectedParameter, showParameterType, setShowParameterType]);
 
   return (
     <Box height="100%" sx={{ backgroundColor: backgroundColor }}>

@@ -18,7 +18,7 @@ import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { TopicExtendedInfo } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_TOPICS } from "@/renderer/providers/eventTypes";
 import { findIn } from "@/renderer/utils/index";
@@ -41,12 +41,6 @@ type TTreeResult = {
   topics: TTreeItem[];
   count: number;
   groupKeys: string[];
-};
-
-type TSettings = {
-  avoidGroupWithOneItem: boolean;
-  backgroundColor: string;
-  buttonLocation: string;
 };
 
 type TProviderDescription = {
@@ -78,7 +72,6 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
   const logCtx = useLoggingContext();
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
 
   // Topics for this panel (filtered by contentId)
   const [topics, setTopics] = useState<TopicExtendedInfo[]>([]);
@@ -88,11 +81,9 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
   const [selected, setSelected] = useState<TSelected>(null);
   const [topicForSelected, setTopicForSelected] = useState<TopicExtendedInfo | undefined>();
   const [availableProviders, setAvailableProviders] = useState<TProviderDescription[]>([]);
-  const [settings, setSettings] = useState<TSettings>({
-    avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
-    backgroundColor: settingsCtx.get("backgroundColor") as string,
-    buttonLocation: settingsCtx.get("buttonLocation") as string,
-  });
+  const [avoidGroupWithOneItem] = useSetting<boolean>("avoidGroupWithOneItem");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
+  const [buttonLocation] = useSetting<string>("buttonLocation");
 
   const genKey = useCallback((items: string[]) => items.join("#"), []);
 
@@ -347,10 +338,10 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
   const treeData = useMemo(() => {
     const treeResult = buildTree(
       filteredTopics,
-      searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? settings.avoidGroupWithOneItem : false
+      searchTerm.length < EXPAND_ON_SEARCH_MIN_CHARS ? avoidGroupWithOneItem : false
     );
     return treeResult.topics;
-  }, [filteredTopics, settings.avoidGroupWithOneItem, searchTerm.length, buildTree]);
+  }, [filteredTopics, avoidGroupWithOneItem, searchTerm.length, buildTree]);
 
   useEffect(() => {
     setAvailableProviders(getAvailableProviders());
@@ -363,14 +354,6 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
   useEffect(() => {
     updateTopicList();
   }, []); // initial
-
-  useEffect(() => {
-    setSettings({
-      avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as boolean,
-      backgroundColor: settingsCtx.get("backgroundColor") as string,
-      buttonLocation: settingsCtx.get("buttonLocation") as string,
-    });
-  }, [settingsCtx.changed]);
 
   useEffect(() => {
     setRootDataList(treeData);
@@ -589,7 +572,7 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
       }
 
       // optionally flatten groups with a single child
-      if (settings.avoidGroupWithOneItem && node.topics.length === 1) {
+      if (avoidGroupWithOneItem && node.topics.length === 1) {
         const nextRoot = rootPath ? `${rootPath}/${node.groupName}` : node.groupName;
         walk(node.topics[0], depth, nextRoot);
         return;
@@ -635,7 +618,7 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
     }
 
     return rows;
-  }, [rootDataList, expandedItems, settings.avoidGroupWithOneItem, genKey]);
+  }, [rootDataList, expandedItems, avoidGroupWithOneItem, genKey]);
 
   const treeView = useMemo(
     () => (
@@ -690,21 +673,21 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
   );
 
   return (
-    <Box height="100%" overflow="hidden" sx={{ backgroundColor: settings.backgroundColor }}>
+    <Box height="100%" overflow="hidden" sx={{ backgroundColor: backgroundColor }}>
       <Stack spacing={1} height="100%">
         <Stack direction="row" spacing={0.5} alignItems="center">
-          {settings.buttonLocation === BUTTON_LOCATIONS.LEFT && reloadButton}
+          {buttonLocation === BUTTON_LOCATIONS.LEFT && reloadButton}
           <SearchBar
             onSearch={onSearch}
             placeholder="Filter Topics (OR: <space>, AND: +, NOT: !)"
             defaultValue={searchTerm}
             fullWidth
           />
-          {settings.buttonLocation === BUTTON_LOCATIONS.RIGHT && reloadButton}
+          {buttonLocation === BUTTON_LOCATIONS.RIGHT && reloadButton}
         </Stack>
 
         <Stack direction="row" height="100%" overflow="hidden">
-          {settings.buttonLocation === BUTTON_LOCATIONS.LEFT && (
+          {buttonLocation === BUTTON_LOCATIONS.LEFT && (
             <Box height="100%" sx={{ boxShadow: `0px 0px 1px ${alpha(grey[600], 0.4)}` }}>
               {buttonBox}
             </Box>
@@ -715,7 +698,7 @@ export default function TopicsPanel(props: TopicsPanelProps): JSX.Element {
             {treeView}
           </Box>
 
-          {settings.buttonLocation === BUTTON_LOCATIONS.RIGHT && (
+          {buttonLocation === BUTTON_LOCATIONS.RIGHT && (
             <Box height="100%" sx={{ boxShadow: `0px 0px 1px ${alpha(grey[600], 0.4)}` }}>
               {buttonBox}
             </Box>

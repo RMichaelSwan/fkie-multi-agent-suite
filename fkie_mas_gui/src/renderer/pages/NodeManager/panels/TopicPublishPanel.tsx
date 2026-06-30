@@ -4,7 +4,7 @@ import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import EditIcon from "@mui/icons-material/Edit";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
-import ScheduleIcon from '@mui/icons-material/Schedule';
+import ScheduleIcon from "@mui/icons-material/Schedule";
 import StarIcon from "@mui/icons-material/Star";
 import StarOutlineIcon from "@mui/icons-material/StarOutline";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
@@ -34,7 +34,7 @@ import { DB_MAX_MSGS, TMsgHistoryEntry, useMsgHistory } from "@/renderer/context
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { LaunchPublishMessage, rosMessageStructToString, RosQos, TRosMessageStruct } from "@/renderer/models";
 import { qosFromJson } from "@/renderer/models/RosQos";
 import { Provider } from "@/renderer/providers";
@@ -59,7 +59,6 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
   const [oldHistory, setOldHistory] = useLocalStorage<{ [msg: string]: THistoryItem[] }>("MessageStruct:history", {});
   const logCtx = useLoggingContext();
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const historyCtx = useMsgHistory();
   const [maxHistoryLength, setMaxHistoryLength] = useState(0);
   const { historyByType, setMaxEntries, ensureLoaded } = useMsgHistory();
@@ -87,13 +86,8 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
   const [startPublisherIsSubmitting, setStartPublisherIsSubmitting] = useState(false);
   const publishRateSelections = ["1", "once", "latched"];
 
-  const [colorizeHosts, setColorizeHosts] = useState<boolean>(settingsCtx.get("colorizeHosts") as boolean);
-  const [backgroundColor, setBackgroundColor] = useState<string>(settingsCtx.get("backgroundColor") as string);
-
-  useEffect(() => {
-    setColorizeHosts(settingsCtx.get("colorizeHosts") as boolean);
-    setBackgroundColor(settingsCtx.get("backgroundColor") as string);
-  }, [settingsCtx.changed]);
+  const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
+  const [backgroundColor] = useSetting<string>("backgroundColor");
 
   // migrate old history
   useEffect(() => {

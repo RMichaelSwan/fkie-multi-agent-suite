@@ -7,12 +7,10 @@ import { useCustomEventListener } from "react-custom-events";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { getFileName, LaunchContent, LaunchFile, RosNode, RosNodeStatus } from "@/renderer/models";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
-import {
-  emitOpenComponent,
-} from "@/renderer/pages/NodeManager/layout/events";
+import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import InfoNoRunningDaemons from "@/renderer/pages/NodeManager/panels/InfoNoRunningDaemons";
 import { CmdType, Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_LAUNCH_LOADED } from "@/renderer/providers/eventTypes";
@@ -81,7 +79,11 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
   const logCtx = useLoggingContext();
-  const settingsCtx = useSettingsContext();
+  const [spamNodes] = useSetting<string>("spamNodes");
+  const [avoidGroupWithOneItem] = useSetting<boolean>("avoidGroupWithOneItem");
+  const [useDarkMode] = useSetting<boolean>("useDarkMode");
+  const [openScreenByDefault] = useSetting<boolean>("openScreenByDefault");
+  const [namespaceSystemNodes] = useSetting<string>("namespaceSystemNodes");
 
   const [expanded, setExpanded] = useState<ExpandedItems>({ expanded: [], filterIsOn: false });
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -102,22 +104,17 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
     [setExpanded]
   );
 
-  const { avoidGroupWithOneItem, isDarkMode, spamNodesRegExp, openScreenByDefault, namespaceSystemNodes } =
-    useMemo(() => {
-      const spamNodes = (settingsCtx.get("spamNodes") as string)
-        .split(",")
-        .filter((item) => item.length > 0)
-        .map((item) => `(${item})`)
-        .join("|");
+  const { spamNodesRegExp } = useMemo(() => {
+    const spamNodesCleared = spamNodes
+      .split(",")
+      .filter((item) => item.length > 0)
+      .map((item) => `(${item})`)
+      .join("|");
 
-      return {
-        avoidGroupWithOneItem: settingsCtx.get("avoidGroupWithOneItem") as string,
-        isDarkMode: settingsCtx.get("useDarkMode") as boolean,
-        spamNodesRegExp: spamNodes ? new RegExp(String.raw`${spamNodes}`, "g") : undefined,
-        openScreenByDefault: settingsCtx.get("openScreenByDefault") as string,
-        namespaceSystemNodes: settingsCtx.get("namespaceSystemNodes") as string,
-      };
-    }, [settingsCtx.changed]);
+    return {
+      spamNodesRegExp: spamNodesCleared ? new RegExp(String.raw`${spamNodesCleared}`, "g") : undefined,
+    };
+  }, [spamNodes]);
 
   const createTreeFromNodes: (
     nodes: RosNode[],
@@ -844,7 +841,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
           groupName={`${namespacePart}${name}`}
           icon={
             <Stack direction="row" alignItems="center">
-              <GroupIcon treeItems={children} isDarkMode={isDarkMode} groupName={name} />{" "}
+              <GroupIcon treeItems={children} isDarkMode={useDarkMode} groupName={name} />{" "}
               <MultiScreenIcon treeItems={children} />
             </Stack>
           }
@@ -862,7 +859,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
     [
       // do not include keyNodeList
       avoidGroupWithOneItem,
-      isDarkMode,
+      useDarkMode,
       handleDoubleClick,
       handleDoubleClickOnNode,
       handleMiddleClickOnNode,
@@ -898,9 +895,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
         notifyNavCtxSelection([]);
       }}
     >
-      {(!rosCtx.providers || rosCtx.providers.length === 0) && (
-        <InfoNoRunningDaemons/>
-      )}
+      {(!rosCtx.providers || rosCtx.providers.length === 0) && <InfoNoRunningDaemons />}
       <SimpleTreeView
         onClick={(event) => {
           // enable deselection
