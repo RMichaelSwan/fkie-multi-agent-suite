@@ -4,6 +4,7 @@ import { IDBPDatabase } from "idb";
 import {
   AppDBSchema,
   dbClear,
+  dbDeleteByNamespace,
   dbGetAll,
   dbPut,
   dbPutMany,
@@ -203,6 +204,21 @@ export interface ImportResult {
   skipped: string[];
 }
 
+/**
+ * Import key-value data into a DB store.
+ *
+ * Supports two input formats:
+ * - Wrapped: `{ _meta: {...}, data: { key: value, ... } }`
+ * - Raw: `{ key: value, ... }`
+ *
+ * When `namespace` is provided:
+ * - Keys are prefixed with "namespace:" to form composite keys
+ * - `replace: true` only clears entries in that namespace (not the whole store)
+ *
+ * When `namespace` is NOT provided:
+ * - Keys are stored as-is
+ * - `replace: true` clears the entire store
+ */
 export async function importToStore(
   db: IDBPDatabase<AppDBSchema>,
   store: StoreName,
@@ -210,9 +226,7 @@ export async function importToStore(
   options: {
     replace?: boolean;
     version: number | string;
-    /** Validate/transform each entry before writing. Return undefined to skip. */
     validate?: (key: string, value: JSONValue) => JSONValue | undefined;
-    /** For state store: assign namespace to imported records. */
     namespace?: string;
     transformer?: ITransformer;
   }
@@ -226,7 +240,6 @@ export async function importToStore(
   if (parsed._meta && parsed.data) {
     data = parsed.data as Record<string, JSONValue>;
   } else {
-    // Treat as raw key-value map
     data = parsed as Record<string, JSONValue>;
   }
 
@@ -244,8 +257,11 @@ export async function importToStore(
       continue;
     }
 
+    // Build composite key: "namespace:key" or just "key"
+    const dbKey = options.namespace ? `${options.namespace}:${key}` : key;
+
     records.push({
-      key,
+      key: dbKey,
       value: validated,
       namespace: options.namespace,
       version: options.version,
@@ -253,8 +269,15 @@ export async function importToStore(
     });
   }
 
+  // Handle replace
   if (options.replace) {
-    await dbClear(db, store);
+    if (options.namespace) {
+      // Only clear entries belonging to this namespace
+      await dbDeleteByNamespace(db, options.namespace);
+    } else {
+      // Clear entire store (settings import, or namespace-less state)
+      await dbClear(db, store);
+    }
   }
 
   if (records.length > 0) {

@@ -103,7 +103,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const launchCfg = launchCfgRef.current;
   const [_valuesChanged, forceValuesUpdate] = useReducer((x) => x + 1, 0);
 
-  const { set: setStartConfigurations } = useAppState<TProviderLaunchParams[]>("provider", "configurations", [], {
+  const { set: setStartConfigurations } = useAppState<TProviderLaunchParams[]>("hosts", "configurations", [], {
     version: 1,
   });
 

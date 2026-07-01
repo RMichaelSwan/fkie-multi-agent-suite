@@ -78,7 +78,7 @@ export default function ProviderPanel(): JSX.Element {
   const [backgroundColor] = useSetting<string>("backgroundColor");
   const [buttonLocation] = useSetting<string>("buttonLocation");
 
-  const { value: startConfigurations } = useAppState<TProviderLaunchParams[]>("provider", "configurations", [], {
+  const { value: startConfigurations } = useAppState<TProviderLaunchParams[]>("hosts", "configurations", [], {
     version: 1,
     migrateFrom: {
       localStorageKey: "Provider:startConfigurations",
@@ -93,7 +93,7 @@ export default function ProviderPanel(): JSX.Element {
 
   const [showStartConfigurations, setShowStartConfigurations] = useState<ProviderLaunchConfiguration[]>([]);
   const { value: openHintDialog, set: setOpenHintDialog } = useAppState<boolean>(
-    "provider",
+    "hosts",
     "show-hint-empty-configs",
     startConfigurations.length === 0,
     {
