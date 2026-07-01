@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import JsonView from "react18-json-view";
 
 import { CopyButton } from "@/renderer/components/UI";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosQos, TSubscriberEventExt } from "@/renderer/models";
 import { qosFromJson } from "@/renderer/models/RosQos";
@@ -34,7 +34,9 @@ export default function MessageFrame(props: MessageFrameProps): JSX.Element {
   const isCtrlPressed = useRef(false);
   const [rootIsCollapsed, setRootIsCollapsed] = useState(initRootCollapsed);
   const [collapsedKeys, setCollapsedKeys] = useState<(string | number)[]>(initCollapsed);
-  const [showWholeFilteredMessage] = useLocalStorage<boolean>("TopicEcho:showWholeFilteredMessage", false);
+  const { value: showWholeFilteredMessage } = useAppState<boolean>("topic-echo", "show-while-filtered-message", false, {
+    version: 1,
+  });
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

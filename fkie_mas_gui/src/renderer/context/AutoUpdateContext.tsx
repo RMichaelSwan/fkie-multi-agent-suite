@@ -3,12 +3,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import semver from "semver";
 
 import GithubCredentialsDialog from "@/renderer/components/PasswordModal/GithubCredentialsDialog";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { JSONObject, TAutoUpdateManager } from "@/types";
 import packageJson from "../../../package.json";
+import { useAppState } from "../hooks/useAppState";
 import { useSetting } from "../hooks/useSetting";
 import { CmdType } from "../providers";
 
@@ -56,8 +56,9 @@ export const AutoUpdateProvider = ({
   const [autoUpdateManager, setAutoUpdateManager] = useState<TAutoUpdateManager | null>(null);
   const [checkingForUpdate, setCheckingForUpdate] = useState(false);
   const [checkedThisRun, setCheckedThisRun] = useState(false);
-  const [storedUpdateAvailable, setStoredUpdateAvailable] = useLocalStorage<UpdateInfo | null>(
-    "AutoUpdate:updateAvailable",
+  const { value: storedUpdateAvailable, set: setStoredUpdateAvailable } = useAppState<UpdateInfo | null>(
+    "updater",
+    "update-available",
     null
   );
   const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
@@ -67,23 +68,34 @@ export const AutoUpdateProvider = ({
   const [installing, setInstalling] = useState(false);
   const [localProviderId, setLocalProviderId] = useState("");
   const [isAppImage, setIsAppImage] = useState<null | boolean>(null);
-  const [updateChannel, setStoredChannel] = useLocalStorage<"prerelease" | "release" | string>(
-    "AutoUpdate:updateChannel",
-    "release"
+  const { value: updateChannel, set: setStoredChannel } = useAppState<"prerelease" | "release" | string>(
+    "updater",
+    "update-channel",
+    "release",
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "AutoUpdate:updateChannel",
+      },
+    }
   );
-  const [checkTimestamp, setCheckTimestamp] = useLocalStorage<number>("AutoUpdate:checkTimestamp", 0);
-
+  const { value: checkTimestamp, set: setCheckTimestamp } = useAppState<number>("updater", "check-timestamp", 0);
   // ==== Credentials Dialog State ====
   const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
   const credentialsResolverRef = useRef<{
     resolve: (value: { username: string; token: string } | null) => void;
   } | null>(null);
 
-  // Stored credentials (persisted in localStorage if user opted in)
-  const [storedCredentials, setStoredCredentials] = useLocalStorage<{
+  // Stored credentials (persisted in db if user opted in)
+  const { value: storedCredentials, set: setStoredCredentials } = useAppState<{
     username: string;
     token: string;
-  } | null>("AutoUpdate:githubCredentials", null);
+  } | null>("updater", "github-credentials", null, {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "AutoUpdate:githubCredentials",
+    },
+  });
 
   /** Opens the credentials dialog and returns a promise with the result */
   const requestCredentials = useCallback((): Promise<{ username: string; token: string } | null> => {
@@ -93,19 +105,22 @@ export const AutoUpdateProvider = ({
     });
   }, []);
 
-  const handleCredentialsSubmit = useCallback((username: string, token: string, remember: boolean) => {
-    setShowCredentialsDialog(false);
-    const creds = { username, token };
+  const handleCredentialsSubmit = useCallback(
+    (username: string, token: string, remember: boolean) => {
+      setShowCredentialsDialog(false);
+      const creds = { username, token };
 
-    if (remember) {
-      setStoredCredentials(creds);
-    } else {
-      setStoredCredentials(null);
-    }
+      if (remember) {
+        setStoredCredentials(creds);
+      } else {
+        setStoredCredentials(null);
+      }
 
-    credentialsResolverRef.current?.resolve(creds);
-    credentialsResolverRef.current = null;
-  }, [setStoredCredentials]);
+      credentialsResolverRef.current?.resolve(creds);
+      credentialsResolverRef.current = null;
+    },
+    [setStoredCredentials]
+  );
 
   const handleCredentialsCancel = useCallback(() => {
     setShowCredentialsDialog(false);

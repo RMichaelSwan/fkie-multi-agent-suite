@@ -23,7 +23,7 @@ import { TPackageItemsTree, TPackageTree, TPackageTreeItem } from "@/renderer/co
 import { Tag } from "@/renderer/components/UI";
 import VirtualizedListboxComponent from "@/renderer/components/UI/VirtualizedListboxComponent";
 import { BUTTON_LOCATIONS, LAUNCH_FILE_EXTENSIONS } from "@/renderer/context/SettingsContext";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
@@ -97,9 +97,24 @@ export default function PackageExplorerPanel(): JSX.Element {
   const [launchHistoryLength] = useSetting<number>("launchHistoryLength");
   const [dedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
 
-  const [launchFileHistory, setLaunchFileHistory] = useLocalStorage<PathItem[]>(
-    "PackageExplorer:launchFileHistory",
-    []
+  const { value: launchFileHistory, set: setLaunchFileHistory } = useAppState<PathItem[]>(
+    "packages",
+    "launch-history",
+    [],
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "PackageExplorer:launchFileHistory",
+      },
+      migrate: (oldValue, oldVersion) => {
+        if (oldVersion === undefined) {
+          if (!Array.isArray(oldValue)) return [];
+          // Optional: validate structure of first element
+          return oldValue as unknown as PathItem[];
+        }
+        return [];
+      },
+    }
   );
 
   async function updatePackageList(force: boolean = false): Promise<void> {

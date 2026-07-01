@@ -5,6 +5,7 @@ import { SnackbarProvider } from "notistack";
 import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
+import packageJson from "../../package.json";
 import { ElectronProvider } from "./context/ElectronContext";
 import { LoggingProvider } from "./context/LoggingContext";
 import { NavigationProvider } from "./context/NavigationContext";
@@ -71,6 +72,7 @@ export default function ProviderStack({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     // Anything in here is fired on component mount.
+    window.APP_VERSION = packageJson.version;
     window.addEventListener("error", handleWindowError);
     setupEditorWindowBridge();
     return (): void => {

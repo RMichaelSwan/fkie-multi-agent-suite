@@ -29,6 +29,7 @@ import { styled } from "@mui/material/styles";
 import { HTMLAttributes, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { CopyButton } from "@/renderer/components/UI";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useCliArgs } from "@/renderer/hooks/useCliArgs";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
@@ -102,14 +103,8 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const launchCfg = launchCfgRef.current;
   const [_valuesChanged, forceValuesUpdate] = useReducer((x) => x + 1, 0);
 
-  const [_, setStartConfigurations] = useLocalStorage<TProviderLaunchParams[]>("Provider:startConfigurations", [], {
+  const { set: setStartConfigurations } = useAppState<TProviderLaunchParams[]>("provider", "configurations", [], {
     version: 1,
-    migrate: (oldValue, oldVersion) => {
-      if (oldVersion === undefined) {
-        return oldValue as TProviderLaunchParams[];
-      }
-      return [];
-    },
   });
 
   const hostArg: string | undefined = cliCtx.getArgument("host") as string | undefined;

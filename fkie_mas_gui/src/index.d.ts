@@ -14,6 +14,7 @@ import {
 
 declare global {
   interface Window {
+    APP_VERSION?: string;
     dialogManager?: TDialogManager;
     editorManager?: TEditorManager;
     publishManager?: TPublishManager;

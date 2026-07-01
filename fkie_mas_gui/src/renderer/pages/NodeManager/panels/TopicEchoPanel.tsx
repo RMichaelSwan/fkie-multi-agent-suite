@@ -28,7 +28,7 @@ import { v4 as uuid } from "uuid";
 
 import { Tag } from "@/renderer/components/UI";
 import SearchBar from "@/renderer/components/UI/SearchBar";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
@@ -64,9 +64,27 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
   const [showStatistics, setShowStatistics] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(true);
   const [filterText, setFilterText] = useState("");
-  const [showWholeFilteredMessage, setShowWholeFilteredMessage] = useLocalStorage<boolean>(
-    "TopicEcho:showWholeFilteredMessage",
-    false
+  const { value: showWholeFilteredMessage, set: setShowWholeFilteredMessage } = useAppState<boolean>(
+    "topic-echo",
+    "show-while-filtered-message",
+    false,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "TopicEcho:showWholeFilteredMessage",
+      },
+    }
+  );
+  const { value: arrayItemsCount, set: setArrayItemsCount } = useAppState<number>(
+    "topic-echo",
+    `array-limit:${defaultTopic}`,
+    15,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: `TopicEcho:arrayLimit:${defaultTopic}`,
+      },
+    }
   );
   const [noData, setNoData] = useState(defaultNoData);
   const [noStr, setNoStr] = useState(false);
@@ -75,7 +93,6 @@ export default function TopicEchoPanel(props: TopicEchoPanelProps): JSX.Element 
   // TODO add option to change window size to echo topics
   const [windowSize /*, setWindowSize*/] = useState<number>(0);
   const [msgCount, setMsgCount] = useState<number>(10);
-  const [arrayItemsCount, setArrayItemsCount] = useLocalStorage<number>(`TopicEcho:arrayLimit:${defaultTopic}`, 15);
   const [pause, setPause] = useState<boolean>(false);
   const [event, setEvent] = useState<TSubscriberEventExt | undefined>();
   const [_currentSubscriberId, setCurrentSubscriberId] = useState<number>(0);

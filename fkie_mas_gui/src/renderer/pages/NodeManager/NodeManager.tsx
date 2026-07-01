@@ -54,7 +54,6 @@ import { getInfoStateColor } from "@/renderer/components/UI/Colors";
 import DraggablePaper from "@/renderer/components/UI/DraggablePaper";
 import { useAutoUpdateContext } from "@/renderer/context/AutoUpdateContext";
 import { ElectronContext } from "@/renderer/context/ElectronContext";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
@@ -88,6 +87,7 @@ import HostTreeViewPanel from "./panels/HostTreeViewPanel";
 import LoggingPanel from "./panels/LoggingPanel";
 // import OverflowMenuNodeDetails from "./panels/OverflowMenuNodeDetails";
 import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { pAddTabStickyButton } from "./layout/helpers";
@@ -132,7 +132,12 @@ export default function NodeManager(): JSX.Element {
   const [dedicatedTabsFor, setDedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
   const [fontSize, setFontSize] = useSetting<number>("fontSize");
 
-  const [layoutJson, setLayoutJson] = useLocalStorage<IJsonModel>("layout", DEFAULT_LAYOUT, { version: 2 });
+  const { value: layoutJson, set: setLayoutJson } = useAppState<IJsonModel>("layouts", "main", DEFAULT_LAYOUT, {
+    version: 2,
+    migrateFrom: {
+      localStorageKey: "layout",
+    },
+  });
   const [model, setModel] = useState<Model>(() => Model.fromJson(layoutJson));
   const layoutRef = useRef<React.ComponentRef<typeof Layout> | null>(null);
 

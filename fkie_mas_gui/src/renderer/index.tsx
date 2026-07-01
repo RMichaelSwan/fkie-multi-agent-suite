@@ -4,6 +4,9 @@ import "react-app-polyfill/stable";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import ProviderStack from "./ProviderStack";
+import { LoadingScreen } from "./components/loading/LoadingScreen";
+import { PersistenceGate } from "./components/loading/PersistenceGate";
+import { AppStateProvider } from "./context/AppStateContext";
 import CliArgsProvider from "./context/CliArgsContext";
 import { SettingsProvider } from "./context/SettingsContext";
 
@@ -13,9 +16,13 @@ if (container) {
   root.render(
     <CliArgsProvider>
       <SettingsProvider>
-        <ProviderStack>
-          <App />
-        </ProviderStack>
+        <AppStateProvider>
+          <ProviderStack>
+            <PersistenceGate fallback={<LoadingScreen message="Loading settings..." />}>
+              <App />
+            </PersistenceGate>
+          </ProviderStack>
+        </AppStateProvider>
       </SettingsProvider>
     </CliArgsProvider>
   );

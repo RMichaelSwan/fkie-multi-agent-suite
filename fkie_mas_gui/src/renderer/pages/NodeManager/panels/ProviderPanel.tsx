@@ -28,8 +28,8 @@ import ConfirmModal from "@/renderer/components/SelectionModal/ConfirmModal";
 import { DraggablePaper } from "@/renderer/components/UI";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useCliArgs } from "@/renderer/hooks/useCliArgs";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
@@ -77,8 +77,12 @@ export default function ProviderPanel(): JSX.Element {
   const [filterText, setFilterText] = useState("");
   const [backgroundColor] = useSetting<string>("backgroundColor");
   const [buttonLocation] = useSetting<string>("buttonLocation");
-  const [startConfigurations] = useLocalStorage<TProviderLaunchParams[]>("Provider:startConfigurations", [], {
+
+  const { value: startConfigurations } = useAppState<TProviderLaunchParams[]>("provider", "configurations", [], {
     version: 1,
+    migrateFrom: {
+      localStorageKey: "Provider:startConfigurations",
+    },
     migrate: (oldValue, oldVersion) => {
       if (oldVersion === undefined) {
         return oldValue as TProviderLaunchParams[];
@@ -86,11 +90,18 @@ export default function ProviderPanel(): JSX.Element {
       return [];
     },
   });
+
   const [showStartConfigurations, setShowStartConfigurations] = useState<ProviderLaunchConfiguration[]>([]);
-  const [openHintDialog, setOpenHintDialog] = useLocalStorage<boolean>(
-    "Provider:openHintDialog-start-configs",
+  const { value: openHintDialog, set: setOpenHintDialog } = useAppState<boolean>(
+    "provider",
+    "show-hint-empty-configs",
     startConfigurations.length === 0,
-    { version: 1 }
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "Provider:openHintDialog-start-configs",
+      },
+    }
   );
 
   const addButtonRef = useRef<HTMLInputElement>(null);

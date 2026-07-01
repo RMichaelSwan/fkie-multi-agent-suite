@@ -11,7 +11,6 @@ import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosNode, RosNodeStatus, RosParameter } from "@/renderer/models";
 import { Provider } from "@/renderer/providers";
 import { EventProviderRosNodes } from "@/renderer/providers/events";
@@ -33,7 +32,6 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
   const { nodes, providers } = props;
   const rosCtx = useRosContext();
   const logCtx = useLoggingContext();
-  const settingsCtx = useSettingsContext();
 
   const [rootData, setRootData] = useState<TRootData[]>([]);
   const [forceReload, setForceReload] = useReducer((x) => x + 1, 0);

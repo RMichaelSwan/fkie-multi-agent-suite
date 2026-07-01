@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import useLocalStorage from "../useLocalStorage";
+import { useAppState } from "../useAppState";
 import { useSetting } from "../useSetting";
 
 export function useEditorLayout() {
@@ -18,10 +18,12 @@ export function useEditorLayout() {
 
   const toolbarRef = useRef<HTMLDivElement>();
   const alertRef = useRef<HTMLDivElement>();
-  const [savedSideBarUserWidth, setSavedSideBarUserWidth] = useLocalStorage<number>(
-    "Editor:sideBarWidth",
-    fontSize * 20
-  );
+  const { value: savedSideBarUserWidth, set: setSavedSideBarUserWidth } = useAppState<number>("editor", "sidebar-width", fontSize * 20, {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "Editor:sideBarWidth",
+    },
+  });
 
   useEffect(() => {
     setSideBarMinSize(fontSize * 2 + 2);

@@ -1,11 +1,40 @@
 import { JSONObject, JSONValue } from "@/types";
-import React, { createContext, useMemo, useReducer } from "react";
+import { IDBPDatabase } from "idb";
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import {
+  AppDBSchema,
+  dbDelete,
+  dbDeleteMany,
+  dbGet,
+  dbGetAll,
+  dbPut,
+  dbPutMany,
+  identityTransformer,
+  initDB,
+  ITransformer,
+  requestPersistentStorage,
+  STORE,
+  StoreRecord,
+} from "@/renderer/db/appDB";
+import {
+  broadcast,
+  createBroadcastChannel,
+  DebounceManager,
+  defaultMigrationParser,
+  exportFromStore,
+  ImportResult,
+  importToStore,
+} from "@/renderer/db/persistanceCore";
 import URI from "@/renderer/models/uris";
 import CliArgs from "../assets/cliArgs.json";
 
+/* ======================== Constants =========================== */
+
 export const SETTINGS_VERSION = 1;
+const BROADCAST_NAME = "settings-sync";
+
+/* ======================== Settings Definitions =========================== */
 
 export const getDefaultPortFromRos: (
   connectionType: string,
@@ -18,25 +47,13 @@ export const getDefaultPortFromRos: (
   }
   let uriShift = 0;
   if (rosVersion === "1" && ros1MasterUri && ros1MasterUri !== "default") {
-    // shift port if ROS_MASTER_URI has not a default port
     uriShift = (Number.parseInt(ros1MasterUri.split(":").slice(-1)[0]) - 11311) * 101;
   }
   return rosVersion === "2" ? 35430 + domainId : 35685 + uriShift + domainId;
 };
 
-export interface ISettingsContext {
-  MIN_VERSION_DAEMON: string;
-  changed: number;
-  get: (attribute: string) => JSONValue | undefined;
-  getDefault: (attribute: string) => JSONValue | undefined;
-  set: (attribute: string, value: JSONValue, settingsCtx?: ISettingsContext) => void;
-  getParamList: () => { name: string; param: ISettingsParam }[];
-}
-
 export const LOG_LEVEL_LIST = ["DEBUG", "INFO", "SUCCESS", "WARN", "ERROR"];
-
 export const BUTTON_LOCATIONS = { LEFT: "LEFT", RIGHT: "RIGHT" };
-
 export const LAUNCH_FILE_EXTENSIONS = [".launch", "launch.xml", "launch.py", "launch.yaml", "launch.yml"];
 
 export interface ISettingsParam {
@@ -51,21 +68,21 @@ export interface ISettingsParam {
   group?: string;
   min?: number;
   max?: number;
-  cb?: (get: (attribute: string) => JSONValue | undefined, set: (attribute: string, value: JSONValue) => void) => void;
+  cb?: (get: (attr: string) => JSONValue | undefined, set: (attr: string, val: JSONValue) => void) => void;
   validate?: (value: JSONValue) => JSONValue;
   isValid?: (value: JSONValue) => boolean;
 }
 
-export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
+export const SETTINGS_DEF: Record<string, ISettingsParam> = {
   useDarkMode: {
     label: "Dark mode",
     default: false,
     type: "boolean",
     description: "",
-    cb: (get: (attribute: string) => JSONValue | undefined, set: (attribute: string, value: JSONValue) => void) => {
-      const newValue = get("useDarkMode");
-      set("color", newValue ? "#B8E7FB" : "#1a73e8");
-      set("backgroundColor", newValue ? "#424242" : "#fafafa");
+    cb: (get, set) => {
+      const v = get("useDarkMode");
+      set("color", v ? "#B8E7FB" : "#1a73e8");
+      set("backgroundColor", v ? "#424242" : "#fafafa");
     },
     group: "Appearance",
   },
@@ -91,18 +108,13 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     description: "",
     group: "Appearance",
   },
-  checkForUpdates: {
-    label: "Check for updates on start",
-    default: true,
-    type: "boolean",
-    description: "",
-  },
+  checkForUpdates: { label: "Check for updates on start", default: true, type: "boolean", description: "" },
   fontSizeTerminal: {
     label: "Font size in terminal",
     type: "number",
     default: 14,
     min: 2,
-    description: "This font size only affects the terminal tab (e.g. for screen and log)",
+    description: "Only affects the terminal tab.",
     group: "Appearance",
   },
   fontSize: {
@@ -110,55 +122,40 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     type: "number",
     default: 14,
     min: 2,
-    description: "Global font size except in the terminal",
+    description: "Global font size except terminal.",
     group: "Appearance",
   },
   resetLayout: {
     label: "Reset layout",
     type: "button",
     default: false,
-    description: "Restores default sizes and positions of the tabs and main window",
+    description: "Restores default layout.",
     group: "Appearance",
   },
   rosVersion: {
     label: "Default ROS version",
-    default: CliArgs["ros-version"].default ? CliArgs["ros-version"].default : "2",
+    default: CliArgs["ros-version"].default || "2",
     type: "string",
     options: ["1", "2"],
     readOnly: false,
     description:
       "Standard ROS version used to start remote daemon and discovery nodes. Only if automatic detection has failed.",
   },
-  // guiLogLevel: {
-  //   label: "Log Level",
-  //   type: "string[]",
-  //   default: ["INFO", "SUCCESS", "WARN", "ERROR"],
-  //   options: LOG_LEVEL_LIST,
-  //   description: "Messages that are displayed on the console. This has no effect on the output in the ‘Logging’ tab.",
-  //   group: "Logging",
-  // },
   debugByUri: {
     label: "Interface URIs",
     type: "string[]",
     default: [URI.ROS_PROVIDER_GET_LIST, URI.ROS_DAEMON_READY, URI.ROS_DISCOVERY_READY],
     options: Object.values(URI).sort(),
-    description:
-      "When communicating with the MAS daemon, the messages from the listed URIs are output as debug messages.",
+    description: "URIs output as debug messages.",
     group: "Logging",
   },
-  logPrintToConsole: {
-    label: "Print to console",
-    default: true,
-    type: "boolean",
-    description: "Prints the log output to the console",
-    group: "Logging",
-  },
+  logPrintToConsole: { label: "Print to console", default: true, type: "boolean", description: "", group: "Logging" },
   openScreenByDefault: {
     label: "Open screen by default",
     default: false,
     type: "boolean",
     description:
-      "If true, double-clicking on a running node opens a screen terminal. Otherwise, the log file is opened. You can reverse the behavior by pressing the Shift key.",
+      "Double-click behavior on running nodes. If true, double-clicking on a running node opens a screen terminal. Otherwise, the log file is opened. You can reverse the behavior by pressing the Shift key.",
     group: "Logging",
   },
   capabilityGroupParameter: {
@@ -167,13 +164,8 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     type: "string",
     default: "capability_group",
     description:
-      "ROS1 parameter that specifies the group of the node. If the ROS node does not have this parameter it use a global one or group according to the namespace.",
-    validate: (value: JSONValue) => {
-      if ((value as string).startsWith("/")) {
-        return (value as string).substring(1);
-      }
-      return value;
-    },
+      "ROS1 parameter for node grouping. If the ROS node does not have this parameter it use a global one or group according to the namespace.",
+    validate: (v) => ((v as string).startsWith("/") ? (v as string).substring(1) : v),
   },
   launchHistoryLength: {
     label: "Launch History Length",
@@ -181,7 +173,7 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     default: 5,
     min: 0,
     max: 15,
-    description: "Number of recently loaded files displayed in the Package Explorer tab.",
+    description: "Recently loaded files count.",
   },
   logCommand: {
     label: "Log command prefix",
@@ -196,35 +188,13 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     ],
     group: "Logging",
   },
-  color: {
-    label: "Color",
-    type: "none",
-    default: "#1a73e8",
-  },
-  backgroundColor: {
-    label: "Color",
-    type: "none",
-    default: "#fafafa",
-  },
-  timeDiffThreshold: {
-    label: "Time Diff Threshold [ms]",
-    type: "numberX",
-    default: 500,
-    min: 0,
-  },
-  namespaceSystemNodes: {
-    label: "Namespace for system nodes",
-    type: "none",
-    default: "/{SYSTEM}",
-  },
-  tooltipEnterDelay: {
-    label: "The number of milliseconds to wait before showing the tooltip.",
-    type: "number",
-    default: 500,
-    group: "Appearance",
-  },
+  color: { label: "Color", type: "none", default: "#1a73e8" },
+  backgroundColor: { label: "Color", type: "none", default: "#fafafa" },
+  timeDiffThreshold: { label: "Time Diff Threshold [ms]", type: "numberX", default: 500, min: 0 },
+  namespaceSystemNodes: { label: "Namespace for system nodes", type: "none", default: "/{SYSTEM}" },
+  tooltipEnterDelay: { label: "Tooltip enter delay (ms)", type: "number", default: 500, group: "Appearance" },
   actionOnChangeLaunch: {
-    label: "Action on loaded launch file change detection",
+    label: "Action on launch file change",
     type: "string",
     default: "ASK",
     options: ["ASK", "DISMISS", "RELOAD"],
@@ -238,7 +208,7 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     description: "",
   },
   editorOpenLocation: {
-    label: "Location to open editor tab",
+    label: "Editor tab location",
     type: "string",
     default: "CENTER",
     options: ["BORDER_TOP", "CENTER", "BORDER_BOTTOM"],
@@ -246,7 +216,7 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     group: "Window behavior",
   },
   nodeLoggerOpenLocation: {
-    label: "Location to open log level tab",
+    label: "Log level tab location",
     type: "string",
     default: "BORDER_RIGHT",
     options: ["BORDER_RIGHT", "CENTER", "BORDER_BOTTOM"],
@@ -254,7 +224,7 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     group: "Window behavior",
   },
   nodeParamOpenLocation: {
-    label: "Location to open node parameter tab",
+    label: "Node parameter tab location",
     type: "string",
     default: "BORDER_RIGHT",
     options: ["BORDER_RIGHT", "CENTER", "BORDER_BOTTOM"],
@@ -262,7 +232,7 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     group: "Window behavior",
   },
   publisherOpenLocation: {
-    label: "Location to open topic publisher tab",
+    label: "Publisher tab location",
     type: "string",
     default: "BORDER_RIGHT",
     options: ["BORDER_RIGHT", "BORDER_LEFT", "CENTER", "BORDER_BOTTOM"],
@@ -270,27 +240,17 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     group: "Window behavior",
   },
   subscriberOpenLocation: {
-    label: "Location to open topic subscriber tab",
+    label: "Subscriber tab location",
     type: "string",
     default: "BORDER_RIGHT",
     options: ["BORDER_RIGHT", "BORDER_LEFT", "CENTER", "BORDER_BOTTOM"],
     description: "",
     group: "Window behavior",
   },
-  avoidGroupWithOneItem: {
-    label: "Avoid groups with one item",
-    default: true,
-    type: "boolean",
-    description: "Do not create a collapsible group with an element in it. Use name with namespace instead.",
-  },
-  tabFullName: {
-    label: "Show tab names with namespace",
-    default: true,
-    type: "boolean",
-    description: "",
-  },
+  avoidGroupWithOneItem: { label: "Avoid groups with one item", default: true, type: "boolean", description: "" },
+  tabFullName: { label: "Show tab names with namespace", default: true, type: "boolean", description: "" },
   showLaunchFileIndicatorForNodes: {
-    label: "Show the launchfile indicator for nodes",
+    label: "Show launchfile indicator",
     default: true,
     type: "boolean",
     description: "",
@@ -305,32 +265,35 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
       ".*_impl_,/*_ros2cli,/mas/*,/_mas_*,ttyd*",
       ".*_impl_,/*_ros2cli,/mas/*,/_mas_*,ttyd*,zenoh-daemon",
     ],
-    description: "Nodes to be placed in a {SPAM} group.",
-    isValid: (value: JSONValue) => {
-      const splits: string[] = ((value as string) || "").split(",");
-      for (const item of splits) {
-        try {
-          new RegExp(`/(${item})/`);
-        } catch (error) {
-          console.log(`error while test: ${JSON.stringify(error)}`);
-          return false;
+    description: "Nodes placed in {SPAM} group.",
+    isValid: (value) => {
+      try {
+        const splits: string[] = ((value as string) || "").split(",");
+        for (const item of splits) {
+          try {
+            new RegExp(`/(${item})/`);
+          } catch (error) {
+            console.log(`error while test: ${JSON.stringify(error)}`);
+            return false;
+          }
         }
-      }
-      return true;
-    },
-    validate: (value: JSONValue) => {
-      const splits: string[] = ((value as string) || "").split(",");
-      const validEntries = splits.filter((item) => {
-        try {
-          new RegExp(`/(${item})/`);
-          return true;
-        } catch (error) {
-          console.log(`error while test: ${JSON.stringify(error)}`);
-        }
+        return true;
+      } catch {
         return false;
-      });
-      return validEntries.join(",");
+      }
     },
+    validate: (v) =>
+      ((v as string) || "")
+        .split(",")
+        .filter((i) => {
+          try {
+            new RegExp(`/(${i})/`);
+            return true;
+          } catch {
+            return false;
+          }
+        })
+        .join(","),
   },
   ntpServer: {
     label: "NTP Server",
@@ -340,42 +303,42 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
     options: ["ntp.ubuntu.com"],
   },
   editorOpenExternal: {
-    label: "Open editor in external window by default",
+    label: "Open editor externally",
     default: false,
     type: window.commandExecutor ? "boolean" : "none",
     description: "",
     group: "Window behavior",
   },
   logOpenExternal: {
-    label: "Open logs in external window by default",
+    label: "Open logs externally",
     default: false,
     type: window.commandExecutor ? "boolean" : "none",
     description: "",
     group: "Window behavior",
   },
   screenOpenExternal: {
-    label: "Open screen in external window by default",
+    label: "Open screen externally",
     default: false,
     type: window.commandExecutor ? "boolean" : "none",
     description: "",
     group: "Window behavior",
   },
   publisherOpenExternal: {
-    label: "Open publisher in external window by default",
+    label: "Open publisher externally",
     default: false,
     type: window.commandExecutor ? "boolean" : "none",
     description: "",
     group: "Window behavior",
   },
   subscriberOpenExternal: {
-    label: "Open subscriber in external window by default",
+    label: "Open subscriber externally",
     default: false,
     type: window.commandExecutor ? "boolean" : "none",
     description: "",
     group: "Window behavior",
   },
   showParameterType: {
-    label: "Show parameter types in parameter panel",
+    label: "Show parameter types",
     default: true,
     type: "boolean",
     description: "",
@@ -383,194 +346,412 @@ export const SETTINGS_DEF: { [id: string]: ISettingsParam } = {
   },
 };
 
-interface ISettingProvider {
-  children: React.ReactNode;
+/* ======================== Context Interface =========================== */
+
+export interface ISettingsContext {
+  MIN_VERSION_DAEMON: string;
+  changed: number;
+  isReady: boolean;
+  get: (key: string) => JSONValue | undefined;
+  getDefault: (key: string) => JSONValue | undefined;
+  set: (key: string, value: JSONValue) => void;
+  setDebounced: (key: string, value: JSONValue, delayMs?: number) => void;
+  resetToDefault: (key: string) => void;
+  resetAll: () => Promise<void>;
+  getParamList: () => { name: string; param: ISettingsParam }[];
+  exportSettings: () => Promise<string>;
+  importSettings: (json: string) => Promise<ImportResult>;
 }
 
-export const SettingsContext = createContext<ISettingsContext | null>(null);
-
-export function SettingsProvider({ children }: ISettingProvider): ReturnType<React.FC<ISettingProvider>> {
-  const MIN_VERSION_DAEMON = "5.7.2";
-  const [changed, forceUpdate] = useReducer((x) => x + 1, 0);
-  const [config, setConfig] = useLocalStorage<JSONObject, JSONObject>(
-    "SettingsContext:config",
-    {},
-    {
-      version: SETTINGS_VERSION,
-      migrate: migrateSettings,
-    }
-  );
-
-  function get(attribute: string): JSONValue | undefined {
-    if (attribute in config) {
-      return config[attribute];
-    }
-    if (attribute in SETTINGS_DEF) {
-      return SETTINGS_DEF[attribute]?.default;
-    }
-    throw new Error(`Configuration attribute ${attribute} not found!`);
-  }
-
-  function getDefault(attribute: string): JSONValue | undefined {
-    if (attribute in SETTINGS_DEF) {
-      return SETTINGS_DEF[attribute]?.default;
-    }
-    throw new Error(`Configuration attribute ${attribute} not found!`);
-  }
-
-  function set(attribute: string, value: JSONValue): void {
-    if (!SETTINGS_DEF[attribute]) {
-      throw new Error(`Configuration attribute ${attribute} while set() not found!`);
-    }
-
-    // Create a new object instead of mutating
-    const newConfig = { ...config, [attribute]: value };
-
-    // Collect all changes from callbacks before writing
-    if (SETTINGS_DEF[attribute].cb) {
-      SETTINGS_DEF[attribute].cb?.(
-        // get reads from newConfig
-        (attr: string) => (attr in newConfig ? newConfig[attr] : SETTINGS_DEF[attr]?.default),
-        // set writes into newConfig (no recursion into localStorage)
-        (attr: string, val: JSONValue) => {
-          newConfig[attr] = val;
-        }
-      );
-    }
-
-    // Remove values that equal the default (keep localStorage clean)
-    for (const [key, val] of Object.entries(newConfig)) {
-      if (SETTINGS_DEF[key] && JSON.stringify(val) === JSON.stringify(SETTINGS_DEF[key].default)) {
-        delete newConfig[key];
-      }
-    }
-
-    // Single write to localStorage
-    setConfig(newConfig);
-    forceUpdate();
-  }
-
-  function getParamList(): { name: string; param: ISettingsParam }[] {
-    const params: { name: string; param: ISettingsParam }[] = [];
-    for (const key of Object.keys(SETTINGS_DEF)) {
-      params.push({ name: key, param: SETTINGS_DEF[key] });
-    }
-    return params;
-  }
-
-  const attributesMemo = useMemo(
-    () => ({
-      MIN_VERSION_DAEMON,
-      changed,
-      get,
-      getDefault,
-      set,
-      getParamList,
-    }),
-    [changed]
-  );
-
-  return <SettingsContext.Provider value={attributesMemo}>{children}</SettingsContext.Provider>;
-}
+/* ======================== Validation =========================== */
 
 function validateValue(value: JSONValue, def: ISettingsParam): JSONValue | undefined {
-  // Type validation
   switch (def.type) {
     case "number":
     case "numberX": {
-      const num = Number(value);
-      if (Number.isNaN(num)) return undefined;
-      if (def.min !== undefined && num < def.min) return undefined;
-      if (def.max !== undefined && num > def.max) return undefined;
-      return num;
+      const n = Number(value);
+      if (Number.isNaN(n)) return undefined;
+      if (def.min !== undefined && n < def.min) return undefined;
+      if (def.max !== undefined && n > def.max) return undefined;
+      return n;
     }
-    case "boolean": {
+    case "boolean":
       if (typeof value === "boolean") return value;
       if (value === "true") return true;
       if (value === "false") return false;
       return undefined;
-    }
-    case "string": {
+    case "string":
       if (typeof value !== "string") return undefined;
-      // Check if value is included in options (when options are defined and not freeSolo)
-      if (def.options && !def.freeSolo) {
-        const options = def.options as JSONValue[];
-        if (!options.includes(value)) return undefined;
-      }
+      if (def.options && !def.freeSolo && !(def.options as JSONValue[]).includes(value)) return undefined;
       break;
-    }
-    case "string[]": {
-      if (!Array.isArray(value)) return undefined;
-      if (!value.every((v) => typeof v === "string")) return undefined;
+    case "string[]":
+      if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) return undefined;
       break;
-    }
     case "none":
-    case "button": {
-      // Invisible / non-editable fields: accept the value as is
-      break;
-    }
-    default:
+    case "button":
       break;
   }
 
-  // Apply custom validate function from SETTINGS_DEF
-  let resultValue = value;
-  if (def.validate) {
-    resultValue = def.validate(value);
-  }
-
-  // Custom isValid check
-  if (def.isValid && !def.isValid(resultValue)) {
-    return undefined;
-  }
-
-  return resultValue;
+  let result = value;
+  if (def.validate) result = def.validate(value);
+  if (def.isValid && !def.isValid(result)) return undefined;
+  return result;
 }
 
-function migrateSettings(oldValue: JSONObject, _oldVersion: number | string | undefined): JSONObject | undefined {
-  const migrated: JSONObject = {};
+function isDefault(key: string, value: JSONValue): boolean {
+  return JSON.stringify(value) === JSON.stringify(SETTINGS_DEF[key]?.default);
+}
 
-  // Version-specific migrations
-  // if (oldVersion === undefined || oldVersion === 1) {
-  //   // Example: a setting was renamed
-  //   if ("oldSettingName" in data) {
-  //     data["newSettingName"] = data["oldSettingName"];
-  //     delete data["oldSettingName"];
-  //   }
-  // }
+/* ======================== Provider =========================== */
 
-  // Always validate
-  // Iterate over all stored keys
-  for (const [key, value] of Object.entries(oldValue)) {
-    // Key no longer exists in SETTINGS_DEF → discard
-    if (!(key in SETTINGS_DEF)) {
-      continue;
-    }
+export const SettingsContext = createContext<ISettingsContext | null>(null);
 
-    const def = SETTINGS_DEF[key];
+interface Props {
+  children: React.ReactNode;
+  transformer?: ITransformer;
+}
 
-    // null/undefined → discard (default will apply)
-    if (value === null || value === undefined) {
-      continue;
-    }
+export function SettingsProvider({ children, transformer }: Props): React.ReactElement {
+  const MIN_VERSION_DAEMON = "5.7.2";
+  const tx = transformer ?? identityTransformer;
+  const txRef = useRef(tx);
+  txRef.current = tx;
 
-    // Validate value
-    const validated = validateValue(value, def);
+  const [config, setConfig] = useState<JSONObject>({});
+  const [isReady, setIsReady] = useState(false);
+  const [changed, setChanged] = useState(0);
+  const forceUpdate = useCallback(() => setChanged((c) => c + 1), []);
 
-    // Invalid → do not keep (default will apply)
-    if (validated === undefined) {
-      console.warn(`[SettingsContext] Discarding invalid value for "${key}":`, value, "→ using default:", def.default);
-      continue;
-    }
+  const dbRef = useRef<IDBPDatabase<AppDBSchema> | null>(null);
+  const debouncer = useRef(new DebounceManager());
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
-    // Value equals the default → do not store (saves space, default will apply)
-    if (JSON.stringify(validated) === JSON.stringify(def.default)) {
-      continue;
-    }
-    migrated[key] = validated;
+  /* ================ Broadcast ================ */
+
+  useEffect(() => {
+    const ch = createBroadcastChannel(BROADCAST_NAME, (msg) => {
+      if (msg.store !== STORE.SETTINGS) return;
+      if (msg.type === "changed" && msg.snapshot) {
+        setConfig(msg.snapshot as JSONObject);
+        forceUpdate();
+      } else if (msg.type === "cleared") {
+        setConfig({});
+        forceUpdate();
+      }
+    });
+    channelRef.current = ch;
+    return () => {
+      ch.close();
+      channelRef.current = null;
+    };
+  }, [forceUpdate]);
+
+  function notify(snapshot: JSONObject): void {
+    broadcast(channelRef.current, { type: "changed", store: STORE.SETTINGS, snapshot });
   }
 
-  return migrated;
+  /* ================ Init ================ */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      await requestPersistentStorage();
+      const db = await initDB();
+      if (cancelled) return;
+      dbRef.current = db;
+
+      // Auto-migrate localStorage
+      const meta = await dbGet(db, STORE.SETTINGS, "__meta:migrated");
+      if (!meta) {
+        const rawEntry = window.localStorage.getItem("SettingsContext:config");
+        if (rawEntry) {
+          const parsed = defaultMigrationParser(rawEntry);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            const bulk = parsed as JSONObject;
+            const records: StoreRecord[] = [];
+            for (const [k, v] of Object.entries(bulk)) {
+              if (!(k in SETTINGS_DEF) || v === null || v === undefined) continue;
+              const validated = validateValue(v, SETTINGS_DEF[k]);
+              if (validated === undefined || isDefault(k, validated)) continue;
+              records.push({ key: k, value: validated, version: SETTINGS_VERSION, updatedAt: Date.now() });
+            }
+            if (records.length > 0) await dbPutMany(db, STORE.SETTINGS, records, txRef.current);
+            window.localStorage.removeItem("SettingsContext:config");
+          }
+        }
+        await dbPut(db, STORE.SETTINGS, { key: "__meta:migrated", value: Date.now(), updatedAt: Date.now() });
+      }
+
+      // Load into memory
+      const all = await dbGetAll(db, STORE.SETTINGS, txRef.current);
+      const loaded: JSONObject = {};
+      for (const rec of all) {
+        if (rec.key.startsWith("__meta:")) continue;
+        if (!(rec.key in SETTINGS_DEF)) continue;
+        loaded[rec.key] = rec.value;
+      }
+
+      if (!cancelled) {
+        setConfig(loaded);
+        setIsReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ================ Persist helpers ================ */
+
+  async function persist(newConfig: JSONObject, changedKeys: string[]): Promise<void> {
+    const db = dbRef.current;
+    if (!db || changedKeys.length === 0) return;
+
+    const toPut: StoreRecord[] = [];
+    const toDelete: string[] = [];
+
+    for (const key of changedKeys) {
+      if (key in newConfig) {
+        toPut.push({ key, value: newConfig[key], version: SETTINGS_VERSION, updatedAt: Date.now() });
+      } else {
+        toDelete.push(key);
+      }
+    }
+
+    if (toPut.length > 0) await dbPutMany(db, STORE.SETTINGS, toPut, txRef.current);
+    if (toDelete.length > 0) await dbDeleteMany(db, STORE.SETTINGS, toDelete);
+  }
+
+  function computeChanges(prev: JSONObject, next: JSONObject): string[] {
+    const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+    const changed: string[] = [];
+    for (const k of keys) {
+      if (JSON.stringify(prev[k]) !== JSON.stringify(next[k])) changed.push(k);
+    }
+    return changed;
+  }
+
+  /* ================ Public API ================ */
+
+  const get = useCallback(
+    (key: string): JSONValue | undefined => {
+      if (key in config) return config[key];
+      if (key in SETTINGS_DEF) return SETTINGS_DEF[key].default;
+      throw new Error(`Setting "${key}" not found.`);
+    },
+    [config]
+  );
+
+  const getDefault = useCallback((key: string): JSONValue | undefined => {
+    if (key in SETTINGS_DEF) return SETTINGS_DEF[key].default;
+    throw new Error(`Setting "${key}" not found.`);
+  }, []);
+
+  const set = useCallback(
+    (key: string, value: JSONValue): void => {
+      if (!SETTINGS_DEF[key]) throw new Error(`Setting "${key}" not found.`);
+
+      const next: JSONObject = { ...config, [key]: value };
+
+      // Run side-effect callbacks
+      SETTINGS_DEF[key].cb?.(
+        (attr) => (attr in next ? next[attr] : SETTINGS_DEF[attr]?.default),
+        (attr, val) => {
+          next[attr] = val;
+        }
+      );
+
+      // Remove defaults
+      for (const [k, v] of Object.entries(next)) {
+        if (SETTINGS_DEF[k] && isDefault(k, v)) delete next[k];
+      }
+
+      const changed = computeChanges(config, next);
+      setConfig(next);
+      forceUpdate();
+      void persist(next, changed);
+      notify(next);
+    },
+    [config, forceUpdate]
+  );
+
+  const setDebounced = useCallback(
+    (key: string, value: JSONValue, delayMs = 300): void => {
+      if (!SETTINGS_DEF[key]) throw new Error(`Setting "${key}" not found.`);
+
+      setConfig((prev) => {
+        const next = { ...prev, [key]: value };
+        if (isDefault(key, value)) delete next[key];
+        notify(next);
+        return next;
+      });
+      forceUpdate();
+
+      debouncer.current.schedule(
+        key,
+        () => {
+          const db = dbRef.current;
+          if (!db) return;
+          if (isDefault(key, value)) {
+            void dbDelete(db, STORE.SETTINGS, key);
+          } else {
+            void dbPut(
+              db,
+              STORE.SETTINGS,
+              { key, value, version: SETTINGS_VERSION, updatedAt: Date.now() },
+              txRef.current
+            );
+          }
+        },
+        delayMs
+      );
+    },
+    [forceUpdate]
+  );
+
+  const resetToDefault = useCallback(
+    (key: string): void => {
+      if (!SETTINGS_DEF[key]) throw new Error(`Setting "${key}" not found.`);
+
+      const next = { ...config };
+      delete next[key];
+
+      // Run callback with default
+      SETTINGS_DEF[key].cb?.(
+        (attr) => (attr in next ? next[attr] : SETTINGS_DEF[attr]?.default),
+        (attr, val) => {
+          if (!isDefault(attr, val)) next[attr] = val;
+          else delete next[attr];
+        }
+      );
+
+      const changed = computeChanges(config, next);
+      setConfig(next);
+      forceUpdate();
+      void persist(next, changed);
+      notify(next);
+    },
+    [config, forceUpdate]
+  );
+
+  const resetAll = useCallback(async (): Promise<void> => {
+    if (dbRef.current) {
+      // Keep meta keys
+      const all = await dbGetAll(dbRef.current, STORE.SETTINGS);
+      const toDelete = all.filter((r) => !r.key.startsWith("__meta:")).map((r) => r.key);
+      if (toDelete.length > 0) await dbDeleteMany(dbRef.current, STORE.SETTINGS, toDelete);
+    }
+    setConfig({});
+    forceUpdate();
+    broadcast(channelRef.current, { type: "cleared", store: STORE.SETTINGS });
+  }, [forceUpdate]);
+
+  const exportSettings = useCallback(async (): Promise<string> => {
+    if (!dbRef.current)
+      return JSON.stringify(
+        {
+          _meta: {
+            type: "settings",
+            version: SETTINGS_VERSION,
+            exportedAt: new Date().toISOString(),
+            appVersion: window.APP_VERSION ?? "unknown",
+          },
+          data: config,
+        },
+        null,
+        2
+      );
+    return exportFromStore(
+      dbRef.current,
+      STORE.SETTINGS,
+      SETTINGS_VERSION,
+      txRef.current,
+      (r) => !r.key.startsWith("__meta:")
+    );
+  }, [config]);
+
+  const importSettings = useCallback(
+    async (json: string): Promise<ImportResult> => {
+      if (!dbRef.current) throw new Error("DB not ready");
+
+      const result = await importToStore(dbRef.current, STORE.SETTINGS, json, {
+        replace: true,
+        version: SETTINGS_VERSION,
+        transformer: txRef.current,
+        validate: (key, value) => {
+          if (!(key in SETTINGS_DEF)) return undefined;
+          const validated = validateValue(value, SETTINGS_DEF[key]);
+          if (validated === undefined || isDefault(key, validated)) return undefined;
+          return validated;
+        },
+      });
+
+      // Reload
+      const all = await dbGetAll(dbRef.current, STORE.SETTINGS, txRef.current);
+      const loaded: JSONObject = {};
+      for (const rec of all) {
+        if (rec.key.startsWith("__meta:")) continue;
+        if (!(rec.key in SETTINGS_DEF)) continue;
+        loaded[rec.key] = rec.value;
+      }
+      setConfig(loaded);
+      forceUpdate();
+      notify(loaded);
+
+      return result;
+    },
+    [forceUpdate]
+  );
+
+  const getParamList = useCallback(
+    () => Object.keys(SETTINGS_DEF).map((name) => ({ name, param: SETTINGS_DEF[name] })),
+    []
+  );
+
+  /* ================ Memo ================ */
+
+  const ctx = useMemo<ISettingsContext>(
+    () => ({
+      MIN_VERSION_DAEMON,
+      changed,
+      isReady,
+      get,
+      getDefault,
+      set,
+      setDebounced,
+      resetToDefault,
+      resetAll,
+      getParamList,
+      exportSettings,
+      importSettings,
+    }),
+    [
+      changed,
+      isReady,
+      get,
+      getDefault,
+      set,
+      setDebounced,
+      resetToDefault,
+      resetAll,
+      getParamList,
+      exportSettings,
+      importSettings,
+    ]
+  );
+
+  /* ================ Cleanup ================ */
+
+  useEffect(
+    () => () => {
+      debouncer.current.flush();
+    },
+    []
+  );
+
+  return <SettingsContext.Provider value={ctx}>{children}</SettingsContext.Provider>;
 }
 
 export default SettingsProvider;

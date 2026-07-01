@@ -1,8 +1,8 @@
 import { DBSchema, IDBPDatabase, openDB } from "idb";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { TRosMessageStruct } from "@/types";
+import { useAppState } from "../hooks/useAppState";
 
 /* ======================== Types =========================== */
 
@@ -59,7 +59,12 @@ export const MsgHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [db, setDb] = useState<IDBPDatabase<MsgHistoryDB> | null>(null);
   const [historyByType, setHistoryByType] = useState<Record<string, TMsgHistoryEntry[]>>({});
 
-  const [maxEntries, setMaxEntriesState] = useLocalStorage<number>("MessageHistory:maxEntries", DEFAULT_MAX);
+  const { value: maxEntries, set: setMaxEntriesState } = useAppState<number>(
+    "message-history",
+    "max-entries",
+    DEFAULT_MAX,
+    { version: 1, migrateFrom: { localStorageKey: "MessageHistory:maxEntries" } }
+  );
 
   // Track which messageTypes are already hydrated from IndexedDB
   const loadedTypes = useRef<Set<string>>(new Set());

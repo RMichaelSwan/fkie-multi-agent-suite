@@ -17,7 +17,7 @@ import { TableVirtuoso } from "react-virtuoso";
 
 import { levelColors } from "@/renderer/components/UI/Colors";
 import SearchBar from "@/renderer/components/UI/SearchBar";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { LogEvent, LoggingLevel } from "@/renderer/models";
@@ -56,7 +56,17 @@ function exportLogs(logs: LogEvent[]): void {
 export default function LoggingPanel(): JSX.Element {
   const logCtx = useLoggingContext();
   const [backgroundColor] = useSetting<string>("backgroundColor");
-  const [logLevel, setLogLevel] = useLocalStorage<LoggingLevel>("LoggingPanel:level", LoggingLevel.INFO);
+  const { value: logLevel, set: setLogLevel } = useAppState<LoggingLevel>(
+    "logging",
+    "level",
+    LoggingLevel.INFO,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "LoggingPanel:level",
+      },
+    }
+  );
   const [showDetails, setShowDetails] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedIndex, setExpandedIndex] = useState(-1);

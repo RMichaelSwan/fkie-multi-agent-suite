@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { HTMLAttributes, useCallback, useEffect, useState } from "react";
 
+import { useAppState } from "@/renderer/hooks/useAppState";
 import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
@@ -50,7 +51,23 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
   const [open, setOpen] = useState(false);
   const [selectedLaunch, setSelectedLaunch] = useState<LaunchLoadReply | null>(null);
   const [messageLaunchLoaded, setMessageLaunchLoaded] = useState("");
-  const [argHistory, setArgHistory] = useLocalStorage<{ [key: string]: string[] }>("history:loadLaunchArgs", {});
+  const { value: argHistory, set: setArgHistory } = useAppState<{ [key: string]: string[] }>(
+    "packages",
+    "args-history",
+    {},
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "history:loadLaunchArgs",
+      },
+      migrate: (oldValue, oldVersion) => {
+        if (oldVersion === undefined) {
+          return oldValue as { [key: string]: string[] };
+        }
+        return {};
+      },
+    }
+  );
   const [lastOpenPath, setLastOpenPath] = useLocalStorage("lastOpenPath", "");
   const [currentArgs, setCurrentArgs] = useState<LaunchArgumentWithHistory[]>([]);
   const [scrollBar, setScrollBar] = useState<string>("auto");
@@ -170,7 +187,11 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
 
         if (result.status.code === "ERROR" || result.status.code === "CONNECTION_ERROR") {
           setMessageLaunchLoaded(result.status.msg || "");
-          logCtx.error(`Error on load "${getFileName(path)}"`, `Error message: ${result.status.msg}`, result.status.msg);
+          logCtx.error(
+            `Error on load "${getFileName(path)}"`,
+            `Error message: ${result.status.msg}`,
+            result.status.msg
+          );
           return;
         }
 
@@ -409,7 +430,7 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
             )}
             <Stack>
               {currentArgs.map((arg) => {
-                const optionsTmp = new Set([...arg.choices || [], ...arg.history]);
+                const optionsTmp = new Set([...(arg.choices || []), ...arg.history]);
                 const options = Array.from(optionsTmp).filter((value) => value);
                 return (
                   <Stack key={`stack-launch-load-${arg.name}`} direction="row">

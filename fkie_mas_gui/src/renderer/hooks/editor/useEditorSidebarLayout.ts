@@ -1,6 +1,6 @@
 import { RefObject, useEffect, useRef, useState } from "react";
 
-import useLocalStorage from "../useLocalStorage";
+import { useAppState } from "../useAppState";
 import { useSetting } from "../useSetting";
 
 interface UseEditorSidebarProps {
@@ -17,10 +17,18 @@ export function useEditorSidebarLayout(props: UseEditorSidebarProps) {
 
   const [panelSize, setPanelSize] = useState<DOMRect>();
   const [fontSize] = useSetting<number>("fontSize");
-  const [savedExplorerBarHight, setSavedExplorerBarHight] = useLocalStorage<number>(
-    "Editor:explorerBarHight",
-    fontSize * 20
+  const { value: savedExplorerBarHight, set: setSavedExplorerBarHight } = useAppState<number>(
+    "editor",
+    "explorer-bar-height",
+    fontSize * 20,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "Editor:explorerBarHight",
+      },
+    }
   );
+
   const [panelHeight, setPanelHeight] = useState<number>(panelSize?.height || fontSize * 2);
   const [explorerBarMinSize, setExplorerBarMinSize] = useState<number>(fontSize * 2);
   const [explorerBarHeight, _setExplorerBarHeight] = useState<number>(fontSize * 2);

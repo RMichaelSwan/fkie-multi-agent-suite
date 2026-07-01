@@ -978,7 +978,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
 
   const connect = useCallback(
     (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean) => {
-      console.log(`connect to: ${configParams.domainId}`);
       const provider = new Provider(
         logCtxRef,
         settingsCtxRef,

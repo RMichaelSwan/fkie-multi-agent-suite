@@ -6,7 +6,7 @@ import * as FlexLayout from "flexlayout-react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
@@ -134,11 +134,15 @@ export default function useDomainFlexLayout(options: DomainFlexLayoutOptions): D
 
   const defaultLayout = useMemo(() => createDefaultLayoutJson(contentId), [createDefaultLayoutJson, contentId]);
 
-  const [layoutJson, setLayoutJson] = useLocalStorage<FlexLayout.IJsonModel>(
+  const { value: layoutJson, set: setLayoutJson } = useAppState<FlexLayout.IJsonModel>(
+    "layouts",
     `${storageKey}-${contentToId(contentId)}`,
     defaultLayout,
     {
       version: 1,
+      migrateFrom: {
+        localStorageKey: `${storageKey}-${contentToId(contentId)}`,
+      },
     }
   );
 

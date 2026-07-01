@@ -15,7 +15,6 @@ import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
-import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import {
   LifecycleState,
   RosNode,
@@ -51,7 +50,6 @@ function compareTopics(a: RosTopicId | RosTopic, b: RosTopicId | RosTopic): numb
 
 export default function DetailsPanel(): JSX.Element {
   const rosCtx = useRosContext();
-  const settingsCtx = useSettingsContext();
   const navCtx = useNavigationContext();
 
   const [indexOfSelected, setIndexOfSelected] = useState<number>(0);

@@ -1,18 +1,36 @@
-import { ISettingsContext, SettingsContext } from "@/renderer/context/SettingsContext";
-import { JSONValue } from "@/types";
 import { useCallback, useContext } from "react";
 
-export function useSetting<T extends JSONValue>(key: string): [T, (value: T) => void] {
-  const settingsCtx = useContext(SettingsContext) as ISettingsContext;
+import { ISettingsContext, SettingsContext } from "@/renderer/context/SettingsContext";
+import { JSONValue } from "@/types";
 
-  const value = settingsCtx.get(key) as T;
+export interface UseSettingOptions {
+  debounce?: boolean;
+  debounceMs?: number;
+}
+
+/**
+ * Typed access to a single setting.
+ * Returns [value, setValue, resetToDefault].
+ */
+export function useSetting<T extends JSONValue>(
+  key: string,
+  options?: UseSettingOptions
+): [T, (value: T) => void, () => void] {
+  const ctx = useContext(SettingsContext) as ISettingsContext;
+  const value = ctx.get(key) as T;
 
   const setValue = useCallback(
-    (newValue: T) => {
-      settingsCtx.set(key, newValue);
+    (v: T) => {
+      if (options?.debounce) {
+        ctx.setDebounced(key, v, options.debounceMs);
+      } else {
+        ctx.set(key, v);
+      }
     },
-    [settingsCtx, key]
+    [ctx, key, options?.debounce, options?.debounceMs]
   );
 
-  return [value, setValue];
+  const reset = useCallback(() => ctx.resetToDefault(key), [ctx, key]);
+
+  return [value, setValue, reset];
 }
