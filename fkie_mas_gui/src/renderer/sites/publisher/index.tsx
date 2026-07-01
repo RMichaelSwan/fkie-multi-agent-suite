@@ -3,7 +3,9 @@ import "react-app-polyfill/ie11";
 import "react-app-polyfill/stable";
 // imports
 import ProviderStack from "@/renderer/ProviderStack";
-import { MsgHistoryProvider } from "@/renderer/context/MsgHistoryContext";
+import { LoadingScreen } from "@/renderer/components/loading/LoadingScreen";
+import { PersistenceGate } from "@/renderer/components/loading/PersistenceGate";
+import { AppStateProvider } from "@/renderer/context/AppStateContext";
 import { SettingsProvider } from "@/renderer/context/SettingsContext";
 import { createRoot } from "react-dom/client";
 import PublisherApp from "./App";
@@ -13,11 +15,13 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <SettingsProvider>
-      <ProviderStack>
-        <MsgHistoryProvider>
-          <PublisherApp />
-        </MsgHistoryProvider>
-      </ProviderStack>
+      <AppStateProvider>
+        <ProviderStack>
+          <PersistenceGate fallback={<LoadingScreen message="Loading settings..." />}>
+            <PublisherApp />
+          </PersistenceGate>
+        </ProviderStack>
+      </AppStateProvider>
     </SettingsProvider>
   );
 }

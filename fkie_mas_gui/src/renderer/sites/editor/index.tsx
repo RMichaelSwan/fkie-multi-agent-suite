@@ -3,6 +3,9 @@ import "react-app-polyfill/ie11";
 import "react-app-polyfill/stable";
 // imports
 import ProviderStack from "@/renderer/ProviderStack";
+import { LoadingScreen } from "@/renderer/components/loading/LoadingScreen";
+import { PersistenceGate } from "@/renderer/components/loading/PersistenceGate";
+import AppStateProvider from "@/renderer/context/AppStateContext";
 import { MonacoProvider } from "@/renderer/context/MonacoContext";
 import { MonacoInitProvider } from "@/renderer/context/MonacoInitContext";
 import { SettingsProvider } from "@/renderer/context/SettingsContext";
@@ -14,13 +17,17 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <SettingsProvider>
-      <ProviderStack>
-        <MonacoProvider>
-          <MonacoInitProvider>
-            <EditorApp />
-          </MonacoInitProvider>
-        </MonacoProvider>
-      </ProviderStack>
+      <AppStateProvider>
+        <ProviderStack>
+          <PersistenceGate fallback={<LoadingScreen message="Loading settings..." />}>
+            <MonacoProvider>
+              <MonacoInitProvider>
+                <EditorApp />
+              </MonacoInitProvider>
+            </MonacoProvider>
+          </PersistenceGate>
+        </ProviderStack>
+      </AppStateProvider>
     </SettingsProvider>
   );
 }

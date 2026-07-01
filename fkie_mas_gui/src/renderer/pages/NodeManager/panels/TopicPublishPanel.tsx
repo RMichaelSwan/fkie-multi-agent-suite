@@ -30,9 +30,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import ProviderSelector from "@/renderer/components/UI/ProviderSelector";
 import SearchBar from "@/renderer/components/UI/SearchBar";
-import { DB_MAX_MSGS, TMsgHistoryEntry, useMsgHistory } from "@/renderer/context/MsgHistoryContext";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
+import { DB_MAX_MSGS, TMsgHistoryEntry, useMsgHistory } from "@/renderer/hooks/useMsgHistory";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { LaunchPublishMessage, rosMessageStructToString, RosQos, TRosMessageStruct } from "@/renderer/models";
@@ -40,13 +39,6 @@ import { qosFromJson } from "@/renderer/models/RosQos";
 import { Provider } from "@/renderer/providers";
 import { JSONObject } from "@/types";
 import InputElements from "./MessageDialogPanel/InputElements";
-
-type THistoryItem = {
-  id: number;
-  rate: string;
-  skw: boolean;
-  msg: TRosMessageStruct;
-};
 
 interface TopicPublishPanelProps {
   topicName?: string;
@@ -56,13 +48,18 @@ interface TopicPublishPanelProps {
 
 export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.Element {
   const { topicName = undefined, topicType = undefined, providerId = undefined } = props;
-  const [oldHistory, setOldHistory] = useLocalStorage<{ [msg: string]: THistoryItem[] }>("MessageStruct:history", {});
   const logCtx = useLoggingContext();
   const rosCtx = useRosContext();
-  const historyCtx = useMsgHistory();
-  const [maxHistoryLength, setMaxHistoryLength] = useState(0);
-  const { historyByType, setMaxEntries, ensureLoaded } = useMsgHistory();
-  const [history, setHistory] = useState<TMsgHistoryEntry[]>([]);
+  const [currentMessageType, setCurrentMessageType] = useState<string>(topicType || "unknown");
+  const {
+    entries: history,
+    addEntry,
+    updateMeta,
+    deleteEntry,
+    deleteNonFavorites,
+    maxEntries: maxHistoryLength,
+    setMaxEntries: setMaxHistoryLength,
+  } = useMsgHistory(currentMessageType);
   const [substituteKeywords, setSubstituteKeywords] = useState(true);
   const [editTopicName, setEditTopicName] = useState<boolean>(false);
   const [editMessageType, setEditMessageType] = useState<boolean>(false);
@@ -71,7 +68,6 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
   const [messageTypeOptions, setMessageTypeOptions] = useState<string[]>([]);
   const [currentTopicName, setCurrentTopicName] = useState<string>(topicName || "unknown");
   const [currentProviderId, setCurrentProviderId] = useState<string>(providerId || "");
-  const [currentMessageType, setCurrentMessageType] = useState<string>(topicType || "unknown");
   const [searchTerm, setSearchTerm] = useState("");
   const [messageStruct, setMessageStruct] = useState<TRosMessageStruct>();
   const [messageStructOrg, setMessageStructOrg] = useState<TRosMessageStruct>();
@@ -89,25 +85,9 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
   const [backgroundColor] = useSetting<string>("backgroundColor");
 
-  // migrate old history
   useEffect(() => {
-    if (!oldHistory) return;
-    const historyList = oldHistory[currentMessageType];
-    if (!historyList) return;
-    for (const item of historyList) {
-      historyCtx?.addEntry({
-        messageType: currentMessageType,
-        name: "",
-        favorite: false,
-        rate: item.rate,
-        skw: item.skw,
-        data: item.msg,
-        createdAt: Date.now(),
-      });
-    }
-    delete oldHistory[currentMessageType];
-    setOldHistory(oldHistory);
-  }, [oldHistory]);
+    if (history.length === 0) setHistoryEditMode(false);
+  }, [history]);
 
   useEffect(() => {
     if (currentProviderId) {
@@ -121,28 +101,10 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
   }, [currentProviderId]);
 
   useEffect(() => {
-    if (!historyCtx) return;
-    setMaxHistoryLength(historyCtx.maxEntries);
-  }, [historyCtx]);
-
-  useEffect(() => {
-    if (historyByType[currentMessageType]?.length === 0) setHistoryEditMode(false);
-    setHistory(historyByType[currentMessageType] || []);
-  }, [historyByType[currentMessageType]]);
-
-  useEffect(() => {
     if (!provider) return;
     updateTopicNameOptions();
     getAvailableMessageTypes();
   }, [provider]);
-
-  useEffect(() => {
-    setMaxEntries(maxHistoryLength);
-  }, [maxHistoryLength]);
-
-  useEffect(() => {
-    ensureLoaded(currentMessageType);
-  }, [currentMessageType]);
 
   // Make a request to provider and get known message types
   const getAvailableMessageTypes = useCallback(async (): Promise<void> => {
@@ -172,7 +134,7 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
   const updateHistory = useCallback(async () => {
     if (!messageStruct) return;
 
-    await historyCtx?.addEntry({
+    addEntry({
       messageType: currentMessageType,
       name: "",
       favorite: false,
@@ -181,7 +143,7 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
       data: messageStruct,
       createdAt: Date.now(),
     });
-  }, [messageStruct, publishRate, substituteKeywords, currentMessageType, historyCtx]);
+  }, [messageStruct, publishRate, substituteKeywords, currentMessageType, addEntry]);
 
   // create string from message struct and copy it to clipboard
   const onCopyToClipboard = useCallback((): void => {
@@ -444,7 +406,7 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
           <IconButton
             key={`history-edit-star-${entry.id}`}
             onClick={(event) => {
-              historyCtx?.updateEntryMeta(currentMessageType, entry.id, { favorite: !entry.favorite });
+              updateMeta(entry.id, { favorite: !entry.favorite });
               event.stopPropagation();
             }}
             size="small"
@@ -459,7 +421,7 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
           defaultValue={entry.name || entry.id}
           onBlur={(event) => {
             if (event.target.value && event.target.value !== entry.name) {
-              historyCtx?.updateEntryMeta(currentMessageType, entry.id, { name: event.target.value });
+              updateMeta(entry.id, { name: event.target.value });
             }
           }}
         />
@@ -467,7 +429,7 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
           color="error"
           key={`history-edit-delete-${entry.id}`}
           onClick={(event) => {
-            historyCtx?.deleteEntry(currentMessageType, entry.id);
+            deleteEntry(entry.id);
             event.stopPropagation();
           }}
           size="small"
@@ -671,11 +633,7 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
                       <IconButton
                         color="error"
                         onClick={(event) => {
-                          for (const entry of history) {
-                            if (!entry.favorite) {
-                              historyCtx?.deleteEntry(currentMessageType, entry.id);
-                            }
-                          }
+                          deleteNonFavorites();
                           event.stopPropagation();
                         }}
                         size="small"
