@@ -11,8 +11,8 @@ export type TMsgHistoryEntry = {
   id: number;
   name: string;
   favorite: boolean;
-  rate: string;
-  skw: boolean;
+  rate?: string;
+  skw?: boolean;
   data: TRosMessageStruct;
   createdAt: number;
 };

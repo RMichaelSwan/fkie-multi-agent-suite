@@ -1,7 +1,7 @@
 import { Autocomplete, FormLabel, Stack, TextField } from "@mui/material";
 import { useEffect, useState } from "react";
 
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useMsgHistory } from "@/renderer/hooks/useMsgHistory";
 import { TRosMessageStruct } from "@/renderer/models";
 
 interface StringInputProps {
@@ -13,7 +13,7 @@ interface StringInputProps {
 export default function StringInput(props: StringInputProps): JSX.Element {
   const { id, messageStruct, filterText = "" } = props;
 
-  const [historyStruct, setHistoryStruct] = useLocalStorage("MessageStruct:history", {});
+  const { entries: historyStruct } = useMsgHistory(messageStruct.type);
   const [history, setHistory] = useState<string[]>([]);
   const [value, setValue] = useState<string>(messageStruct?.value ? (messageStruct.value as string) : "");
   const [isVisible, setVisible] = useState<string>("");
@@ -38,7 +38,7 @@ export default function StringInput(props: StringInputProps): JSX.Element {
       }
       setHistory(history);
       historyStruct[id] = history;
-      setHistoryStruct(historyStruct);
+      // setHistoryStruct(historyStruct);
     }
   }
   // get item history after the history was loaded

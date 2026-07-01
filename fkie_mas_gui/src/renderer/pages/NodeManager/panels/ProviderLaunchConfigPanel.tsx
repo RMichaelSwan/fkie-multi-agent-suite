@@ -31,7 +31,6 @@ import { HTMLAttributes, useCallback, useEffect, useMemo, useReducer, useRef, us
 import { CopyButton } from "@/renderer/components/UI";
 import { useAppState } from "@/renderer/hooks/useAppState";
 import { useCliArgs } from "@/renderer/hooks/useCliArgs";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
@@ -155,13 +154,28 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const [inputMasterUri, setInputMasterUri] = useState(
     launchCfg?.params.ros1MasterUri.uri ? launchCfg?.params.ros1MasterUri.uri : "default"
   );
-  const [optionsMasterUri, setOptionsMasterUri] = useLocalStorage("ConnectToProviderModal:optionsMasterUri", [
-    "http://{HOST}:11311",
-  ]);
+  const { value: optionsMasterUri, set: setOptionsMasterUri } = useAppState<string[]>(
+    "hosts",
+    "option-masteruri",
+    ["http://{HOST}:11311"],
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "ConnectToProviderModal:optionsMasterUri",
+      },
+    }
+  );
 
-  const [startCmdInfoExpanded, setStartCmdInfoExpanded] = useLocalStorage(
-    "ConnectToProviderModal:startCmdInfoExpanded",
-    true
+  const { value: startCmdInfoExpanded, set: setStartCmdInfoExpanded } = useAppState<boolean>(
+    "hosts",
+    "option-expand-cmd-info",
+    true,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "ConnectToProviderModal:startCmdInfoExpanded",
+      },
+    }
   );
 
   useEffect(() => {

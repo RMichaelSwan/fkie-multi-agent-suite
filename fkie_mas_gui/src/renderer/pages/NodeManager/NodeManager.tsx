@@ -48,15 +48,19 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from "rea
 import { useCustomEventListener } from "react-custom-events";
 
 // import ExternalAppsModal from "@/renderer/components/ExternalAppsModal/ExternalAppsModal";
+import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
 import PasswordDialog from "@/renderer/components/PasswordModal/PasswordDialog";
 import ProviderSelectionModal from "@/renderer/components/SelectionModal/ProviderSelectionModal";
 import { getInfoStateColor } from "@/renderer/components/UI/Colors";
 import DraggablePaper from "@/renderer/components/UI/DraggablePaper";
 import { useAutoUpdateContext } from "@/renderer/context/AutoUpdateContext";
 import { ElectronContext } from "@/renderer/context/ElectronContext";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
+import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
+import { useSetting } from "@/renderer/hooks/useSetting";
 import { getBaseName, getFileName } from "@/renderer/models";
 import { SaveResult } from "@/renderer/monaco/types";
 import { isEditorEditorId } from "@/renderer/monaco/utils";
@@ -79,22 +83,17 @@ import {
   TEventOpenComponent,
   TEventSelectTab,
 } from "./layout/events";
+import { pAddTabStickyButton } from "./layout/helpers";
+import { LAYOUT_DOMAIN_TAB_SET, LAYOUT_NO_RUNNING_DAEMONS } from "./layout/LayoutJson";
 import { contentToId, TContentId, TExtTerminalConfig, TLayoutTabConfig } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
 import AboutPanel from "./panels/AboutPanel";
 import DetailsPanel from "./panels/DetailsPanel";
-import HostTreeViewPanel from "./panels/HostTreeViewPanel";
-import LoggingPanel from "./panels/LoggingPanel";
-// import OverflowMenuNodeDetails from "./panels/OverflowMenuNodeDetails";
-import { DomainFlexLayout } from "@/renderer/components/layout/DomainFlexLayout";
-import { useAppState } from "@/renderer/hooks/useAppState";
-import { useMonacoContext } from "@/renderer/hooks/useMonacoContext";
-import { useSetting } from "@/renderer/hooks/useSetting";
-import { pAddTabStickyButton } from "./layout/helpers";
-import { LAYOUT_DOMAIN_TAB_SET, LAYOUT_NO_RUNNING_DAEMONS } from "./layout/LayoutJson";
 import ExternalAppsPanel from "./panels/ExternalAppsPanel";
 import FileEditorPanel from "./panels/FileEditorPanel";
+import HostTreeViewPanel from "./panels/HostTreeViewPanel";
 import InfoNoRunningDaemons from "./panels/InfoNoRunningDaemons";
+import LoggingPanel from "./panels/LoggingPanel";
 import NodeLoggerPanel from "./panels/NodeLoggerPanel";
 import PackageExplorerPanel from "./panels/PackageExplorerPanel";
 import ParameterPanel from "./panels/ParameterPanel";

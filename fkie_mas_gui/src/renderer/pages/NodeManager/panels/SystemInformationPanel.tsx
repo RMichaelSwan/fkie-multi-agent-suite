@@ -6,7 +6,7 @@ import JsonView from "react18-json-view";
 import CopyButton from "@/renderer/components/UI/CopyButton";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import Tag from "@/renderer/components/UI/Tag";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
@@ -29,7 +29,18 @@ export default function SystemInformationPanel(props: SystemInformationPanelProp
   const navCtx = useNavigationContext();
   const rosCtx = useRosContext();
 
-  const [showProviderDetails, setShowProviderDetails] = useLocalStorage("DetailsPanel:showProviderDetails", true);
+  const { value: showProviderDetails, set: setShowProviderDetails } = useAppState<boolean>(
+    "details-panel",
+    "show-provider",
+    true,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "DetailsPanel:showProviderDetails",
+      },
+    }
+  );
+
   const [systemInfoContent, setSystemInfoContent] = useState<TSystemInfo | null>(null);
   const [provider, setProvider] = useState<Provider | undefined>();
   const [providerDetails, setProviderDetails] = useState<JSONObject | TSystemInfo | null>(null);

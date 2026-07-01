@@ -18,7 +18,6 @@ import {
 import { HTMLAttributes, useCallback, useEffect, useState } from "react";
 
 import { useAppState } from "@/renderer/hooks/useAppState";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { getFileName, LaunchArgument, LaunchLoadReply, LaunchLoadRequest, PathItem } from "@/renderer/models";
@@ -68,7 +67,12 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
       },
     }
   );
-  const [lastOpenPath, setLastOpenPath] = useLocalStorage("lastOpenPath", "");
+  const { value: lastOpenPath, set: setLastOpenPath } = useAppState<string>("packages", "last-open-path", "", {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "lastOpenPath",
+    },
+  });
   const [currentArgs, setCurrentArgs] = useState<LaunchArgumentWithHistory[]>([]);
   const [scrollBar, setScrollBar] = useState<string>("auto");
   const [lastKey, setLastKey] = useState<string>("");

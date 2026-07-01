@@ -123,8 +123,8 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
   const fromHistory = useCallback(
     (entry: TMsgHistoryEntry) => {
       const { rate, skw, data } = entry;
-      setPublishRate(rate);
-      setSubstituteKeywords(skw);
+      setPublishRate(rate ?? "1");
+      setSubstituteKeywords(skw ?? true);
       setMessageStruct(structuredClone(data));
     },
     [setPublishRate, setSubstituteKeywords, setMessageStruct]

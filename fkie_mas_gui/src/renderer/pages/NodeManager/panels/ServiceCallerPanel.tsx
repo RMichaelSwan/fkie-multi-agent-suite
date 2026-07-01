@@ -1,5 +1,9 @@
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
-import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import EditNoteIcon from "@mui/icons-material/EditNote";
+import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
+import StarIcon from "@mui/icons-material/Star";
+import StarOutlineIcon from "@mui/icons-material/StarOutline";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
 import {
   Alert,
@@ -11,17 +15,18 @@ import {
   Divider,
   FormLabel,
   IconButton,
+  Slider,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useDebounceCallback } from "@react-hook/debounce";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import JsonView from "react18-json-view";
 
 import SearchBar from "@/renderer/components/UI/SearchBar";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
+import { DB_MAX_MSGS, TMsgHistoryEntry, useMsgHistory } from "@/renderer/hooks/useMsgHistory";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { LaunchCallService, rosMessageStructToString, TRosMessageStruct } from "@/renderer/models";
@@ -38,14 +43,22 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
   const { serviceName, serviceType, providerId } = props;
 
   const logCtx = useLoggingContext();
-  const [history, setHistory] = useLocalStorage("ServiceStruct:history", {});
-  const [historyLength, setHistoryLength] = useState(0);
+  const {
+    entries: history,
+    addEntry,
+    updateMeta,
+    deleteEntry,
+    deleteNonFavorites,
+    maxEntries: maxHistoryLength,
+    setMaxEntries: setMaxHistoryLength,
+  } = useMsgHistory(serviceType);
   const rosCtx = useRosContext();
   const [searchTerm, setSearchTerm] = useState("");
   const [serviceStruct, setServiceStruct] = useState<TRosMessageStruct>();
   const [serviceStructOrg, setServiceStructOrg] = useState<TRosMessageStruct>();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [inputElements, setInputElements] = useState<React.ReactNode | null>(null);
+  const [historyEditMode, setHistoryEditMode] = useState<boolean>(false);
 
   const [callServiceDescription, setCallServiceDescription] = useState("");
   const [callServiceIsSubmitting, setCallServiceIsSubmitting] = useState(false);
@@ -57,48 +70,30 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
   const [backgroundColor] = useSetting<string>("backgroundColor");
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
-  // get item history after the history was loaded
-  const fromHistory = useDebounceCallback((index) => {
-    const historyInStruct = history[serviceType];
-    if (historyInStruct) {
-      const historyItem = index && index < historyInStruct.length ? historyInStruct[index] : historyInStruct[0];
-      setServiceStruct(JSON.parse(JSON.stringify(historyItem.msg)));
-    }
-  }, 100);
+  useEffect(() => {
+    if (history.length === 0) setHistoryEditMode(false);
+  }, [history]);
 
   // get item history after the history was loaded
-  const updateHistory = useCallback(() => {
+  const fromHistory = useCallback(
+    (entry: TMsgHistoryEntry) => {
+      setServiceStruct(structuredClone(entry.data));
+    },
+    [setServiceStruct]
+  );
+
+  // add new item to the history
+  const updateHistory = useCallback(async () => {
     if (!serviceStruct) return;
-    let historyInStruct = history[serviceType];
-    let hasType = true;
-    if (!historyInStruct) {
-      hasType = false;
-      historyInStruct = [];
-    }
-    historyInStruct.unshift({
-      msg: serviceStruct,
+
+    addEntry({
+      messageType: serviceType,
+      name: "",
+      favorite: false,
+      data: serviceStruct,
+      createdAt: Date.now(),
     });
-    if (historyInStruct.length > 5) {
-      historyInStruct.pop();
-    }
-    if (historyInStruct.length > 0) {
-      history[serviceType] = historyInStruct;
-    } else if (hasType) {
-      delete history[serviceType];
-    }
-    setHistory(history);
-  }, [serviceStruct, history, setHistory]);
-
-  // get item history after the history was loaded
-  const clearHistory = useCallback(() => {
-    if (!serviceStruct) return;
-    const historyInStruct = history[serviceType];
-    if (historyInStruct && historyInStruct.length > 0) {
-      historyInStruct.pop();
-      setHistory(history);
-      setHistoryLength(historyInStruct.length);
-    }
-  }, [history, serviceStruct]);
+  }, [serviceStruct, serviceType, addEntry]);
 
   // create string from message struct and copy it to clipboard
   const onCopyToClipboard = useCallback(() => {
@@ -155,14 +150,9 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
 
     // store struct to history if new message
     const messageStr = rosMessageStructToString(serviceStruct, false, false);
-    const historyInStruct = history[serviceType];
-    if (messageStr !== "{}" && (!historyInStruct || historyInStruct?.length === 0)) {
-      updateHistory();
-    } else if (historyInStruct) {
-      if (
-        historyInStruct.length === 0 ||
-        messageStr !== rosMessageStructToString(historyInStruct[0].msg, false, false)
-      ) {
+    if (messageStr !== "{}") {
+      const exists = history.some((item) => rosMessageStructToString(item.data, false, false) === messageStr);
+      if (!exists) {
         updateHistory();
       }
     }
@@ -202,17 +192,6 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
 
   useEffect(() => {
     if (!serviceType) return;
-    if (!history) return;
-    const historyInStruct = history[serviceType];
-    if (historyInStruct) {
-      setHistoryLength(historyInStruct.length);
-    } else {
-      setHistoryLength(0);
-    }
-  }, [history, serviceType]);
-
-  useEffect(() => {
-    if (!serviceType) return;
     if (!serviceStruct) return;
     onUpdateInputElements(searchTerm);
     if ((serviceStruct.def || []).length === 0) {
@@ -231,30 +210,73 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
   }, [searchTerm]);
 
   // create input mask for an element of the array
-  function createHistoryButton(index): JSX.Element {
+  function createHistoryButton(entry: TMsgHistoryEntry): JSX.Element {
     return (
-      <Button
-        key={`history-button-${index}`}
-        onClick={(event) => {
-          fromHistory(index);
-          event.stopPropagation();
-        }}
-        startIcon={<StorageOutlinedIcon />}
-        size="small"
-      >
-        {index + 1}
-      </Button>
+      <Tooltip key={`history-button-${entry.id}`} title={`${entry.name}`} placement="bottom" disableInteractive>
+        <Button
+          onClick={(event) => {
+            fromHistory(entry);
+            event.stopPropagation();
+          }}
+          startIcon={<StorageOutlinedIcon />}
+          size="small"
+        >
+          {entry.id}
+        </Button>
+      </Tooltip>
+    );
+  }
+
+  // create edit mask for an element of the history array
+  function createHistoryEditItem(entry: TMsgHistoryEntry): JSX.Element {
+    return (
+      <Stack key={`history-edit-item-${entry.id}`} direction="row" spacing="0.5em">
+        <Tooltip title="favorite entries are not automatically deleted" placement="bottom" disableInteractive>
+          <IconButton
+            key={`history-edit-star-${entry.id}`}
+            onClick={(event) => {
+              updateMeta(entry.id, { favorite: !entry.favorite });
+              event.stopPropagation();
+            }}
+            size="small"
+          >
+            {entry.favorite ? <StarIcon sx={{ color: "yellow" }} /> : <StarOutlineIcon />}
+          </IconButton>
+        </Tooltip>
+        <TextField
+          key={`history-edit-name-${entry.id}`}
+          variant="standard"
+          size="small"
+          defaultValue={entry.name || entry.id}
+          onBlur={(event) => {
+            if (event.target.value && event.target.value !== entry.name) {
+              updateMeta(entry.id, { name: event.target.value });
+            }
+          }}
+        />
+        <IconButton
+          color="error"
+          key={`history-edit-delete-${entry.id}`}
+          onClick={(event) => {
+            deleteEntry(entry.id);
+            event.stopPropagation();
+          }}
+          size="small"
+        >
+          <RemoveCircleOutlineIcon />
+        </IconButton>
+      </Stack>
     );
   }
 
   const getHostStyle = useCallback(
     function getHostStyle(): object {
-      const providerId = provider?.id;
-      if (providerId && colorizeHosts) {
+      const provId = provider?.id;
+      if (provId && colorizeHosts) {
         return {
           flexGrow: 1,
           borderTopStyle: "solid",
-          borderTopColor: rosCtx.providerColor(providerId),
+          borderTopColor: rosCtx.providerColor(provId),
           borderTopWidth: "0.3em",
           backgroundColor: backgroundColor,
         };
@@ -275,10 +297,10 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
         collapseObjectsAfterLength={3}
         displaySize={"collapsed"}
         collapsed={(params: {
-          node: Record<string, unknown> | Array<unknown>; // Object or array
+          node: Record<string, unknown> | Array<unknown>;
           indexOrName: number | string | undefined;
           depth: number;
-          size: number; // Object's size or array's length
+          size: number;
         }) => {
           if (params.indexOrName === undefined) return false;
           if (Array.isArray(params.node) && params.node.length === 0) return true;
@@ -295,12 +317,7 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
           <Stack direction="row" spacing={1}>
             <SearchBar
               onSearch={(value) => {
-                try {
-                  // const re = new RegExp(value, "i");
-                  setSearchTerm(value);
-                } catch {
-                  // TODO: visualize error
-                }
+                setSearchTerm(value);
               }}
               placeholder="Filter Fields"
               defaultValue={searchTerm}
@@ -316,41 +333,59 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
           </Typography>
         </Stack>
         <Stack direction="row" spacing={2} display="flex" alignItems="center">
-          {historyLength > 0 && (
+          {history.length > 0 && (
             <Stack direction="column" spacing={1} alignItems="left">
               <FormLabel sx={{ fontSize: "0.8em", lineHeight: "1em" }}>call history</FormLabel>
               <ButtonGroup sx={{ maxHeight: "24px" }}>
-                {historyLength > 0 && (
-                  <Tooltip title="reset values" enterDelay={500} disableInteractive>
-                    <Button
-                      color="success"
-                      onClick={(event) => {
-                        setServiceStruct(serviceStructOrg);
-                        event.stopPropagation();
-                      }}
-                      startIcon={<StorageOutlinedIcon />}
-                      size="small"
-                    >
-                      x
-                    </Button>
-                  </Tooltip>
-                )}
-                {historyLength > 0 &&
-                  Array.from(Array(historyLength).keys()).map((index) => createHistoryButton(index))}
-                {historyLength > 0 && (
-                  <Tooltip title="remove oldest history entry" enterDelay={500} disableInteractive>
-                    <Button
-                      color="error"
-                      onClick={(event) => {
-                        clearHistory();
-                        event.stopPropagation();
-                      }}
-                      startIcon={<DeleteOutlineOutlinedIcon />}
-                      size="small"
-                    />
-                  </Tooltip>
-                )}
+                <Tooltip title="edit history" enterDelay={500}>
+                  <Button
+                    color="success"
+                    onClick={(event) => {
+                      setServiceStruct(serviceStructOrg);
+                      setHistoryEditMode((prev) => !prev);
+                      event.stopPropagation();
+                    }}
+                    size="small"
+                  >
+                    <EditNoteIcon />
+                  </Button>
+                </Tooltip>
+                {history.map((entry) => createHistoryButton(entry))}
               </ButtonGroup>
+              {historyEditMode && (
+                <Stack direction="column" alignContent="start">
+                  <Stack direction="row" alignContent="start">
+                    <Slider
+                      aria-label="Temperature"
+                      value={maxHistoryLength}
+                      valueLabelFormat={(index) => `max history length: ${index}`}
+                      valueLabelDisplay="auto"
+                      shiftStep={1}
+                      step={1}
+                      marks
+                      min={1}
+                      max={DB_MAX_MSGS}
+                      onChange={(_event: Event, newValue: number) => {
+                        setMaxHistoryLength(newValue);
+                      }}
+                      sx={{ maxWidth: "80%", marginRight: "1.5em" }}
+                    />
+                    <Tooltip title="Remove all non-favorite entries" enterDelay={500}>
+                      <IconButton
+                        color="error"
+                        onClick={(event) => {
+                          deleteNonFavorites();
+                          event.stopPropagation();
+                        }}
+                        size="small"
+                      >
+                        <DeleteForeverIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                  {history.map((entry) => createHistoryEditItem(entry))}
+                </Stack>
+              )}
             </Stack>
           )}
         </Stack>
@@ -391,18 +426,6 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
           )}
         </Box>
         <Divider />
-        {serviceStruct && (
-          <Stack direction="row" spacing={2}>
-            {/* <FormLabel>Message:</FormLabel>
-              <Input
-                defaultValue={createPublishString(messageStruct, false, true)}
-                readOnly
-                size="small"
-                disabled
-                fullWidth
-              /> */}
-          </Stack>
-        )}
         {inputElements}
         ---
         {!serviceStruct && (

@@ -11,7 +11,7 @@ import { default as TopicDetailsItem } from "@/renderer/components/NodeDetails/T
 import { getDiagnosticStyle } from "@/renderer/components/UI/Colors";
 import CopyButton from "@/renderer/components/UI/CopyButton";
 import Tag from "@/renderer/components/UI/Tag";
-import useLocalStorage from "@/renderer/hooks/useLocalStorage";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
@@ -60,16 +60,64 @@ export default function DetailsPanel(): JSX.Element {
   const [updateServices, forceUpdateServices] = useReducer((x) => x + 1, 0);
   const [updateTopics, forceUpdateTopics] = useReducer((x) => x + 1, 0);
 
-  const [showDiagnosticHistory, setShowDiagnosticHistory] = useLocalStorage(
-    "DetailsPanel:showDiagnosticHistory",
-    false
+  const { value: showDiagnosticHistory, set: setShowDiagnosticHistory } = useAppState<boolean>(
+    "details",
+    "show-diagnostic-history",
+    false,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "DetailsPanel:showDiagnosticHistory",
+      },
+    }
   );
-  const [showNodeInfo, setShowNodeInfo] = useLocalStorage("DetailsPanel:showNodeInfo", true);
-  const [showPublishers, setShowPublishers] = useLocalStorage("DetailsPanel:showPublishers", true);
-  const [showSubscribers, setShowSubscribers] = useLocalStorage("DetailsPanel:showSubscribers", true);
-  const [showServices, setShowServices] = useLocalStorage("DetailsPanel:showServices", true);
-  const [showConnections] = useLocalStorage("DetailsPanel:showConnections", true);
-  const [showLaunchParameter, setShowLaunchParameter] = useLocalStorage("DetailsPanel:showLaunchParameter", true);
+  const { value: showNodeInfo, set: setShowNodeInfo } = useAppState<boolean>("details", "show-node-info", true, {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "DetailsPanel:showNodeInfo",
+    },
+  });
+  const { value: showPublishers, set: setShowPublishers } = useAppState<boolean>("details", "show-publishers", true, {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "DetailsPanel:showPublishers",
+    },
+  });
+
+  const { value: showSubscribers, set: setShowSubscribers } = useAppState<boolean>(
+    "details",
+    "show-subscribers",
+    true,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "DetailsPanel:showSubscribers",
+      },
+    }
+  );
+  const { value: showServices, set: setShowServices } = useAppState<boolean>("details", "show-services", true, {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "DetailsPanel:showServices",
+    },
+  });
+  const { value: showConnections } = useAppState<boolean>("details", "show-connections", true, {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "DetailsPanel:showConnections",
+    },
+  });
+  const { value: showLaunchParameter, set: setShowLaunchParameter } = useAppState<boolean>(
+    "details",
+    "show-launch-parameter",
+    true,
+    {
+      version: 1,
+      migrateFrom: {
+        localStorageKey: "DetailsPanel:showLaunchParameter",
+      },
+    }
+  );
   const [backgroundColor] = useSetting<string>("backgroundColor");
   const [isDarkMode] = useSetting<boolean>("useDarkMode");
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
