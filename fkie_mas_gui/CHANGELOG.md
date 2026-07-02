@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.8.1 - 02.07.2026
+
+Fixed icons of the tabs and delay on rerender domain tab
+Added export/import/reset settings/states
+Store settings and app states in a database instead of localStorage
+Fixed resolve xml includes of not existing files
+
 ## 5.8.0 - 29.06.2026
 
 Show the hint about configurations only once
