@@ -226,7 +226,7 @@ export const AutoUpdateProvider = ({
 
         if (!release) throw new Error(`No ${channel} release found`);
         const pkgVersion = packageJson.version;
-        console.log("Latest release:", release.name, "Current version:", pkgVersion);
+        console.log("Latest release:", release.name, "Current version:", pkgVersion, " data:", JSON.stringify(release) );
         const newRelease = !autoUpdateManager ? semver.gt(release.name, pkgVersion) : pkgVersion !== release.name;
         if (newRelease) {
           // build changelog for all newer versions
