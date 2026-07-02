@@ -283,60 +283,51 @@ export default function NodeManager(): JSX.Element {
             setDirtyTabs([tabId]);
             return;
           }
-        } else {
-          // model.doAction(Actions.selectTab(LAYOUT_TABS.NODES));
-          model.doAction(Actions.deleteTab(tabId));
-          // Cleanup React node reference
-          delete layoutComponentsRef.current[tabId];
         }
       }
 
-      // handle tabs in bottom border
       const nodeBId = model.getNodeById(tabId);
       if (!nodeBId) return;
-      if (
-        nodeBId.getParent()?.getType() === "border" &&
-        (nodeBId.getParent() as BorderNode)?.getLocation().getName() === DockLocation.BOTTOM.getName()
-      ) {
-        // if closing last visible bottom tab, select it first to hide border
-        const shouldSelectNewTab =
-          nodeBId.getParent()?.getChildren().length === 2 &&
-          (nodeBId.getParent() as BorderNode)?.getSelectedNode()?.isVisible();
-        if (shouldSelectNewTab) {
-          model.doAction(Actions.selectTab(tabId));
-        }
+      const parentNode = nodeBId.getParent();
+      if (!parentNode) {
+        // delete tab
         model.doAction(Actions.deleteTab(tabId));
         // Cleanup React node reference
         delete layoutComponentsRef.current[tabId];
         return;
       }
-      const parentNode = nodeBId.getParent();
-      if (parentNode) {
-        if (
-          parentNode.getId() === LAYOUT_TAB_SETS.CENTER &&
-          parentNode.getChildren().length === 1 &&
-          parentNode.getChildren()[0].getId() !== LAYOUT_TABS.NO_RUNNING_DAEMONS
-        ) {
-          // if closing last domain tab, select info tab first to hide border
-          model.doAction(Actions.addTab(LAYOUT_NO_RUNNING_DAEMONS, LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0));
-        }
 
-        // inform domain flex layout to re-render the content to avoid a delay before the content becomes visible
-        if (parentNode && parentNode.getType() === "tabset") {
-          const selectedNode = (parentNode as TabSetNode).getSelectedNode();
-          if (selectedNode) {
-            console.log(`After delete, emit select for: ${selectedNode.getId()}`);
-            emitSelectTab({ tabId: selectedNode.getId(), forSubLayoutOnly: true });
+      // handle tabs in bottom border
+      if (parentNode.getType() === "border") {
+        const borderNode = parentNode as BorderNode;
+        if (borderNode.getLocation().getName() === DockLocation.BOTTOM.getName()) {
+          // if closing last visible bottom tab, select it first to hide border
+          const shouldSelectNewTab = parentNode.getChildren().length === 2 && borderNode.getSelectedNode()?.isVisible();
+          if (shouldSelectNewTab) {
+            model.doAction(Actions.selectTab(tabId));
           }
         }
       }
-      // select "Nodes" tab if it is in the same tabset as the closed tab
-      for (const tab of nodeBId.getParent()?.getChildren() || []) {
-        if (tab.getId() === LAYOUT_TABS.NODES) {
-          model.doAction(Actions.selectTab(tab.getId()));
+
+      // if closing last domain/hosts tab, add info tab first to hide border
+      if (
+        parentNode.getId() === LAYOUT_TAB_SETS.CENTER &&
+        parentNode.getChildren().length === 1 &&
+        parentNode.getChildren()[0].getId() !== LAYOUT_TABS.NO_RUNNING_DAEMONS
+      ) {
+        model.doAction(Actions.addTab(LAYOUT_NO_RUNNING_DAEMONS, LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0));
+      }
+
+      // inform domain flex layout to re-render the content to avoid a delay before the content becomes visible
+      if (parentNode && parentNode.getType() === "tabset") {
+        const selectedNode = (parentNode as TabSetNode).getSelectedNode();
+        if (selectedNode) {
+          console.log(`After delete, emit select for: ${selectedNode.getId()}`);
+          emitSelectTab({ tabId: selectedNode.getId(), forSubLayoutOnly: true });
         }
       }
 
+      // delete tab
       model.doAction(Actions.deleteTab(tabId));
       // Cleanup React node reference
       delete layoutComponentsRef.current[tabId];

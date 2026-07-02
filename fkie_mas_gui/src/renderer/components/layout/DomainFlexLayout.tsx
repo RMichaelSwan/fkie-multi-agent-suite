@@ -404,6 +404,18 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
     >
       <FlexLayout.Layout
         model={model}
+        onAction={(action: FlexLayout.Action) => {
+          if (action.type === FlexLayout.Actions.DELETE_TAB) {
+            const nodeBId = model.getNodeById(action.data.node);
+            // select "Nodes" tab if it is in the same tabset as the closed tab
+            for (const tab of nodeBId?.getParent()?.getChildren() || []) {
+              if (tab.getType() === "tab" && (tab as FlexLayout.TabNode).getComponent() === LAYOUT_TABS.NODES) {
+                model.doAction(FlexLayout.Actions.selectTab(tab.getId()));
+              }
+            }
+          }
+          return action;
+        }}
         factory={nodeFactory}
         onModelChange={handleModelChange}
         onRenderTab={onRenderTab}
