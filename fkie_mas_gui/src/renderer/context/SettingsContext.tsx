@@ -359,6 +359,7 @@ export interface ISettingsContext {
   resetToDefault: (key: string) => void;
   resetAll: () => Promise<void>;
   getParamList: () => { name: string; param: ISettingsParam }[];
+  getChangedCount: () => number;
   exportSettings: () => Promise<string>;
   importSettings: (json: string) => Promise<ImportResult>;
 }
@@ -544,6 +545,13 @@ export function SettingsProvider({ children, transformer }: Props): React.ReactE
     [config]
   );
 
+  const getChangedCount = useCallback(
+    (): number => {
+      return Object.keys(config).length
+    },
+    [config]
+  );
+
   const getDefault = useCallback((key: string): JSONValue | undefined => {
     if (key in SETTINGS_DEF) return SETTINGS_DEF[key].default;
     throw new Error(`Setting "${key}" not found.`);
@@ -724,6 +732,7 @@ export function SettingsProvider({ children, transformer }: Props): React.ReactE
       resetToDefault,
       resetAll,
       getParamList,
+      getChangedCount,
       exportSettings,
       importSettings,
     }),
@@ -737,6 +746,7 @@ export function SettingsProvider({ children, transformer }: Props): React.ReactE
       resetToDefault,
       resetAll,
       getParamList,
+      getChangedCount,
       exportSettings,
       importSettings,
     ]

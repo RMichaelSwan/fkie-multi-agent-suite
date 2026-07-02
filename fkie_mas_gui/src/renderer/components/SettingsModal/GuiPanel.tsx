@@ -4,29 +4,15 @@ import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import SettingsIcon from "@mui/icons-material/Settings";
-import StorageIcon from "@mui/icons-material/Storage";
 import UndoIcon from "@mui/icons-material/Undo";
 import {
   Autocomplete,
   Box,
   Button,
   Checkbox,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Divider,
   FormControl,
   FormControlLabel,
   IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   MenuItem,
   Select,
   Stack,
@@ -48,6 +34,7 @@ import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { JSONValue } from "@/types";
 import SearchBar from "../UI/SearchBar";
+import { SelectStatesDialog } from "./SelectStatesDialog";
 
 const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
 const checkedIcon = <CheckBoxIcon fontSize="small" />;
@@ -121,6 +108,9 @@ export default function GuiPanel(): JSX.Element {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
+  // Available namespaces from AppState
+  const namespaces = useMemo(() => appStateCtx.getAllNamespaces(), [appStateCtx]);
+
   // Export selection state
   const [exportSettings, setExportSettings] = useState(true);
   const [exportSelectedNamespaces, setExportSelectedNamespaces] = useState<Set<string>>(new Set());
@@ -130,8 +120,9 @@ export default function GuiPanel(): JSX.Element {
   const [importSettings, setImportSettings] = useState(true);
   const [importSelectedNamespaces, setImportSelectedNamespaces] = useState<Set<string>>(new Set());
 
-  // Available namespaces from AppState
-  const namespaces = useMemo(() => appStateCtx.getAllNamespaces(), [appStateCtx]);
+  // State for reset selection
+  const [resetSettings, setResetSettings] = useState(true);
+  const [resetSelectedNamespaces, setResetSelectedNamespaces] = useState<Set<string>>(() => new Set(namespaces));
 
   function handleChange(panel: string): void {
     if (expanded.includes(panel)) {
@@ -238,25 +229,6 @@ export default function GuiPanel(): JSX.Element {
     }
   }, [exportSettings, exportSelectedNamespaces, settingsCtx, appStateCtx]);
 
-  // const handleExport = useCallback(async () => {
-  //   try {
-  //     const json = await settingsCtx.exportSettings();
-
-  //     const blob = new Blob([json], { type: "application/json" });
-  //     const url = URL.createObjectURL(blob);
-
-  //     const a = document.createElement("a");
-  //     a.href = url;
-  //     a.download = `mas-settings-${new Date().toISOString().slice(0, 10)}.json`;
-  //     a.click();
-
-  //     URL.revokeObjectURL(url);
-  //     logCtx.info("Settings exported successfully.", "", "Settings exported successfully.");
-  //   } catch (error) {
-  //     logCtx.error("Export failed.", `${error}`, "Export failed.");
-  //   }
-  // }, [settingsCtx, logCtx]);
-
   /* ================ Import ================ */
 
   const handleImportClick = useCallback(() => {
@@ -340,49 +312,38 @@ export default function GuiPanel(): JSX.Element {
 
       setImportDialogOpen(false);
       setImportPreview(null);
-      logCtx.info("Settings imported successfully.", "", "Settings imported successfully.");
+      logCtx.info("Settings imported successfully.", `${JSON.stringify(results)}`, "Settings imported successfully.");
     } catch (error) {
       console.error("[SettingsImportExport] Import failed:", error);
       logCtx.error("Import failed.", `${error}`, "Import failed.");
     }
   }, [importPreview, importSettings, importSelectedNamespaces, settingsCtx, appStateCtx]);
 
-  // const handleImportClick = useCallback(() => {
-  //   fileInputRef.current?.click();
-  // }, []);
-
-  // const handleFileChange = useCallback(
-  //   async (event: React.ChangeEvent<HTMLInputElement>) => {
-  //     const file = event.target.files?.[0];
-  //     if (!file) return;
-
-  //     try {
-  //       const json = await file.text();
-  //       const { imported, skipped } = await settingsCtx.importSettings(json);
-
-  //       let message = `Imported ${imported} setting(s).`;
-  //       if (skipped.length > 0) {
-  //         message += ` Skipped: ${skipped.join(", ")}`;
-  //       }
-
-  //       logCtx.info("Settings imported successfully.", "", "Settings imported successfully.");
-  //     } catch (error) {
-  //       logCtx.error("Import failed.", `${error}`, "Import failed.");
-  //     }
-
-  //     // Reset input so the same file can be re-selected
-  //     event.target.value = "";
-  //   },
-  //   [settingsCtx]
-  // );
-
   /* ================ Reset ================ */
 
+  const handleToggleResetNamespace = (ns: string) => {
+    setResetSelectedNamespaces((prev) => {
+      const next = new Set(prev);
+      if (next.has(ns)) {
+        next.delete(ns);
+      } else {
+        next.add(ns);
+      }
+      return next;
+    });
+  };
+
   const handleReset = async () => {
-    await settingsCtx.resetAll();
-    await appStateCtx.clearAll();
+    // Implement partial reset based on selection
+    if (resetSettings) {
+      await settingsCtx.resetAll();
+    }
+    // Clear only selected namespaces
+    for (const ns of resetSelectedNamespaces) {
+      await appStateCtx.removeNamespace(ns);
+    }
     setConfirmResetOpen(false);
-    logCtx.info("All settings and state reset to defaults.", "", "All settings and state reset to defaults.");
+    logCtx.info("Settings/state reset according to selection.", "", "Settings/state reset according to selection.");
   };
 
   /* ================ Available namespaces in import file ================ */
@@ -402,7 +363,7 @@ export default function GuiPanel(): JSX.Element {
               handleOpenExportDialog();
             }}
           >
-            <FileDownloadIcon sx={{ fontSize: "inherit" }} />
+            <FileUploadIcon sx={{ fontSize: "inherit" }} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Import" placement="left" disableInteractive>
@@ -412,7 +373,7 @@ export default function GuiPanel(): JSX.Element {
               handleImportClick();
             }}
           >
-            <FileUploadIcon sx={{ fontSize: "inherit" }} />
+            <FileDownloadIcon sx={{ fontSize: "inherit" }} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Reset" placement="left" disableInteractive>
@@ -427,7 +388,7 @@ export default function GuiPanel(): JSX.Element {
         </Tooltip>
       </Stack>
     );
-  }, [handleExport, handleImportClick]);
+  }, [handleOpenExportDialog, handleImportClick, setConfirmResetOpen]);
 
   const generateContent = useMemo(() => {
     return (
@@ -449,211 +410,66 @@ export default function GuiPanel(): JSX.Element {
             onChange={handleFileChange}
           />
           {/* ================ Export Dialog ================ */}
-          <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} maxWidth="sm" fullWidth>
-            <DialogTitle>Export Configuration</DialogTitle>
-            <DialogContent>
-              <DialogContentText sx={{ mb: 2 }}>Select which data to include in the export file.</DialogContentText>
-
-              {/* Settings checkbox */}
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={exportSettings}
-                    onChange={(e) => setExportSettings(e.target.checked)}
-                    icon={<SettingsIcon />}
-                    checkedIcon={<SettingsIcon />}
-                  />
-                }
-                label={
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Typography>Settings</Typography>
-                    <Chip label="App preferences" size="small" variant="outlined" />
-                  </Stack>
-                }
-              />
-
-              {/* AppState namespaces */}
-              {namespaces.length > 0 && (
-                <>
-                  <Divider sx={{ my: 1.5 }} />
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <StorageIcon fontSize="small" color="action" />
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Application State
-                    </Typography>
-                    <Chip
-                      label={`${exportSelectedNamespaces.size}/${namespaces.length}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </Stack>
-
-                  <List dense disablePadding>
-                    {namespaces.map((ns) => (
-                      <ListItem key={ns} disablePadding>
-                        <ListItemButton dense onClick={() => handleToggleExportNamespace(ns)}>
-                          <ListItemIcon sx={{ minWidth: 36 }}>
-                            <Checkbox
-                              edge="start"
-                              checked={exportSelectedNamespaces.has(ns)}
-                              disableRipple
-                              size="small"
-                            />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={ns}
-                            secondary={`${Object.keys(appStateCtx.getNamespace(ns)).length} entries`}
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setExportDialogOpen(false)}>Cancel</Button>
-              <Button
-                onClick={handleExport}
-                variant="contained"
-                disabled={!exportSettings && exportSelectedNamespaces.size === 0}
-                startIcon={<FileDownloadIcon />}
-              >
-                Export
-              </Button>
-            </DialogActions>
-          </Dialog>
+          <SelectStatesDialog
+            open={exportDialogOpen}
+            title="Export Configuration"
+            description="Select which data to include in the export file."
+            mode="export"
+            showSettings={true}
+            settingsChecked={exportSettings}
+            onToggleSettings={(checked) => setExportSettings(checked)}
+            settingsChipLabel={`${settingsCtx.getChangedCount()} values`}
+            namespaces={namespaces}
+            selectedNamespaces={exportSelectedNamespaces}
+            onToggleNamespace={handleToggleExportNamespace}
+            getEntryCount={(ns) => Object.keys(appStateCtx.getNamespace(ns)).length}
+            onClose={() => setExportDialogOpen(false)}
+            onConfirm={handleExport}
+            disableConfirm={!exportSettings && exportSelectedNamespaces.size === 0}
+          />
 
           {/* ================ Import Dialog ================ */}
-          <Dialog
+          <SelectStatesDialog
             open={importDialogOpen}
+            title="Import Configuration"
+            description="Select which data to import. Existing values will be replaced."
+            mode="import"
+            showSettings={!!importPreview?.settings}
+            settingsChecked={importSettings}
+            onToggleSettings={(checked) => setImportSettings(checked)}
+            settingsChipLabel={
+              importPreview?.settings ? `${Object.keys(importPreview.settings).length} values` : undefined
+            }
+            namespaces={importNamespaces}
+            selectedNamespaces={importSelectedNamespaces}
+            onToggleNamespace={handleToggleImportNamespace}
+            getEntryCount={(ns) => (importPreview?.appState?.[ns] ? Object.keys(importPreview.appState[ns]).length : 0)}
             onClose={() => {
               setImportDialogOpen(false);
               setImportPreview(null);
             }}
-            maxWidth="sm"
-            fullWidth
-          >
-            <DialogTitle>Import Configuration</DialogTitle>
-            <DialogContent>
-              <DialogContentText sx={{ mb: 2 }}>
-                Select which data to import. Existing values will be replaced.
-              </DialogContentText>
-
-              {/* Settings */}
-              {importPreview?.settings && (
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={importSettings}
-                      onChange={(e) => setImportSettings(e.target.checked)}
-                      icon={<SettingsIcon />}
-                      checkedIcon={<SettingsIcon />}
-                    />
-                  }
-                  label={
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography>Settings</Typography>
-                      <Chip
-                        label={`${Object.keys(importPreview.settings).length} values`}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Stack>
-                  }
-                />
-              )}
-
-              {!importPreview?.settings && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  No settings found in file.
-                </Typography>
-              )}
-
-              {/* AppState namespaces from file */}
-              {importNamespaces.length > 0 && (
-                <>
-                  <Divider sx={{ my: 1.5 }} />
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <StorageIcon fontSize="small" color="action" />
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Application State
-                    </Typography>
-                    <Chip
-                      label={`${importSelectedNamespaces.size}/${importNamespaces.length}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </Stack>
-
-                  <List dense disablePadding>
-                    {importNamespaces.map((ns) => {
-                      const entryCount = importPreview?.appState?.[ns]
-                        ? Object.keys(importPreview.appState[ns]).length
-                        : 0;
-
-                      return (
-                        <ListItem key={ns} disablePadding>
-                          <ListItemButton dense onClick={() => handleToggleImportNamespace(ns)}>
-                            <ListItemIcon sx={{ minWidth: 36 }}>
-                              <Checkbox
-                                edge="start"
-                                checked={importSelectedNamespaces.has(ns)}
-                                disableRipple
-                                size="small"
-                              />
-                            </ListItemIcon>
-                            <ListItemText primary={ns} secondary={`${entryCount} entries`} />
-                          </ListItemButton>
-                        </ListItem>
-                      );
-                    })}
-                  </List>
-                </>
-              )}
-
-              {!importPreview?.appState && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  No application state found in file.
-                </Typography>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button
-                onClick={() => {
-                  setImportDialogOpen(false);
-                  setImportPreview(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleImport}
-                variant="contained"
-                disabled={!importSettings && importSelectedNamespaces.size === 0}
-                startIcon={<FileUploadIcon />}
-              >
-                Import
-              </Button>
-            </DialogActions>
-          </Dialog>
+            onConfirm={handleImport}
+            disableConfirm={!importSettings && importSelectedNamespaces.size === 0}
+          />
 
           {/* ================ Reset Confirmation ================ */}
-          <Dialog open={confirmResetOpen} onClose={() => setConfirmResetOpen(false)}>
-            <DialogTitle>Reset everything?</DialogTitle>
-            <DialogContent>
-              <DialogContentText>
-                This will restore all settings to defaults and clear all application state (layouts, histories,
-                configurations). This action cannot be undone.
-              </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setConfirmResetOpen(false)}>Cancel</Button>
-              <Button onClick={handleReset} color="warning" variant="contained">
-                Reset
-              </Button>
-            </DialogActions>
-          </Dialog>
+          <SelectStatesDialog
+            open={confirmResetOpen}
+            title="Reset configuration"
+            description="Select which settings and application state should be reset. This action cannot be undone."
+            mode="reset"
+            showSettings={true}
+            settingsChecked={resetSettings}
+            onToggleSettings={(checked) => setResetSettings(checked)}
+            settingsChipLabel={`${settingsCtx.getChangedCount()} values`}
+            namespaces={namespaces}
+            selectedNamespaces={resetSelectedNamespaces}
+            onToggleNamespace={handleToggleResetNamespace}
+            getEntryCount={(ns) => Object.keys(appStateCtx.getNamespace(ns)).length}
+            onClose={() => setConfirmResetOpen(false)}
+            onConfirm={handleReset}
+            disableConfirm={!resetSettings && resetSelectedNamespaces.size === 0}
+          />
         </Stack>
         <Box height="100%" width="100%" overflow="auto">
           {grouped.map(({ group, params, forceExpanded }) => {
@@ -1033,6 +849,8 @@ export default function GuiPanel(): JSX.Element {
     settingsCtx,
     appStateCtx,
     exportSelectedNamespaces,
+    resetSettings,
+    resetSelectedNamespaces,
     handleExport,
     handleFileChange,
   ]);
