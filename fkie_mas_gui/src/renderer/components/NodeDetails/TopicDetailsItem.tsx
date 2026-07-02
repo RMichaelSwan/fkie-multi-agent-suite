@@ -286,7 +286,7 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
                 placement="left"
                 disableInteractive
               >
-                <PlayArrowRoundedIcon style={{ padding: 1, color: "#09770fff" }} fontSize="inherit" />
+                <PlayArrowRoundedIcon style={{ padding: 1, color: "#09770fff" }} sx={{ fontSize: (theme) => theme.typography.fontSize }} />
               </Tooltip>
             }
             label={
@@ -334,7 +334,7 @@ export default function TopicDetailsItem(props: TopicDetailsItemsProps): JSX.Ele
               >
                 <ChatBubbleOutlineIcon
                   style={{ paddingLeft: 3, paddingRight: 0, color: "#6c50e9ff" }}
-                  fontSize="inherit"
+                  sx={{ fontSize: (theme) => theme.typography.fontSize }}
                 />
               </Tooltip>
             }

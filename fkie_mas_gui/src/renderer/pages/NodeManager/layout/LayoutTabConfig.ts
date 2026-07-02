@@ -102,7 +102,7 @@ export type TLayoutTabConfig = {
 
   openExternal?: boolean;
 
-  tabType?: CmdType;
+  terminalType?: CmdType;
 
   extTerminalConfig?: TExtTerminalConfig;
 

@@ -1,4 +1,4 @@
-import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import SyncAltOutlinedIcon from "@mui/icons-material/SyncAltOutlined";
 import { Button, IconButton, Stack, Typography } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { alpha } from "@mui/material/styles";
@@ -124,7 +124,7 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
             }}
             size="small"
           >
-            <PlayArrowRoundedIcon fontSize="inherit" />
+            <SyncAltOutlinedIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />
           </IconButton>
           <Button
             size="small"

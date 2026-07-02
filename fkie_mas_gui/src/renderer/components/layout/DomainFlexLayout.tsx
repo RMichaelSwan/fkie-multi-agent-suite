@@ -322,6 +322,21 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
     }
   }
 
+  function onRenderTab(node: FlexLayout.TabNode, renderValues: FlexLayout.ITabRenderValues): void {
+    const renderNameValues = renderValues as FlexLayout.ITabRenderValues & { name: string };
+    switch (node.getComponent()) {
+      case LAYOUT_TABS.TOPICS:
+        renderNameValues.leading = <TopicIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+        break;
+      case LAYOUT_TABS.SERVICES:
+        renderNameValues.leading = <FeaturedPlayListIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+        break;
+      case LAYOUT_TABS.APPS:
+        renderNameValues.leading = <AppsIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+        break;
+    }
+  }
+
   useCustomEventListener(EVENT_SELECT_TAB, (data: TEventSelectTab) => {
     // IMPORTANT: When the surrounding Nodes tab becomes active again,
     // rebuild the internal domain-specific FlexLayout model once.
@@ -391,6 +406,7 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
         model={model}
         factory={nodeFactory}
         onModelChange={handleModelChange}
+        onRenderTab={onRenderTab}
         onRenderTabSet={onRenderTabSet}
       />
     </Box>

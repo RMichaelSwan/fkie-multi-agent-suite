@@ -184,7 +184,6 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         config: {
           contentId: { domainId: provider.connection.domainId },
           openExternal: true,
-          tabType: "editor",
           editorConfig: {
             id,
             providerId: provider.id,
@@ -249,7 +248,6 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS[publisherOpenLocation],
         config: {
           openExternal: true,
-          tabType: `${CmdType.PUB}`,
           publisherConfig: {
             id,
             providerId: provider.id,
@@ -317,7 +315,6 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS[subscriberOpenLocation],
         config: {
           openExternal: true,
-          tabType: `${CmdType.ECHO}`,
           subscriberConfig: {
             id,
             providerId: provider.id,
@@ -398,7 +395,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS.BORDER_BOTTOM,
         config: {
           openExternal: !noPopout,
-          tabType: type,
+          terminalType: type,
           terminalConfig: {
             id,
             providerId: provider.id,

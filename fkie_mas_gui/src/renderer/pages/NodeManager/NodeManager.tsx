@@ -284,7 +284,7 @@ export default function NodeManager(): JSX.Element {
             return;
           }
         } else {
-          model.doAction(Actions.selectTab(LAYOUT_TABS.NODES));
+          // model.doAction(Actions.selectTab(LAYOUT_TABS.NODES));
           model.doAction(Actions.deleteTab(tabId));
           // Cleanup React node reference
           delete layoutComponentsRef.current[tabId];
@@ -319,6 +319,15 @@ export default function NodeManager(): JSX.Element {
         ) {
           // if closing last domain tab, select info tab first to hide border
           model.doAction(Actions.addTab(LAYOUT_NO_RUNNING_DAEMONS, LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0));
+        }
+
+        // inform domain flex layout to re-render the content to avoid a delay before the content becomes visible
+        if (parentNode && parentNode.getType() === "tabset") {
+          const selectedNode = (parentNode as TabSetNode).getSelectedNode();
+          if (selectedNode) {
+            console.log(`After delete, emit select for: ${selectedNode.getId()}`);
+            emitSelectTab({ tabId: selectedNode.getId(), forSubLayoutOnly: true });
+          }
         }
       }
       // select "Nodes" tab if it is in the same tabset as the closed tab
@@ -806,43 +815,48 @@ export default function NodeManager(): JSX.Element {
         );
         renderNameValues.name = "Option";
         break;
-
       default:
         // add leading icons depending on tab type
-        switch (node.getConfig()?.tabType) {
-          case CmdType.LOG:
-            renderNameValues.leading = <WysiwygIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+        switch (node.getComponent()) {
+          case LAYOUT_TABS.SETTINGS:
+            renderNameValues.leading = <SettingsIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
             break;
-          case CmdType.SCREEN:
-            renderNameValues.leading = <DvrIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+          case LAYOUT_TABS.TERMINAL:
+            switch (node.getConfig()?.terminalType) {
+              case CmdType.LOG:
+                renderNameValues.leading = <WysiwygIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+                break;
+              case CmdType.SCREEN:
+                renderNameValues.leading = <DvrIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+                break;
+              case CmdType.TERMINAL:
+                renderNameValues.leading = <TerminalIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+                break;
+            }
             break;
-          case CmdType.TERMINAL:
-            renderNameValues.leading = <TerminalIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
-            break;
-          case "echo":
-          case CmdType.ECHO:
+          case LAYOUT_TABS.TOPIC_ECHO:
             renderNameValues.leading = (
               <ChatBubbleOutlineIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />
             );
             break;
-          case "publish":
+          case LAYOUT_TABS.TOPIC_PUBLISHER:
             renderNameValues.leading = (
               <PlayCircleOutlineIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />
             );
             break;
-          case LAYOUT_TABS.SERVICES:
+          case LAYOUT_TABS.SERVICE_CALLER:
             renderNameValues.leading = <SyncAltOutlinedIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
             break;
-          case "info":
+          case LAYOUT_TABS.ABOUT:
             renderNameValues.leading = <InfoOutlinedIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
             break;
-          case "parameter":
+          case LAYOUT_TABS.PARAMETER:
             renderNameValues.leading = <TuneIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
             break;
-          case "editor":
+          case LAYOUT_TABS.EDITOR:
             renderNameValues.leading = <BorderColorIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
             break;
-          case "node-logger":
+          case LAYOUT_TABS.NODE_LOGGER:
             renderNameValues.leading = (
               <SettingsInputCompositeOutlinedIcon
                 sx={{ fontSize: (theme) => theme.typography.fontSize, rotate: "90deg" }}
@@ -1211,7 +1225,6 @@ export default function NodeManager(): JSX.Element {
           }
           if (action.type === Actions.SELECT_TAB) {
             const tabId = action.data.tabNode as string;
-            console.log(`emit select tabId: ${tabId}`);
             emitSelectTab({ tabId: tabId, forSubLayoutOnly: true });
           }
           return action;
