@@ -435,7 +435,7 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
         )}
         {resultError && (
           <Alert severity="error" style={{ minWidth: 0 }}>
-            <AlertTitle>{`Service call failed with ${resultError}!`}</AlertTitle>
+            <AlertTitle>{`Service call failed with: ${resultError}!`}</AlertTitle>
           </Alert>
         )}
         {resultMessage && createJsonView}

@@ -1182,6 +1182,8 @@ class LaunchServicer(LoggingEventHandler):
             if response is not None:
                 result.data = message_to_ordereddict(response)
                 result.valid = True
+            else:
+                result.message = 'did not receive a reply'
         except Exception as e:
             result.message = 'Exception while calling service: %r' % e
         finally:
