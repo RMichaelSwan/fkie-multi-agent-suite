@@ -88,6 +88,8 @@ import { LAYOUT_DOMAIN_TAB_SET, LAYOUT_NO_RUNNING_DAEMONS } from "./layout/Layou
 import { contentToId, TContentId, TExtTerminalConfig, TLayoutTabConfig } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
 import AboutPanel from "./panels/AboutPanel";
+import ActionPanel from "./panels/ActionPanel";
+import ActionsPanel from "./panels/ActionsPanel";
 import DetailsPanel from "./panels/DetailsPanel";
 import ExternalAppsPanel from "./panels/ExternalAppsPanel";
 import FileEditorPanel from "./panels/FileEditorPanel";
@@ -592,6 +594,8 @@ export default function NodeManager(): JSX.Element {
         return <TopicsPanel key={`topics-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.SERVICES:
         return <ServicesPanel key={`services-panel-${flexId}`} contentId={contentId} />;
+      case LAYOUT_TABS.ACTIONS:
+        return <ActionsPanel key={`actions-panel-${flexId}`} contentId={contentId} />;
       case LAYOUT_TABS.SETTINGS:
         return <SettingsPanel key="settings-panel" />;
       case LAYOUT_TABS.EDITOR: {
@@ -676,6 +680,20 @@ export default function NodeManager(): JSX.Element {
             providerId={config.serviceCallerConfig.providerId}
             serviceName={config.serviceCallerConfig.serviceName}
             serviceType={config.serviceCallerConfig.serviceType}
+          />
+        );
+      }
+      case LAYOUT_TABS.ACTION_SEND_GOAL: {
+        if (!config.actionConfig) {
+          return <Typography>Invalid action configuration {JSON.stringify(config.actionConfig)}</Typography>;
+        }
+        return (
+          <ActionPanel
+            key={config.actionConfig.id}
+            showOptions={true}
+            providerId={config.actionConfig.providerId}
+            actionName={config.actionConfig.actionName}
+            actionType={config.actionConfig.actionType}
           />
         );
       }

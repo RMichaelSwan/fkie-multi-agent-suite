@@ -1,5 +1,5 @@
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import SyncAltOutlinedIcon from "@mui/icons-material/SyncAltOutlined";
 import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -54,6 +54,14 @@ interface ServicesPanelProps {
 
 const EXPAND_ON_SEARCH_MIN_CHARS = 2;
 
+/** Suffixes that identify action-related services in ROS 2 */
+const ACTION_SERVICE_SUFFIXES = ["/_action/send_goal", "/_action/cancel_goal", "/_action/get_result"];
+
+/** Returns true if the service name belongs to a ROS 2 action */
+function isActionService(serviceName: string): boolean {
+  return ACTION_SERVICE_SUFFIXES.some((suffix) => serviceName.endsWith(suffix));
+}
+
 export default function ServicesPanel({ contentId, initialSearchTerm = "" }: ServicesPanelProps): JSX.Element {
   const rosCtx = useRosContext();
 
@@ -102,6 +110,11 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
       }
 
       for (const service of provider.rosServices) {
+        // --- FILTER: skip action-related services ---
+        if (isActionService(service.name)) {
+          continue;
+        }
+
         const key = genKey([service.name, service.srv_type]);
         let serviceInfo = serviceMap.get(key);
 
@@ -328,7 +341,7 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
   // initial & event-driven updates
   useEffect(() => {
     updateServiceList();
-  }, []); // initial
+  }, []);
 
   useEffect(() => {
     updateServiceList();
@@ -483,7 +496,7 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
                 onCallService(serviceForSelected, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)
               }
             >
-              <PlayArrowIcon fontSize="inherit" />
+              <SyncAltOutlinedIcon fontSize="inherit" />
             </IconButton>
           </span>
         </Tooltip>

@@ -13,6 +13,8 @@ import { emitCustomEvent } from "react-custom-events";
 import { DEFAULT_BUG_TEXT, ILoggingContext } from "../context/LoggingContext";
 import { getDefaultPortFromRos, ISettingsContext } from "../context/SettingsContext";
 import {
+  ActionEvent,
+  ActionGoalRequest,
   Composable,
   DaemonVersion,
   DiagnosticArray,
@@ -65,6 +67,8 @@ import {
   EVENT_NODE_COMPOSABLE,
   EVENT_NODE_DIAGNOSTIC,
   EVENT_NODE_LIFECYCLE,
+  EVENT_PROVIDER_ACTION_FEEDBACK_PREFIX,
+  EVENT_PROVIDER_ACTION_RESULT_PREFIX,
   EVENT_PROVIDER_ACTIVITY,
   EVENT_PROVIDER_DELAY,
   EVENT_PROVIDER_DISCOVERED,
@@ -85,6 +89,7 @@ import {
 } from "./eventTypes";
 import {
   EventNodeDiagnostic,
+  EventProviderActionEvent,
   EventProviderActivity,
   EventProviderDelay,
   EventProviderDiscovered,
@@ -249,6 +254,8 @@ export default class Provider implements IProvider {
 
   /** Keep tracks of running async request, to prevent multiple executions */
   private currentRequestList = new Set();
+
+  private activeActions: string[] = [];
 
   /** Timer to determine the delay to provider */
   private currentDelayTimer: NodeJS.Timeout | null = null;
@@ -1726,7 +1733,9 @@ export default class Provider implements IProvider {
    * Returns a messages struct for given message type.
    */
   public getMessageStruct: (request: string) => Promise<LaunchMessageStruct | null> = async (request: string) => {
+    console.log(`request: ${JSON.stringify(request)}`);
     const result = await this.makeCall(URI.ROS_LAUNCH_GET_MSG_STRUCT, [request], true).then((value: TResultData) => {
+      console.log(`RESP: ${JSON.stringify(value)}`);
       if (value.result) {
         const response = value.data as LaunchMessageStruct;
         if (response.valid) {
@@ -1926,6 +1935,102 @@ export default class Provider implements IProvider {
       return undefined;
     });
     return result;
+  };
+
+  /**
+   * Callback for new action feedback/result messages from provider server
+   */
+  private callbackNewActionEvent: (msg: JSONObject) => void = (msg) => {
+    this.log().debugInterface(URI.ROS_ACTION_EVENT_FEEDBACK_PREFIX, msg, "", this.id);
+    if (msg.length === 0) return;
+
+    try {
+      const msgParsed: ActionEvent = msg as unknown as ActionEvent;
+      const eventName =
+        msgParsed.type === "result"
+          ? `${EVENT_PROVIDER_ACTION_RESULT_PREFIX}_${msgParsed.action_name}`
+          : `${EVENT_PROVIDER_ACTION_FEEDBACK_PREFIX}_${msgParsed.action_name}`;
+      emitCustomEvent(eventName, new EventProviderActionEvent(this, msgParsed));
+    } catch (error) {
+      this.log().error(
+        `Provider [${this.id}]: [callbackNewActionEvent] Could not parse message ${msg}`,
+        `Error: ${error}`
+      );
+    }
+  };
+
+  private generateActionFeedbackUri: (actionName: string) => string = (actionName) => {
+    return `${URI.ROS_ACTION_EVENT_FEEDBACK_PREFIX}.${actionName.replaceAll("/", "_")}`;
+  };
+
+  private generateActionResultUri: (actionName: string) => string = (actionName) => {
+    return `${URI.ROS_ACTION_EVENT_RESULT_PREFIX}.${actionName.replaceAll("/", "_")}`;
+  };
+
+  /**
+   * Send a goal to a ROS action server
+   */
+  public sendActionGoal: (request: ActionGoalRequest) => Promise<boolean> = async (request) => {
+    const hasAction = this.activeActions.includes(request.action_name);
+    if (!hasAction) {
+      this.activeActions.push(request.action_name);
+    }
+
+    const result = await this.makeCall(URI.ROS_ACTION_SEND_GOAL, [request], true).then((value: TResultData) => {
+      if (value.result) {
+        return value.data as TResult;
+      }
+      this.log().error(`Provider [${this.id}]: Error at sendActionGoal()`, `${value.message}`);
+      return { result: false, message: value.message } as TResult;
+    });
+
+    if (result.result) {
+      // Subscribe to feedback and result events
+      const feedbackUri = this.generateActionFeedbackUri(request.action_name);
+      const resultUri = this.generateActionResultUri(request.action_name);
+      if (!hasAction) {
+        this.registerCallback(feedbackUri, this.callbackNewActionEvent);
+        this.registerCallback(resultUri, this.callbackNewActionEvent);
+      }
+      this.log().debug(
+        `Sent action goal for '${request.action_name} [${request.action_type}]' on '${this.name()}'`,
+        ""
+      );
+    } else {
+      // Remove from active if it was just added
+      if (!hasAction) {
+        this.activeActions = this.activeActions.filter((a) => a !== request.action_name);
+      }
+    }
+    return Promise.resolve(result.result);
+  };
+
+  /**
+   * Stop/cancel an active action goal
+   */
+  public stopAction: (actionName: string) => Promise<Result> = async (actionName) => {
+    console.log(`stopAction : ${actionName}`);
+    const hasAction = this.activeActions.includes(actionName);
+    if (hasAction) {
+      this.activeActions = this.activeActions.filter((a) => a !== actionName);
+      const feedbackUri = this.generateActionFeedbackUri(actionName);
+      const resultUri = this.generateActionResultUri(actionName);
+      await this.connection.closeSubscription(feedbackUri).catch((err) => {
+        this.log().error(`Provider [${this.id}]: close action feedback subscription failed`, `${err}`);
+      });
+      await this.connection.closeSubscription(resultUri).catch((err) => {
+        this.log().error(`Provider [${this.id}]: close action result subscription failed`, `${err}`);
+      });
+    }
+
+    const result = await this.makeCall(URI.ROS_ACTION_STOP, [actionName], true).then((value: TResultData) => {
+      if (value.result) {
+        return value.data as Result;
+      }
+      this.log().error(`Provider [${this.id}]: Error at stopAction()`, `${value.message}`);
+      return new Result(false, value.message as string);
+    });
+    return Promise.resolve(result);
   };
 
   public rosRun: (request: {

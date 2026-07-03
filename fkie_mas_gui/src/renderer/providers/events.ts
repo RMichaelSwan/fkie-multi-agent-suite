@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { ConnectConfig } from "ssh2";
 import {
+  ActionEvent,
   Composable,
   DiagnosticStatus,
   LaunchContent,
@@ -136,6 +137,16 @@ export class EventProviderSubscriberEvent {
   event: SubscriberEvent;
 
   constructor(provider: Provider, event: SubscriberEvent) {
+    this.provider = provider;
+    this.event = event;
+  }
+}
+
+export class EventProviderActionEvent {
+  provider: Provider;
+  event: ActionEvent;
+
+  constructor(provider: Provider, event: ActionEvent) {
     this.provider = provider;
     this.event = event;
   }

@@ -334,7 +334,7 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
         </Stack>
         <Stack direction="row" spacing={2} display="flex" alignItems="center">
           {history.length > 0 && (
-            <Stack direction="column" spacing={1} alignItems="left">
+            <Stack direction="column" spacing={1} alignItems="left" paddingBottom={1}>
               <FormLabel sx={{ fontSize: "0.8em", lineHeight: "1em" }}>call history</FormLabel>
               <ButtonGroup sx={{ maxHeight: "24px" }}>
                 <Tooltip title="edit history" enterDelay={500}>

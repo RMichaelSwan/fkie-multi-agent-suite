@@ -1,3 +1,4 @@
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import AppsIcon from "@mui/icons-material/Apps";
 import FeaturedPlayListIcon from "@mui/icons-material/FeaturedPlayList";
 import TopicIcon from "@mui/icons-material/Topic";
@@ -311,6 +312,16 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
         pAddTabStickyButton({
           model: model,
           container: renderValues.stickyButtons,
+          id: `${LAYOUT_TABS.ACTIONS}-${contentToId(contentId)}`,
+          title: "Actions",
+          component: LAYOUT_TABS.ACTIONS,
+          setId: node.getId(),
+          icon: <AccountTreeIcon sx={{ fontSize: "inherit" }} />,
+          config: { contentId: contentId },
+        });
+        pAddTabStickyButton({
+          model: model,
+          container: renderValues.stickyButtons,
           id: `${LAYOUT_TABS.APPS}-${contentToId(contentId)}`,
           title: "ROS Apps",
           component: LAYOUT_TABS.APPS,
@@ -330,6 +341,9 @@ export function DomainFlexLayout(props: DomainFlexLayoutProps): JSX.Element | nu
         break;
       case LAYOUT_TABS.SERVICES:
         renderNameValues.leading = <FeaturedPlayListIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+        break;
+      case LAYOUT_TABS.ACTIONS:
+        renderNameValues.leading = <AccountTreeIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
         break;
       case LAYOUT_TABS.APPS:
         renderNameValues.leading = <AppsIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;

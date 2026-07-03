@@ -495,6 +495,42 @@ Updates filter for subscribed message. TOPIC is a topic name with replaced '/' b
 
 [SubscriberFilter](#subscriberfilter)
 
+### ros.action.send_goal `RPC`
+
+Sends a goal to a ROS action server. Starts an action client node if not already running.
+
+`Request`: [ActionGoalRequest](#actiongoalrequest)
+
+`Reply`:
+
+```json
+{"result": bool, "message": str}
+```
+
+### ros.action.stop `RPC`
+
+Cancels and stops an active action goal.
+
+`Request`: `str` action name
+
+`Reply`:
+
+```json
+{"result": bool, "message": str}
+```
+
+### ros.action.feedback.{ACTION} `PUB`
+
+Feedback event from an active action goal. ACTION is the action name with '/' replaced by '\_'.
+
+[ActionEvent](#actionevent)
+
+### ros.action.result.{ACTION} `PUB`
+
+Result event when an action goal completes (succeeded, aborted, canceled). ACTION is the action name with '/' replaced by '\_'.
+
+[ActionEvent](#actionevent)
+
 ### ros.system.get_uri `RPC`
 
 Only ROS1! Format ROS_MASTER_URI [INTERFACE PORT]
@@ -1289,3 +1325,29 @@ Definitions: [Daemon](../fkie_mas_pylib/fkie_mas_pylib/interface/runtime_interfa
 [RosQos](#rosqos)
 
 Definitions: [Daemon](../fkie_mas_pylib/fkie_mas_pylib/interface/runtime_interface.py), [GUI](../fkie_mas_gui/src/renderer/models/SubscriberEvent.ts)
+
+### ActionGoalRequest
+
+```json
+{
+  "action_name": string,   // Fully qualified action name (e.g. /navigate_to_pose)
+  "action_type": string,   // Action type (e.g. nav2_msgs/action/NavigateToPose)
+  "goal": {},              // Goal fields as JSON object
+}
+```
+
+### ActionEvent
+
+```json
+{
+  "action_name": string,   // Action name
+  "action_type": string,   // Action type (e.g. nav2_msgs/action/NavigateToPose)
+  "type": string,          // "feedback" or "result"
+  "goal_id": string,       // Unique goal identifier
+  "status": string,        // "executing", "succeeded", "aborted", "canceled", "rejected"
+  "data": {},              // Feedback or result data (null if unavailable)
+  "timestamp": float,      // Unix timestamp
+  "message": string,       // Optional error/info message
+
+}
+```

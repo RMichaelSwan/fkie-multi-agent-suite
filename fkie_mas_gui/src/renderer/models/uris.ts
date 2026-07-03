@@ -64,6 +64,10 @@ const URI = {
   ROS_SUBSCRIBER_EVENT_PREFIX: "ros.subscriber.event",
   ROS_SUBSCRIBER_FILTER_PREFIX: "ros.subscriber.filter",
   ROS_SYSTEM_GET_URI: "ros.system.get_uri",
+  ROS_ACTION_SEND_GOAL: "ros.action.send_goal",
+  ROS_ACTION_EVENT_FEEDBACK_PREFIX: "ros.action.feedback",
+  ROS_ACTION_EVENT_RESULT_PREFIX: "ros.action.result",
+  ROS_ACTION_STOP: "ros.action.stop",
 };
 
 export default URI;
