@@ -27,7 +27,7 @@ else:
 SEP = '/'
 PRIV_NAME = '~'
 NM_NAMESPACE = '/mas'
-#ros_distro = f"_{os.environ['ROS_DISTRO']}" if 'ROS_DISTRO' in os.environ else ''
+# ros_distro = f"_{os.environ['ROS_DISTRO']}" if 'ROS_DISTRO' in os.environ else ''
 nm_name_suffix = ros_host_suffix()
 if nm_name_suffix:
     nm_name_suffix = f"_{nm_name_suffix}"
@@ -35,6 +35,7 @@ ROS_DOMAIN_ID = os.environ["ROS_DOMAIN_ID"] if "ROS_DOMAIN_ID" in os.environ els
 NM_DISCOVERY_NAME = f'_discovery_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_DAEMON_NAME = f'_daemon_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_SUBSCRIBER_NAME = f'_subscriber_{ROS_DOMAIN_ID}{nm_name_suffix}'
+NM_ACTION_NAME = f'_action_{ROS_DOMAIN_ID}{nm_name_suffix}'
 EMPTY_PATTERN = re.compile('\b', re.I)
 SEARCH_IN_EXT = ['.launch', '.yaml', '.conf', '.cfg', '.py',
                  '.iface', '.nmprofile', '.sync', '.test', '.xml', '.xacro']
@@ -72,4 +73,15 @@ def ros2_subscriber_nodename_tuple(topic: str) -> Tuple[str, str]:  # namespace,
     topic_ns = '/'.join(topic_parts[:-1])
     if topic_ns:
         namespace = os.path.join(namespace, topic_ns)
+    return (namespace, node_name)
+
+
+def ros2_action_nodename_tuple(action_name: str):
+    """Returns (namespace, name) tuple for an action client node."""
+    namespace = os.path.join(NM_NAMESPACE, NM_ACTION_NAME)
+    action_parts = action_name.replace('.', '/').strip('/').split('/')
+    node_name = action_parts[-1]
+    action_ns = '/'.join(action_parts[:-1])
+    if action_ns:
+        namespace = os.path.join(namespace, action_ns)
     return (namespace, node_name)

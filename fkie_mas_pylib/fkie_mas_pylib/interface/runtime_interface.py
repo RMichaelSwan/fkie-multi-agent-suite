@@ -669,6 +669,21 @@ class SubscriberEvent:
         self.subscriber_id = subscriber_id
 
 
+class ActionEvent:
+    """Event published via websocket for action feedback/result."""
+
+    def __init__(self, action_name: str, action_type: str, event_type: str,
+                 goal_id: str, status: str, data=None, timestamp: float = 0):
+        self.action_name = action_name
+        self.action_type = action_type
+        self.type = event_type  # "feedback" or "result"
+        self.goal_id = goal_id
+        self.status = status
+        self.data = data
+        self.timestamp = timestamp
+        self.message = ""
+
+
 class DaemonVersion:
     """
     Version of the daemon node.
@@ -713,6 +728,7 @@ class DiagnosticStatus:
         self.hardware_id = hardware_id
         self.values = values
 
+
 class DiagnosticArray:
     """
     This message is used to send diagnostic information about the state of the host.
@@ -724,6 +740,7 @@ class DiagnosticArray:
     def __init__(self, timestamp: float, status: List[DiagnosticStatus]) -> None:
         self.timestamp = timestamp
         self.status = status
+
 
 class LoggerConfig:
     """
