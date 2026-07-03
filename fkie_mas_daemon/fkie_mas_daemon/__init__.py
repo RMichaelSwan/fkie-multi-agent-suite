@@ -7,9 +7,10 @@
 # ****************************************************************************
 
 
-from rclpy.node import Node 
+from rclpy.node import Node
 from .ros_node import RosNodeLauncher
 from .subscriber_node import RosSubscriberLauncher
+from .action_client_node import RosActionClientLauncher
 
 # from pkg_resources import get_distribution, DistributionNotFound
 # try:
@@ -28,7 +29,14 @@ def main():
     launcher = RosNodeLauncher()
     launcher.spin()
 
+
 def subscriber():
     global launcher
     launcher = RosSubscriberLauncher()
+    launcher.spin()
+
+
+def action_client():
+    global launcher
+    launcher = RosActionClientLauncher()
     launcher.spin()

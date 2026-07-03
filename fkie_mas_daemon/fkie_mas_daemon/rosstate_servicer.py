@@ -28,6 +28,7 @@ from fkie_mas_pylib.system.host import get_host_name
 from fkie_mas_pylib.system.host import get_local_addresses
 from fkie_mas_pylib.logging.logging import Log
 from fkie_mas_pylib.defines import ros2_subscriber_nodename_tuple
+from fkie_mas_pylib.defines import ros2_action_nodename_tuple
 from fkie_mas_pylib.defines import NM_NAMESPACE
 from fkie_mas_pylib.defines import NM_DISCOVERY_NAME
 from fkie_mas_pylib.interface.runtime_interface import LoggerConfig
@@ -132,6 +133,7 @@ class RosStateServicer:
         websocket.register("ros.nodes.get_lifecycle", self.get_lifecycle)
         websocket.register("ros.nodes.get_composable", self.get_composable)
         websocket.register("ros.subscriber.stop", self.stop_subscriber)
+        websocket.register("ros.action.stop", self.stop_action)
         websocket.register("ros.provider.get_timestamp", self.get_provider_timestamp)
 
     def start(self):
@@ -586,6 +588,12 @@ class RosStateServicer:
     def stop_subscriber(self, topic_name: str) -> str:
         Log.debug(f"{self.__class__.__name__}: Request to [ros.subscriber.stop]: {str(topic_name)}")
         ns, name = ros2_subscriber_nodename_tuple(topic_name)
+        result = self.stop_node(os.path.join(ns, name))
+        return json.dumps({"result": result, "message": ""}, cls=SelfEncoder)
+
+    def stop_action(self, action_name: str) -> str:
+        Log.info(f"{self.__class__.__name__}: Request to [ros.action.stop]: {str(action_name)}")
+        ns, name = ros2_action_nodename_tuple(action_name)
         result = self.stop_node(os.path.join(ns, name))
         return json.dumps({"result": result, "message": ""}, cls=SelfEncoder)
 

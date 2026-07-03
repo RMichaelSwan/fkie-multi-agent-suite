@@ -20,6 +20,7 @@ from fkie_mas_pylib.logging.logging import Log
 from fkie_mas_pylib.launch import xml
 from fkie_mas_pylib.defines import SEARCH_IN_EXT
 from fkie_mas_pylib.defines import ros2_subscriber_nodename_tuple
+from fkie_mas_pylib.defines import ros2_action_nodename_tuple
 from fkie_mas_pylib.interface.launch_interface import LaunchPublishMessage
 from fkie_mas_pylib.interface.launch_interface import LaunchMessageStruct
 from fkie_mas_pylib.interface.launch_interface import LaunchIncludedFile
@@ -146,7 +147,7 @@ class LaunchServicer(LoggingEventHandler):
         self._watchdog_observer.start()
         self.websocket = websocket
         self._callback_service_group = ReentrantCallbackGroup()
-        
+
         websocket.register("ros.launch.load", self.load_launch)
         websocket.register("ros.launch.reload", self.reload_launch)
         websocket.register("ros.launch.unload", self.unload_launch)
@@ -162,6 +163,7 @@ class LaunchServicer(LoggingEventHandler):
         websocket.register("ros.launch.call_service", self.call_service)
         websocket.register("ros.launch.get_message_types", self.get_message_types)
         websocket.register("ros.subscriber.start", self.start_subscriber)
+        websocket.register("ros.action.send_goal", self.start_action)
 
     def _terminated(self):
         Log.info(f"{self.__class__.__name__}: terminated launch context")
@@ -1116,6 +1118,9 @@ class LaunchServicer(LoggingEventHandler):
         elif identifier.endswith("_SendGoal"):
             is_action_goal = True
             normalized_identifier = identifier.replace("_SendGoal", "")
+        elif identifier.endswith("_Goal"):
+            is_action_goal = True
+            normalized_identifier = identifier.replace("_Goal", "")
         elif identifier.endswith("_FeedbackMessage"):
             is_action_feedback = True
             normalized_identifier = identifier.replace("_FeedbackMessage", "")
@@ -1161,7 +1166,7 @@ class LaunchServicer(LoggingEventHandler):
 
     def call_service(self, request_json: LaunchCallService) -> None:
         # Convert input dictionary into a proper python object
-        Log.info(f"{self.__class__.__name__}: Request to [ros.launch.call_service]: {request_json}")
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.call_service]: {request_json}")
         request = request_json
         result = LaunchMessageStruct(request.srv_type)
         result.valid = False
@@ -1178,7 +1183,8 @@ class LaunchServicer(LoggingEventHandler):
                 service_request = request_class.Request()
                 data = json.loads(request.data)
                 set_message_fields(service_request, self._str_from_dict(data))
-                response = nmd.launcher.call_service(request.service_name, request_class, service_request, timeout_sec=10, callback_group=self._callback_service_group)
+                response = nmd.launcher.call_service(
+                    request.service_name, request_class, service_request, timeout_sec=10, callback_group=self._callback_service_group)
             if response is not None:
                 result.data = message_to_ordereddict(response)
                 result.valid = True
@@ -1277,3 +1283,43 @@ class LaunchServicer(LoggingEventHandler):
             for item in lc.nodes():
                 result.append(item.node_name)
         return result
+
+    def start_action(self, request_json) -> str:
+        """Start an action client node to send a goal to a ROS action server."""
+        request = request_json
+        action_name = request.action_name
+        action_type = request.action_type
+        goal = request.goal
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.action.send_goal]: {request}")
+
+        package_name = 'fkie_mas_daemon'
+        executable = 'mas-action-client'
+        cmd = f"ros2 run {package_name} {executable}"
+
+        self.namespace, self.name = ros2_action_nodename_tuple(action_name)
+        fullname = os.path.join(self.namespace, self.name)
+
+        args = []
+        args.append(f'--ws_port={self.ws_port}')
+        args.append(f'--action_name={action_name}')
+        args.append(f'--action_type={action_type}')
+        if goal:
+            goal_json = goal
+            args.append(f"--goal_json='{goal_json}'")
+
+        screen_prefix = ' '.join([screen.get_cmd(fullname)])
+        new_env = dict(os.environ)
+        if 'DISPLAY' in new_env:
+            if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
+                del new_env['DISPLAY']
+        else:
+            new_env['DISPLAY'] = ':0'
+
+        Log.info(f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
+        SupervisedPopen(
+            shlex.split(' '.join([screen_prefix, cmd] + args)),
+            env=new_env,
+            object_id=f"run_node_{fullname}",
+            description=f"Run [{package_name}]{executable}"
+        )
+        return json.dumps({"result": True, "message": ""}, cls=SelfEncoder)

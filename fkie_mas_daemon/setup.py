@@ -69,7 +69,7 @@ else:
               'scripts/mas-respawn',
               'scripts/mas-restart.py',
               'scripts/mas-rosout-to-diag.py'
-             ])
+              ])
         ],
         install_requires=['setuptools', 'ruamel.yaml', 'launch-xml'],
         zip_safe=True,
@@ -82,10 +82,9 @@ else:
         test_suite="tests",
         entry_points={
             'console_scripts': [
-                'mas-daemon ='
-                ' fkie_mas_daemon:main',
-                'mas-subscriber ='
-                ' fkie_mas_daemon:subscriber',
+                'mas-daemon = fkie_mas_daemon:main',
+                'mas-subscriber = fkie_mas_daemon:subscriber',
+                'mas-action-client = fkie_mas_daemon:action_client',
             ],
         },
     )

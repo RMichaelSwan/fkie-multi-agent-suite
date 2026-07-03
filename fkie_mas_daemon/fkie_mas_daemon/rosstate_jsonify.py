@@ -150,6 +150,7 @@ class RosStateJsonify:
 
     def _subscribe_lifecycle(self, *, topic_name, node_id: str, node_name: NodeFullName) -> bool:
         if LIFECYCLE_AVAILABLE and node_id not in self._lifecycle_subscriptions:
+            print(f"subscribe to {topic_name}")
             sub = nmd.ros_node.create_subscription(TransitionEvent, topic_name, partial(
                 self._on_lifecycle_event, node_id=node_id, node_name=node_name), 1)
             self._lifecycle_subscriptions[node_id] = sub
@@ -408,6 +409,7 @@ class RosStateJsonify:
             # cleanup the transition event subscriptions
             old_transitions_nodes = set(self._lifecycle_subscriptions.keys()) - set(transition_event_publisher)
             for node_id in old_transitions_nodes:
+                print(f"unregister subscription {self._lifecycle_subscriptions[node_id].topic_name}")
                 nmd.ros_node.destroy_subscription(self._lifecycle_subscriptions[node_id])
                 del self._lifecycle_subscriptions[node_id]
             # update life cycle status using services, as messages may have been missed via topics
