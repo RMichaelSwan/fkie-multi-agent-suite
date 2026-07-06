@@ -53,6 +53,8 @@ import LifecycleState, { TLifecycleTransition } from "./LifecycleState";
 import LogEvent, { LoggingLevel } from "./LogEvent";
 import LoggerConfig, { LogLevelType } from "./LoggerConfig";
 import Result from "./Result";
+import { ServiceIntrospectionEvent } from "./ServiceIntrospectionEvent";
+import { ServiceIntrospectionRequest } from "./ServiceIntrospectionRequest";
 import SubscriberEvent, { TSubscriberEventExt } from "./SubscriberEvent";
 import SubscriberFilter from "./SubscriberFilter";
 import SubscriberNode from "./SubscriberNode";
@@ -135,6 +137,8 @@ export {
     IncompatibleQos,
     RosParameterRange,
     RosParameterValue,
+    ServiceIntrospectionEvent,
+    ServiceIntrospectionRequest,
     TLifecycleTransition,
     TLogPathItem,
     TReplyLogPathItems,

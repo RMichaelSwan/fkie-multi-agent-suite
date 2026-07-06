@@ -48,6 +48,7 @@ import {
   RosTopic,
   RosTopicId,
   ScreensMapping,
+  ServiceIntrospectionEvent,
   SubscriberEvent,
   SubscriberFilter,
   SubscriberNode,
@@ -2094,6 +2095,49 @@ export default class Provider implements IProvider {
     ];
 
     return expectedTopics.some((topicName) => this.rosTopics.some((topic) => topic.name === topicName));
+  };
+
+  private generateServiceIntrospectionUri = (serviceName: string): string => {
+    return `ros.service.introspection.${serviceName.replaceAll("/", "_")}`;
+  };
+
+  private callbackNewServiceIntrospectionEvent = (msg: JSONObject) => {
+    if (msg.length === 0) return;
+    try {
+      const parsed = msg as unknown as ServiceIntrospectionEvent;
+      emitCustomEvent(`EVENT_PROVIDER_SERVICE_INTROSPECTION_${parsed.service_name}`, { provider: this, event: parsed });
+    } catch (error) {
+      this.log().error(`Provider [${this.id}]: parse service introspection failed`, `${error}`);
+    }
+  };
+
+  public startServiceIntrospection = async (serviceName: string, serviceType: string): Promise<boolean> => {
+    const result = await this.makeCall(
+      "ros.service.introspection.start",
+      [{ service_name: serviceName, service_type: serviceType }],
+      true
+    ).then((v: TResultData) => (v.result ? (v.data as TResult) : ({ result: false, message: v.message } as TResult)));
+
+    if (result.result) {
+      this.registerCallback(
+        this.generateServiceIntrospectionUri(serviceName),
+        this.callbackNewServiceIntrospectionEvent
+      );
+    }
+    return result.result;
+  };
+
+  public stopServiceIntrospection = async (serviceName: string): Promise<Result> => {
+    await this.connection.closeSubscription(this.generateServiceIntrospectionUri(serviceName)).catch(() => {});
+    return this.makeCall("ros.service.introspection.stop", [serviceName], true).then((v: TResultData) =>
+      v.result ? (v.data as Result) : new Result(false, v.message as string)
+    );
+  };
+
+  public hasServiceIntrospection = (serviceName: string): boolean => {
+    const normalized = serviceName.endsWith("/") ? serviceName.slice(0, -1) : serviceName;
+    const expectedTopic = `${normalized}/_service_event`;
+    return this.rosTopics.some((topic) => topic.name === expectedTopic);
   };
 
   public rosRun: (request: {

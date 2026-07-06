@@ -86,6 +86,7 @@ else:
                 'mas-subscriber = fkie_mas_daemon:subscriber',
                 'mas-action-client = fkie_mas_daemon:action_client',
                 'mas-action-introspection = fkie_mas_daemon:action_introspection',
+                'mas-service-introspection = fkie_mas_daemon:service_introspection',
             ],
         },
     )

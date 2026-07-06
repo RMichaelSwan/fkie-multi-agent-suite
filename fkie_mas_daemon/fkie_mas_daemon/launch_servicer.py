@@ -22,6 +22,7 @@ from fkie_mas_pylib.defines import SEARCH_IN_EXT
 from fkie_mas_pylib.defines import ros2_subscriber_nodename_tuple
 from fkie_mas_pylib.defines import ros2_action_nodename_tuple
 from fkie_mas_pylib.defines import ros2_action_introspection_nodename_tuple
+from fkie_mas_pylib.defines import ros2_service_introspection_nodename_tuple
 from fkie_mas_pylib.interface.launch_interface import LaunchPublishMessage
 from fkie_mas_pylib.interface.launch_interface import LaunchMessageStruct
 from fkie_mas_pylib.interface.launch_interface import LaunchIncludedFile
@@ -166,6 +167,7 @@ class LaunchServicer(LoggingEventHandler):
         websocket.register("ros.subscriber.start", self.start_subscriber)
         websocket.register("ros.action.send_goal", self.start_action)
         websocket.register("ros.action.introspection.start", self.start_action_introspection)
+        websocket.register("ros.service.introspection.start", self.start_service_introspection)
 
     def _terminated(self):
         Log.info(f"{self.__class__.__name__}: terminated launch context")
@@ -1358,6 +1360,36 @@ class LaunchServicer(LoggingEventHandler):
                 del new_env['DISPLAY']
         else:
             new_env['DISPLAY'] = ':0'
+
+        Log.info(f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
+        SupervisedPopen(
+            shlex.split(' '.join([screen_prefix, cmd] + args)),
+            env=new_env,
+            object_id=f"run_node_{fullname}",
+            description=f"Run [{package_name}]{executable}"
+        )
+        return json.dumps({"result": True, "message": ""}, cls=SelfEncoder)
+
+    def start_service_introspection(self, request_json) -> str:
+        request = request_json
+        service_name = request.service_name
+        service_type = request.service_type
+
+        package_name = 'fkie_mas_daemon'
+        executable = 'mas-service-introspection'
+        cmd = f"ros2 run {package_name} {executable}"
+
+        namespace, name = ros2_service_introspection_nodename_tuple(service_name)
+        fullname = os.path.join(namespace, name)
+
+        args = [
+            f'--ws_port={self.ws_port}',
+            f'--service_name={service_name}',
+            f'--service_type={service_type}',
+        ]
+
+        screen_prefix = ' '.join([screen.get_cmd(fullname)])
+        new_env = dict(os.environ)
 
         Log.info(f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
         SupervisedPopen(

@@ -103,6 +103,7 @@ import ParameterPanel from "./panels/ParameterPanel";
 import ProviderLaunchConfigPanel from "./panels/ProviderLaunchConfigPanel";
 import ProviderPanel from "./panels/ProviderPanel";
 import ServiceCallerPanel from "./panels/ServiceCallerPanel";
+import ServiceIntrospectionPanel from "./panels/ServiceIntrospectionPanel";
 import ServicesPanel from "./panels/ServicesPanel";
 import SettingsPanel from "./panels/SettingsPanel";
 import SingleTerminalPanel from "./panels/SingleTerminalPanel";
@@ -681,6 +682,23 @@ export default function NodeManager(): JSX.Element {
             providerId={config.serviceCallerConfig.providerId}
             serviceName={config.serviceCallerConfig.serviceName}
             serviceType={config.serviceCallerConfig.serviceType}
+          />
+        );
+      }
+      case LAYOUT_TABS.SERVICE_INTROSPECTION: {
+        if (!config.serviceIntrospectionConfig) {
+          return (
+            <Typography>
+              Invalid service introspection configuration {JSON.stringify(config.serviceIntrospectionConfig)}
+            </Typography>
+          );
+        }
+        return (
+          <ServiceIntrospectionPanel
+            key={config.serviceIntrospectionConfig.id}
+            providerId={config.serviceIntrospectionConfig.providerId}
+            serviceName={config.serviceIntrospectionConfig.serviceName}
+            serviceType={config.serviceIntrospectionConfig.serviceType}
           />
         );
       }

@@ -1,5 +1,6 @@
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SyncAltOutlinedIcon from "@mui/icons-material/SyncAltOutlined";
+import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
 import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -483,6 +484,33 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
     []
   );
 
+  const onIntrospect = useCallback(
+    (service: ServiceExtendedInfo | undefined, external: boolean, openInTerminal = false) => {
+      if (!service) return;
+
+      // currently we do not distinguish external / terminal for services,
+      // but we keep the parameters for future alignment with topic handling
+      console.debug(`introspect service: external=${external} terminal=${openInTerminal}`);
+      const id = `introspect-service-${service.id}}`;
+      emitOpenComponent({
+        id: id,
+        title: `Introspect Service - ${service.name}`,
+        closable: true,
+        component: LAYOUT_TABS.SERVICE_INTROSPECTION,
+        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        config: {
+          serviceIntrospectionConfig: {
+            id,
+            providerId: service.nodeProviders[0]?.providerId,
+            serviceName: service.name,
+            serviceType: service.srvType,
+          },
+        },
+      });
+    },
+    []
+  );
+
   const buttonBox = useMemo(
     () => (
       <ButtonGroup orientation="vertical" aria-label="service control group">
@@ -497,6 +525,20 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
               }
             >
               <SyncAltOutlinedIcon fontSize="inherit" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Introspect" placement="left" disableInteractive>
+          <span>
+            <IconButton
+              disabled={!serviceForSelected}
+              size="medium"
+              aria-label="introspect"
+              onClick={(event) =>
+                onIntrospect(serviceForSelected, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)
+              }
+            >
+              <TroubleshootIcon fontSize="inherit" />
             </IconButton>
           </span>
         </Tooltip>

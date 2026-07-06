@@ -12,6 +12,7 @@ from .ros_node import RosNodeLauncher
 from .subscriber_node import RosSubscriberLauncher
 from .action_client_node import RosActionClientLauncher
 from .action_introspection import RosActionIntrospectionLauncher
+from .service_introspection_node import RosServiceIntrospectionLauncher
 
 # from pkg_resources import get_distribution, DistributionNotFound
 # try:
@@ -46,4 +47,10 @@ def action_client():
 def action_introspection():
     global launcher
     launcher = RosActionIntrospectionLauncher()
+    launcher.spin()
+
+
+def service_introspection():
+    global launcher
+    launcher = RosServiceIntrospectionLauncher()
     launcher.spin()

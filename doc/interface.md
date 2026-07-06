@@ -77,6 +77,9 @@ Each URI has one of the following types:
 | [ros.action.introspection.start](#rosactionintrospectionstart-rpc)          | RPC  |
 | [ros.action.introspection.stop](#rosactionintrospectionstop-rpc)            | RPC  |
 | [ros.action.introspection.{ACTION}](#rosactionintrospectionaction-pub)      | PUB  |
+| [ros.service.introspection.start](#rosserviceintrospectionstart-rpc)        | RPC  |
+| [ros.service.introspection.stop](#rosserviceintrospectionstop-rpc)          | RPC  |
+| [ros.service.introspection.{SERVICE}](#rosserviceintrospectionservice-pub)  | PUB  |
 
 ## Message formats
 
@@ -573,6 +576,48 @@ state is `CONTENTS`; with state `METADATA` only the metadata is delivered and
 `data` is `null`.
 
 [ActionIntrospectionEvent](#actionintrospectionevent)
+
+### ros.service.introspection.start `RPC`
+
+Starts a node that subscribes to the service-introspection topic
+(`{SERVICE}/_service_event`) of a ROS service and forwards the events via
+websocket.
+
+Service introspection is available only on ROS 2 and only if the service server
+or client enables introspection with state `METADATA` or `CONTENTS`.
+
+`Request`: [ServiceIntrospectionRequest](#serviceintrospectionrequest)
+
+`Reply`:
+
+```json
+{
+  "result": bool,
+  "message": str
+}
+```
+
+### ros.service.introspection.stop `RPC`
+
+Stops the introspection node for the given service.
+
+`Request`: `str` service name
+
+`Reply`:
+
+```json
+{
+  "result": bool,
+  "message": str
+}
+```
+
+### ros.service.introspection.{ACTION} `PUB`
+
+Service-introspection event of a service. `SERVICE` is the service name with / replaced by \_.
+The payload in data is only present when the introspection state is `CONTENTS`; with state `METADATA` only the metadata is delivered and data is null
+
+[ServiceIntrospectionEvent](#serviceintrospectionevent)
 
 ### ros.system.get_uri `RPC`
 
@@ -1412,7 +1457,7 @@ Definitions: [Daemon](../fkie_mas_pylib/fkie_mas_pylib/interface/runtime_interfa
   "phase": string,              // "send_goal", "get_result" or "cancel_goal"
   "event_type": string,         // "REQUEST_SENT", "REQUEST_RECEIVED", "RESPONSE_SENT", "RESPONSE_RECEIVED"
   "sequence_number": int,       // Sequence number of the service event
-  "client_gid": int[],          // Global identifier (GID) of the client
+  "client_gid": str,            // Global identifier (GID) of the client
   "data": {},                   // Request/response payload; null if state = METADATA
   "timestamp": float            // Unix timestamp
 }
@@ -1426,3 +1471,25 @@ Definitions: [Daemon](../fkie_mas_pylib/fkie_mas_pylib/interface/runtime_interfa
 | 1     | REQUEST_RECEIVED  |
 | 2     | RESPONSE_SENT     |
 | 3     | RESPONSE_RECEIVED |
+
+### ServiceIntrospectionRequest
+
+```json
+{
+  "service_name": string,   // Fully qualified service name
+  "service_type": string    // service type
+}
+```
+
+### ServiceIntrospectionEvent
+
+```json
+{
+  "service_name": string,        // Action name
+  "event_type": string,         // "REQUEST_SENT", "REQUEST_RECEIVED", "RESPONSE_SENT", "RESPONSE_RECEIVED"
+  "sequence_number": int,       // Sequence number of the service event
+  "client_gid": str,            // Global identifier (GID) of the client
+  "data": {},            // Request/response payload; null if state = METADATA
+  "timestamp": float            // Unix timestamp
+}
+```

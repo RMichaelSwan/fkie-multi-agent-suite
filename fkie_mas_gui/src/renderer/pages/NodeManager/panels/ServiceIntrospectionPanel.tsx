@@ -25,31 +25,38 @@ import { v4 as uuid } from "uuid";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { Provider } from "@/renderer/providers";
-import { EventProviderActionIntrospection } from "@/renderer/providers/events";
-import { EVENT_PROVIDER_ACTION_INTROSPECTION_PREFIX } from "@/renderer/providers/eventTypes";
 
-interface IntrospectionDisplay {
+export interface ServiceIntrospectionEvent {
+  service_name: string;
+  event_type: "REQUEST_SENT" | "REQUEST_RECEIVED" | "RESPONSE_SENT" | "RESPONSE_RECEIVED" | string;
+  sequence_number: number;
+  client_gid: string | number[];
+  data: object | null;
+  timestamp: number;
+}
+
+interface EventProviderServiceIntrospection {
+  provider: Provider;
+  event: ServiceIntrospectionEvent;
+}
+
+interface ServiceIntrospectionDisplay {
   key: string;
-  phase: string;
   eventType: string;
   sequenceNumber: number;
-  clientGid: number[];
+  clientGid: string | number[];
   data: object | null;
   timestamp: number;
   receivedIndex: number;
 }
 
-interface ActionIntrospectionPanelProps {
-  actionName: string;
-  actionType: string;
+interface ServiceIntrospectionPanelProps {
+  serviceName: string;
+  serviceType: string;
   providerId: string;
 }
 
-const phaseColor: Record<string, "primary" | "secondary" | "warning"> = {
-  send_goal: "primary",
-  get_result: "secondary",
-  cancel_goal: "warning",
-};
+const EVENT_PROVIDER_SERVICE_INTROSPECTION_PREFIX = "EVENT_PROVIDER_SERVICE_INTROSPECTION";
 
 const eventColor: Record<string, "info" | "success" | "default"> = {
   REQUEST_SENT: "info",
@@ -58,17 +65,16 @@ const eventColor: Record<string, "info" | "success" | "default"> = {
   RESPONSE_RECEIVED: "success",
 };
 
-export default function ActionIntrospectionPanel(props: ActionIntrospectionPanelProps): JSX.Element {
-  const { actionName, actionType, providerId } = props;
+export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPanelProps): JSX.Element {
+  const { serviceName, serviceType, providerId } = props;
   const rosCtx = useRosContext();
 
   const [provider, setProvider] = useState<Provider | null>(null);
   const [monitoring, setMonitoring] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const [events, setEvents] = useState<IntrospectionDisplay[]>([]);
+  const [events, setEvents] = useState<ServiceIntrospectionDisplay[]>([]);
   const [maxCount, setMaxCount] = useState<number>(100);
   const [_receivedIndex, setReceivedIndex] = useState(0);
-  const [phaseFilter, setPhaseFilter] = useState<string>("all");
 
   const [useDarkMode] = useSetting<boolean>("useDarkMode");
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
@@ -84,8 +90,8 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
   }, [providerId, rosCtx]);
 
   const introspectionAvailable = useMemo(() => {
-    return provider?.hasActionIntrospection(actionName) ?? false;
-  }, [provider, actionName, rosCtx.nodeMap]);
+    return provider?.hasServiceIntrospection(serviceName) ?? false;
+  }, [provider, serviceName, rosCtx.nodeMap]);
 
   const getHostStyle = useCallback((): object => {
     if (providerId && colorizeHosts) {
@@ -100,13 +106,9 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
     return { flexGrow: 1, backgroundColor };
   }, [providerId, colorizeHosts, backgroundColor, rosCtx]);
 
-  const getIntrospectionTopics = useCallback((): string[] => {
-    return [
-      `${actionName}/_action/send_goal/_service_event`,
-      `${actionName}/_action/get_result/_service_event`,
-      `${actionName}/_action/cancel_goal/_service_event`,
-    ];
-  }, [actionName]);
+  const getIntrospectionTopic = useCallback((): string => {
+    return `${serviceName}/_service_event`;
+  }, [serviceName]);
 
   useEffect(() => {
     if (!provider) {
@@ -114,15 +116,14 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
       return;
     }
 
-    const introspectionTopics = getIntrospectionTopics();
+    const introspectionTopic = getIntrospectionTopic();
 
     const hasIntrospectionSubscriber =
-      provider.rosNodes?.some((node) =>
-        (node.subscribers || []).some((sub) => introspectionTopics.includes(sub.name))
-      ) ?? false;
+      provider.rosNodes?.some((node) => (node.subscribers || []).some((sub) => sub.name === introspectionTopic)) ??
+      false;
 
     setMonitoring(hasIntrospectionSubscriber);
-  }, [provider, getIntrospectionTopics, rosCtx.mapProviderRosNodes]);
+  }, [provider, getIntrospectionTopic, rosCtx.mapProviderRosNodes]);
 
   useEffect(() => {
     if (monitoring) {
@@ -141,17 +142,16 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
   }, [isStarting]);
 
   useCustomEventListener(
-    `${EVENT_PROVIDER_ACTION_INTROSPECTION_PREFIX}_${actionName}`,
-    (data: EventProviderActionIntrospection) => {
+    `${EVENT_PROVIDER_SERVICE_INTROSPECTION_PREFIX}_${serviceName}`,
+    (data: EventProviderServiceIntrospection) => {
       if (!data?.event) return;
 
       const evt = data.event;
 
       setReceivedIndex((prev) => {
         const currentIndex = prev;
-        const display: IntrospectionDisplay = {
+        const display: ServiceIntrospectionDisplay = {
           key: uuid(),
-          phase: evt.phase,
           eventType: evt.event_type,
           sequenceNumber: evt.sequence_number,
           clientGid: evt.client_gid,
@@ -164,7 +164,7 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
         return prev + 1;
       });
     },
-    [actionName, maxCount]
+    [serviceName, maxCount]
   );
 
   const startMonitoring = useCallback(async () => {
@@ -172,46 +172,43 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
     try {
       setIsStarting(true);
-      await provider.startActionIntrospection(actionName, actionType);
+      await provider.startServiceIntrospection(serviceName, serviceType);
     } catch (_err) {
       setIsStarting(false);
     }
-  }, [provider, introspectionAvailable, actionName, actionType]);
+  }, [provider, introspectionAvailable, serviceName, serviceType]);
 
   const stopMonitoring = useCallback(async () => {
     if (!provider) return;
 
     setIsStarting(false);
-    await provider.stopActionIntrospection(actionName);
-  }, [provider, actionName]);
-
-  const filtered = useMemo(
-    () => (phaseFilter === "all" ? events : events.filter((e) => e.phase === phaseFilter)),
-    [events, phaseFilter]
-  );
+    await provider.stopServiceIntrospection(serviceName);
+  }, [provider, serviceName]);
 
   return (
     <Box height="100%" overflow="hidden" sx={getHostStyle()}>
       <Stack spacing={1} margin={1}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography fontWeight="bold">{actionName}</Typography>
-          <Typography color="grey" fontSize="0.8em">
-            {provider?.name()}
-          </Typography>
-          <Typography color="grey" fontSize="0.8em">
-            [{actionType}]
-          </Typography>
+        <Stack spacing={0.3}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography fontWeight="bold">{serviceName}</Typography>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography color="grey" fontSize="0.8em" flexGrow={1}>
+              {provider?.name()}
+            </Typography>
+            <Typography color="grey" fontSize="0.8em">
+              [{serviceType}]
+            </Typography>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Chip
+              label={monitoring ? "monitoring" : isStarting ? "starting" : "stopped"}
+              color={monitoring ? "success" : isStarting ? "info" : "default"}
+              size="small"
+              variant="outlined"
+            />
+          </Stack>
         </Stack>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          {" "}
-          <Chip
-            label={monitoring ? "monitoring" : isStarting ? "starting" : "stopped"}
-            color={monitoring ? "success" : isStarting ? "info" : "default"}
-            size="small"
-            variant="outlined"
-          />
-        </Stack>
-
         <Stack direction="row" spacing={1} alignItems="center">
           {monitoring ? (
             <Button variant="outlined" color="warning" size="small" startIcon={<StopIcon />} onClick={stopMonitoring}>
@@ -233,8 +230,8 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
             <Tooltip
               title={
                 introspectionAvailable
-                  ? "Start action introspection"
-                  : "This action does not provide introspection topics"
+                  ? "Start service introspection"
+                  : "This service does not provide introspection topic"
               }
             >
               <span>
@@ -260,19 +257,6 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
           <Select
             size="small"
-            value={phaseFilter}
-            onChange={(e) => setPhaseFilter(e.target.value)}
-            sx={{ fontSize: "0.7em" }}
-          >
-            {["all", "send_goal", "get_result", "cancel_goal"].map((p) => (
-              <MenuItem key={p} value={p} sx={{ fontSize: "0.7em" }}>
-                {p}
-              </MenuItem>
-            ))}
-          </Select>
-
-          <Select
-            size="small"
             value={maxCount.toString()}
             onChange={(e) => setMaxCount(Number.parseInt(e.target.value))}
             sx={{ fontSize: "0.7em" }}
@@ -291,42 +275,42 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
         {provider && !monitoring && !introspectionAvailable && (
           <Alert severity="info">
-            This action does not expose introspection topics on the provider. To enable introspection, the ROS 2 action
-            server or client must publish service event topics and use introspection state <b>METADATA</b> or{" "}
-            <b>CONTENTS</b>. Expected topics: <b>{actionName}/_action/send_goal/_service_event</b>,{" "}
-            <b>{actionName}/_action/get_result/_service_event</b>,{" "}
-            <b>{actionName}/_action/cancel_goal/_service_event</b>. See{" "}
+            This service does not expose an introspection topic on the provider. To enable introspection, the ROS 2
+            service server or client must publish the service event topic and use introspection state <b>METADATA</b> or{" "}
+            <b>CONTENTS</b>. Expected topic: <b>{serviceName}/_service_event</b>. See{" "}
             <Link
-              href="https://docs.ros.org/en/rolling/Tutorials/Demos/Action-Introspection.html"
+              href="https://docs.ros.org/en/rolling/Tutorials/Demos/Service-Introspection.html"
               target="_blank"
               rel="noopener noreferrer"
             >
-              ROS 2 action introspection documentation
+              ROS 2 service introspection documentation
             </Link>
           </Alert>
         )}
 
         {provider && !monitoring && !isStarting && events.length === 0 && introspectionAvailable && (
           <Alert severity="info">
-            Click &ldquo;Start Introspection&rdquo;. Note: The action server/client must have introspection enabled with
-            state <b>METADATA</b> or <b>CONTENTS</b> for events to appear.
+            Click &ldquo;Start Introspection&rdquo;. Note: The service server/client must have introspection enabled
+            with state <b>METADATA</b> or <b>CONTENTS</b> for events to appear.
           </Alert>
         )}
 
         {provider && isStarting && !monitoring && (
-          <Alert severity="info">Starting action introspection, waiting for provider subscriptions to appear...</Alert>
+          <Alert severity="info">Starting service introspection, waiting for provider subscriptions to appear...</Alert>
         )}
 
         <Stack spacing={0.5} sx={{ maxHeight: "70vh", overflow: "auto" }}>
-          {filtered.map((evt) => (
+          {events.map((evt) => (
             <Paper key={evt.key} elevation={1} sx={{ p: 0.5 }}>
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <Typography variant="caption" color="grey">
                   #{evt.receivedIndex} {new Date(evt.timestamp).toLocaleTimeString()}
                 </Typography>
-                <Chip label={evt.phase} size="small" color={phaseColor[evt.phase] ?? "default"} variant="outlined" />
                 <Chip label={evt.eventType} size="small" color={eventColor[evt.eventType] ?? "default"} />
                 <Typography variant="caption">seq: {evt.sequenceNumber}</Typography>
+                <Typography variant="caption" color="grey">
+                  gid: {Array.isArray(evt.clientGid) ? evt.clientGid.join(".") : evt.clientGid}
+                </Typography>
               </Stack>
 
               {evt.data ? (

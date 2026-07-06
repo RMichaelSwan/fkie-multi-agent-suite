@@ -68,6 +68,13 @@ export type TServiceCallerConfig = {
   serviceType: string;
 };
 
+export type TServiceIntrospectionConfig = {
+  id: string;
+  providerId: string;
+  serviceName: string;
+  serviceType: string;
+};
+
 export type TActionConfig = {
   id: string;
   providerId: string;
@@ -131,6 +138,8 @@ export type TLayoutTabConfig = {
   parameterConfig?: TParameterConfig;
 
   serviceCallerConfig?: TServiceCallerConfig;
+
+  serviceIntrospectionConfig?: TServiceIntrospectionConfig;
 
   actionConfig?: TActionConfig;
 

@@ -96,3 +96,12 @@ def ros2_action_introspection_nodename_tuple(action_name: str):
     if action_ns:
         namespace = os.path.join(namespace, action_ns)
     return (namespace, node_name)
+
+def ros2_service_introspection_nodename_tuple(service_name: str):
+    namespace = os.path.join(NM_NAMESPACE, f"_service_introspection_{ROS_DOMAIN_ID}{nm_name_suffix}")
+    service_parts = service_name.replace('.', '/').strip('/').split('/')
+    node_name = service_parts[-1]
+    service_ns = '/'.join(service_parts[:-1])
+    if service_ns:
+        namespace = os.path.join(namespace, service_ns)
+    return (namespace, node_name)

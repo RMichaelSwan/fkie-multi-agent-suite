@@ -71,6 +71,9 @@ const URI = {
   ROS_ACTION_START_INTROSPECTION: "ros.action.introspection.start",
   ROS_ACTION_STOP_INTROSPECTION: "ros.action.introspection.stop",
   ROS_ACTION_EVENT_INTROSPECTION_PREFIX: "ros.action.introspection",
+  ROS_SERVICE_START_INTROSPECTION: "ros.service.introspection.start",
+  ROS_SERVICE_STOP_INTROSPECTION: "ros.service.introspection.stop",
+  ROS_SERVICE_EVENT_INTROSPECTION_PREFIX: "ros.service.introspection",
 };
 
 export default URI;

@@ -30,6 +30,7 @@ const LAYOUT_TABS = {
   NODE_LOGGER: "node-logger-tab",
   PROVIDER_LAUNCH_CONTROL: "provider-launch-control-tab",
   SERVICE_CALLER: "service-caller-tab",
+  SERVICE_INTROSPECTION: "service-introspection-tab",
   TERMINAL: "terminal-tab",
   TOPIC_ECHO: "topic-echo-tab",
   TOPIC_PUBLISHER: "topic-publisher-tab",
