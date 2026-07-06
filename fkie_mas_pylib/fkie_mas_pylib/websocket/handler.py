@@ -141,7 +141,7 @@ class WebSocketHandler:
                                     callback.remote_call(msg, self)
                             else:
                                 Log.info(
-                                    f"rcp not found {msg.uri}, params: {msg.params}")
+                                    f"RPC-URI not found {msg.uri}, params: {msg.params}")
                                 reply = {
                                     "id": msg.id, "error": f"no method for ${msg.uri} registered"}
                                 self.queue.put(QueueItem(json.dumps(

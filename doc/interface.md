@@ -70,6 +70,13 @@ Each URI has one of the following types:
 | [ros.parameters.delete_parameters](#rosparametersdelete_parameters-rpc)     | RPC  |
 | [ros.process.find_node](#rosprocessfind_node-rpc)                           | RPC  |
 | [ros.process.kill](#rosprocesskill-rpc)                                     | RPC  |
+| [ros.action.send_goal](#rosactionsend_goal-rpc)                             | RPC  |
+| [ros.action.feedback.{ACTION}](#rosactionfeedbackaction-pub)                | PUB  |
+| [ros.action.result.{ACTION}](#rosactionresultaction-pub)                    | PUB  |
+| [ros.action.stop](#rosactionstop-rpc)                                       | RPC  |
+| [ros.action.introspection.start](#rosactionintrospectionstart-rpc)          | RPC  |
+| [ros.action.introspection.stop](#rosactionintrospectionstop-rpc)            | RPC  |
+| [ros.action.introspection.{ACTION}](#rosactionintrospectionaction-pub)      | PUB  |
 
 ## Message formats
 
@@ -530,6 +537,42 @@ Feedback event from an active action goal. ACTION is the action name with '/' re
 Result event when an action goal completes (succeeded, aborted, canceled). ACTION is the action name with '/' replaced by '\_'.
 
 [ActionEvent](#actionevent)
+
+### ros.action.introspection.start `RPC`
+
+Starts a node that subscribes to the service-introspection topics
+(`*/_action/{send_goal,get_result,cancel_goal}/_service_event`) of a ROS action
+and forwards the events via websocket. Requires that service introspection is
+enabled on the action server/client (state `METADATA` or `CONTENTS`).
+
+`Request`: [ActionIntrospectionRequest](#actionintrospectionrequest)
+
+`Reply`:
+
+```json
+{"result": bool, "message": str}
+```
+
+### ros.action.introspection.stop `RPC`
+
+Stops the introspection node for the given action.
+
+`Request`: `str` action name
+
+`Reply`:
+
+```json
+{"result": bool, "message": str}
+```
+
+### ros.action.introspection.{ACTION} `PUB`
+
+Service-introspection event of an action. ACTION is the action name with '/'
+replaced by '\_'. The payload in `data` is only present when the introspection
+state is `CONTENTS`; with state `METADATA` only the metadata is delivered and
+`data` is `null`.
+
+[ActionIntrospectionEvent](#actionintrospectionevent)
 
 ### ros.system.get_uri `RPC`
 
@@ -1351,3 +1394,35 @@ Definitions: [Daemon](../fkie_mas_pylib/fkie_mas_pylib/interface/runtime_interfa
 
 }
 ```
+
+### ActionIntrospectionRequest
+
+```json
+{
+  "action_name": string,   // Fully qualified action name (e.g. /navigate_to_pose)
+  "action_type": string    // Action type (e.g. nav2_msgs/action/NavigateToPose)
+}
+```
+
+### ActionIntrospectionEvent
+
+```json
+{
+  "action_name": string,        // Action name
+  "phase": string,              // "send_goal", "get_result" or "cancel_goal"
+  "event_type": string,         // "REQUEST_SENT", "REQUEST_RECEIVED", "RESPONSE_SENT", "RESPONSE_RECEIVED"
+  "sequence_number": int,       // Sequence number of the service event
+  "client_gid": int[],          // Global identifier (GID) of the client
+  "data": {},                   // Request/response payload; null if state = METADATA
+  "timestamp": float            // Unix timestamp
+}
+```
+
+**event_type mapping** (from `service_msgs/msg/ServiceEventInfo`):
+
+| Value | Name              |
+| ----- | ----------------- |
+| 0     | REQUEST_SENT      |
+| 1     | REQUEST_RECEIVED  |
+| 2     | RESPONSE_SENT     |
+| 3     | RESPONSE_RECEIVED |

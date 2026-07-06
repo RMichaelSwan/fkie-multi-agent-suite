@@ -36,6 +36,7 @@ NM_DISCOVERY_NAME = f'_discovery_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_DAEMON_NAME = f'_daemon_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_SUBSCRIBER_NAME = f'_subscriber_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_ACTION_NAME = f'_action_{ROS_DOMAIN_ID}{nm_name_suffix}'
+NM_ACTION_INTROSPECTION_NAME = f'_action_introspection_{ROS_DOMAIN_ID}{nm_name_suffix}'
 EMPTY_PATTERN = re.compile('\b', re.I)
 SEARCH_IN_EXT = ['.launch', '.yaml', '.conf', '.cfg', '.py',
                  '.iface', '.nmprofile', '.sync', '.test', '.xml', '.xacro']
@@ -79,6 +80,16 @@ def ros2_subscriber_nodename_tuple(topic: str) -> Tuple[str, str]:  # namespace,
 def ros2_action_nodename_tuple(action_name: str):
     """Returns (namespace, name) tuple for an action client node."""
     namespace = os.path.join(NM_NAMESPACE, NM_ACTION_NAME)
+    action_parts = action_name.replace('.', '/').strip('/').split('/')
+    node_name = action_parts[-1]
+    action_ns = '/'.join(action_parts[:-1])
+    if action_ns:
+        namespace = os.path.join(namespace, action_ns)
+    return (namespace, node_name)
+
+def ros2_action_introspection_nodename_tuple(action_name: str):
+    """Returns (namespace, name) tuple for an action client node."""
+    namespace = os.path.join(NM_NAMESPACE, NM_ACTION_INTROSPECTION_NAME)
     action_parts = action_name.replace('.', '/').strip('/').split('/')
     node_name = action_parts[-1]
     action_ns = '/'.join(action_parts[:-1])

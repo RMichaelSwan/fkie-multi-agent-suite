@@ -11,6 +11,7 @@ from rclpy.node import Node
 from .ros_node import RosNodeLauncher
 from .subscriber_node import RosSubscriberLauncher
 from .action_client_node import RosActionClientLauncher
+from .action_introspection import RosActionIntrospectionLauncher
 
 # from pkg_resources import get_distribution, DistributionNotFound
 # try:
@@ -39,4 +40,10 @@ def subscriber():
 def action_client():
     global launcher
     launcher = RosActionClientLauncher()
+    launcher.spin()
+
+
+def action_introspection():
+    global launcher
+    launcher = RosActionIntrospectionLauncher()
     launcher.spin()

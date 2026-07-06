@@ -21,6 +21,7 @@ from fkie_mas_pylib.launch import xml
 from fkie_mas_pylib.defines import SEARCH_IN_EXT
 from fkie_mas_pylib.defines import ros2_subscriber_nodename_tuple
 from fkie_mas_pylib.defines import ros2_action_nodename_tuple
+from fkie_mas_pylib.defines import ros2_action_introspection_nodename_tuple
 from fkie_mas_pylib.interface.launch_interface import LaunchPublishMessage
 from fkie_mas_pylib.interface.launch_interface import LaunchMessageStruct
 from fkie_mas_pylib.interface.launch_interface import LaunchIncludedFile
@@ -164,6 +165,7 @@ class LaunchServicer(LoggingEventHandler):
         websocket.register("ros.launch.get_message_types", self.get_message_types)
         websocket.register("ros.subscriber.start", self.start_subscriber)
         websocket.register("ros.action.send_goal", self.start_action)
+        websocket.register("ros.action.introspection.start", self.start_action_introspection)
 
     def _terminated(self):
         Log.info(f"{self.__class__.__name__}: terminated launch context")
@@ -1306,6 +1308,48 @@ class LaunchServicer(LoggingEventHandler):
         if goal:
             goal_json = goal
             args.append(f"--goal_json='{goal_json}'")
+
+        screen_prefix = ' '.join([screen.get_cmd(fullname)])
+        new_env = dict(os.environ)
+        if 'DISPLAY' in new_env:
+            if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
+                del new_env['DISPLAY']
+        else:
+            new_env['DISPLAY'] = ':0'
+
+        Log.info(f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
+        SupervisedPopen(
+            shlex.split(' '.join([screen_prefix, cmd] + args)),
+            env=new_env,
+            object_id=f"run_node_{fullname}",
+            description=f"Run [{package_name}]{executable}"
+        )
+        return json.dumps({"result": True, "message": ""}, cls=SelfEncoder)
+
+    def start_action_introspection(self, request_json) -> str:
+        """Start a node that subscribes to the *_service_event introspection
+        topics of a ROS action and forwards events via websocket."""
+        request = request_json
+        action_name = request.action_name
+        action_type = request.action_type
+        Log.debug(
+            f"{self.__class__.__name__}: Request to [ros.action.introspection.start]: {request}"
+        )
+
+        package_name = 'fkie_mas_daemon'
+        executable = 'mas-action-introspection'
+        cmd = f"ros2 run {package_name} {executable}"
+
+        # eigener Node-Name, damit er nicht mit dem Action-Client kollidiert
+        self.namespace, self.name = ros2_action_introspection_nodename_tuple(
+            f"{action_name}"
+        )
+        fullname = os.path.join(self.namespace, self.name)
+
+        args = []
+        args.append(f'--ws_port={self.ws_port}')
+        args.append(f'--action_name={action_name}')
+        args.append(f'--action_type={action_type}')
 
         screen_prefix = ' '.join([screen.get_cmd(fullname)])
         new_env = dict(os.environ)

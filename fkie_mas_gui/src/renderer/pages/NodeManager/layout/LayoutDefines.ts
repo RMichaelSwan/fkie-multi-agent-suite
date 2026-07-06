@@ -21,6 +21,7 @@ const LAYOUT_TABS = {
   SERVICES: "services-tab",
   ACTIONS: "actions-tab",
   ACTION_SEND_GOAL: "action-send-goal-tab",
+  ACTION_INTROSPECTION: "action-introspection-tab",
   SETTINGS: "settings-tab",
   LOGGING: "logging-tab",
   DOMAIN: "domain-tab",

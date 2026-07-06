@@ -47,6 +47,7 @@ import ScreensMapping from "./ScreensMapping";
 // Other structs
 import { ActionEvent } from "./ActionEvent";
 import { ActionGoalRequest } from "./ActionGoalRequest";
+import { ActionIntrospectionEvent } from "./ActionIntrospectionEvent";
 import Composable from "./Composable";
 import LifecycleState, { TLifecycleTransition } from "./LifecycleState";
 import LogEvent, { LoggingLevel } from "./LogEvent";
@@ -129,6 +130,7 @@ export {
   export type {
     ActionEvent,
     ActionGoalRequest,
+    ActionIntrospectionEvent,
     EndpointInfo,
     IncompatibleQos,
     RosParameterRange,

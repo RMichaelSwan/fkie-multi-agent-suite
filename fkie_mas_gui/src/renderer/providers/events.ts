@@ -2,6 +2,7 @@
 import { ConnectConfig } from "ssh2";
 import {
   ActionEvent,
+  ActionIntrospectionEvent,
   Composable,
   DiagnosticStatus,
   LaunchContent,
@@ -147,6 +148,15 @@ export class EventProviderActionEvent {
   event: ActionEvent;
 
   constructor(provider: Provider, event: ActionEvent) {
+    this.provider = provider;
+    this.event = event;
+  }
+}
+
+export class EventProviderActionIntrospection {
+  provider: Provider;
+  event: ActionIntrospectionEvent;
+  constructor(provider: Provider, event: ActionIntrospectionEvent) {
     this.provider = provider;
     this.event = event;
   }

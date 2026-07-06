@@ -88,6 +88,7 @@ import { LAYOUT_DOMAIN_TAB_SET, LAYOUT_NO_RUNNING_DAEMONS } from "./layout/Layou
 import { contentToId, TContentId, TExtTerminalConfig, TLayoutTabConfig } from "./layout/LayoutTabConfig";
 import "./NodeManager.css";
 import AboutPanel from "./panels/AboutPanel";
+import ActionIntrospectionPanel from "./panels/ActionIntrospectionPanel";
 import ActionPanel from "./panels/ActionPanel";
 import ActionsPanel from "./panels/ActionsPanel";
 import DetailsPanel from "./panels/DetailsPanel";
@@ -694,6 +695,23 @@ export default function NodeManager(): JSX.Element {
             providerId={config.actionConfig.providerId}
             actionName={config.actionConfig.actionName}
             actionType={config.actionConfig.actionType}
+          />
+        );
+      }
+      case LAYOUT_TABS.ACTION_INTROSPECTION: {
+        if (!config.actionIntrospectionConfig) {
+          return (
+            <Typography>
+              Invalid action introspection configuration {JSON.stringify(config.actionIntrospectionConfig)}
+            </Typography>
+          );
+        }
+        return (
+          <ActionIntrospectionPanel
+            key={config.actionIntrospectionConfig.id}
+            providerId={config.actionIntrospectionConfig.providerId}
+            actionName={config.actionIntrospectionConfig.actionName}
+            actionType={config.actionIntrospectionConfig.actionType}
           />
         );
       }

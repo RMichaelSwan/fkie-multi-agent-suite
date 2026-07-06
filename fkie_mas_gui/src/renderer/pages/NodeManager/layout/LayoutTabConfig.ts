@@ -75,6 +75,13 @@ export type TActionConfig = {
   actionType: string;
 };
 
+export type TActionIntrospectionConfig = {
+  id: string;
+  providerId: string;
+  actionName: string;
+  actionType: string;
+};
+
 export type TNodeLoggerConfig = {
   id: string;
   node: RosNode;
@@ -126,6 +133,8 @@ export type TLayoutTabConfig = {
   serviceCallerConfig?: TServiceCallerConfig;
 
   actionConfig?: TActionConfig;
+
+  actionIntrospectionConfig?: TActionIntrospectionConfig;
 
   nodeLoggerConfig?: TNodeLoggerConfig;
 

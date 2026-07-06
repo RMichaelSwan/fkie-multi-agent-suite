@@ -68,6 +68,9 @@ const URI = {
   ROS_ACTION_EVENT_FEEDBACK_PREFIX: "ros.action.feedback",
   ROS_ACTION_EVENT_RESULT_PREFIX: "ros.action.result",
   ROS_ACTION_STOP: "ros.action.stop",
+  ROS_ACTION_START_INTROSPECTION: "ros.action.introspection.start",
+  ROS_ACTION_STOP_INTROSPECTION: "ros.action.introspection.stop",
+  ROS_ACTION_EVENT_INTROSPECTION_PREFIX: "ros.action.introspection",
 };
 
 export default URI;

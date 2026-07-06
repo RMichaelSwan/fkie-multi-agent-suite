@@ -15,6 +15,7 @@ import { getDefaultPortFromRos, ISettingsContext } from "../context/SettingsCont
 import {
   ActionEvent,
   ActionGoalRequest,
+  ActionIntrospectionEvent,
   Composable,
   DaemonVersion,
   DiagnosticArray,
@@ -68,6 +69,7 @@ import {
   EVENT_NODE_DIAGNOSTIC,
   EVENT_NODE_LIFECYCLE,
   EVENT_PROVIDER_ACTION_FEEDBACK_PREFIX,
+  EVENT_PROVIDER_ACTION_INTROSPECTION_PREFIX,
   EVENT_PROVIDER_ACTION_RESULT_PREFIX,
   EVENT_PROVIDER_ACTIVITY,
   EVENT_PROVIDER_DELAY,
@@ -90,6 +92,7 @@ import {
 import {
   EventNodeDiagnostic,
   EventProviderActionEvent,
+  EventProviderActionIntrospection,
   EventProviderActivity,
   EventProviderDelay,
   EventProviderDiscovered,
@@ -256,6 +259,8 @@ export default class Provider implements IProvider {
   private currentRequestList = new Set();
 
   private activeActions: string[] = [];
+
+  private activeIntrospections: string[] = [];
 
   /** Timer to determine the delay to provider */
   private currentDelayTimer: NodeJS.Timeout | null = null;
@@ -2009,7 +2014,6 @@ export default class Provider implements IProvider {
    * Stop/cancel an active action goal
    */
   public stopAction: (actionName: string) => Promise<Result> = async (actionName) => {
-    console.log(`stopAction : ${actionName}`);
     const hasAction = this.activeActions.includes(actionName);
     if (hasAction) {
       this.activeActions = this.activeActions.filter((a) => a !== actionName);
@@ -2031,6 +2035,65 @@ export default class Provider implements IProvider {
       return new Result(false, value.message as string);
     });
     return Promise.resolve(result);
+  };
+
+  private generateIntrospectionUri = (actionName: string): string => {
+    return `${URI.ROS_ACTION_EVENT_INTROSPECTION_PREFIX}.${actionName.replaceAll("/", "_")}`;
+  };
+
+  private callbackNewIntrospectionEvent: (msg: JSONObject) => void = (msg) => {
+    if (msg.length === 0) return;
+    try {
+      const parsed = msg as unknown as ActionIntrospectionEvent;
+      emitCustomEvent(
+        `${EVENT_PROVIDER_ACTION_INTROSPECTION_PREFIX}_${parsed.action_name}`,
+        new EventProviderActionIntrospection(this, parsed)
+      );
+    } catch (error) {
+      this.log().error(`Provider [${this.id}]: parse introspection failed`, `${error}`);
+    }
+  };
+
+  public startActionIntrospection: (actionName: string, actionType: string) => Promise<boolean> = async (
+    actionName,
+    actionType
+  ) => {
+    if (this.activeIntrospections.includes(actionName)) return true;
+    this.activeIntrospections.push(actionName);
+    const result = await this.makeCall(
+      URI.ROS_ACTION_START_INTROSPECTION,
+      [{ action_name: actionName, action_type: actionType }],
+      true
+    ).then((v: TResultData) => (v.result ? (v.data as TResult) : ({ result: false, message: v.message } as TResult)));
+
+    if (result.result) {
+      this.registerCallback(this.generateIntrospectionUri(actionName), this.callbackNewIntrospectionEvent);
+    } else {
+      this.activeIntrospections = this.activeIntrospections.filter((a) => a !== actionName);
+    }
+    return result.result;
+  };
+
+  public stopActionIntrospection: (actionName: string) => Promise<Result> = async (actionName) => {
+    if (this.activeIntrospections.includes(actionName)) {
+      this.activeIntrospections = this.activeIntrospections.filter((a) => a !== actionName);
+      await this.connection.closeSubscription(this.generateIntrospectionUri(actionName)).catch(() => {});
+    }
+    return this.makeCall(URI.ROS_ACTION_STOP_INTROSPECTION, [actionName], true).then((v: TResultData) =>
+      v.result ? (v.data as Result) : new Result(false, v.message as string)
+    );
+  };
+
+  public hasActionIntrospection: (actionName: string) => boolean = (actionName) => {
+    const normalized = actionName.endsWith("/") ? actionName.slice(0, -1) : actionName;
+
+    const expectedTopics = [
+      `${normalized}/_action/send_goal/_service_event`,
+      `${normalized}/_action/get_result/_service_event`,
+      `${normalized}/_action/cancel_goal/_service_event`,
+    ];
+
+    return expectedTopics.some((topicName) => this.rosTopics.some((topic) => topic.name === topicName));
   };
 
   public rosRun: (request: {

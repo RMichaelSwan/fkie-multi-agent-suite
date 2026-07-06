@@ -1,5 +1,6 @@
 import RefreshIcon from "@mui/icons-material/Refresh";
 import StartIcon from "@mui/icons-material/Start";
+import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
 import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -352,7 +353,9 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
 
   const onCallAction = useCallback((action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
     if (!action) return;
-    console.debug(`Send action goal: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`);
+    console.debug(
+      `Send action goal: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
+    );
 
     const id = `call-action-${action.name}}`;
     emitOpenComponent({
@@ -363,6 +366,30 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
       toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
       config: {
         actionConfig: {
+          id,
+          providerId: action.providerId || "",
+          actionName: action.name,
+          actionType: action.actionType,
+        },
+      },
+    });
+  }, []);
+
+  const onIntrospectAction = useCallback((action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
+    if (!action) return;
+    console.debug(
+      `Introspect action: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
+    );
+
+    const id = `introspect-action-${action.name}}`;
+    emitOpenComponent({
+      id: id,
+      title: `Introspect action - ${action.name}`,
+      closable: true,
+      component: LAYOUT_TABS.ACTION_INTROSPECTION,
+      toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+      config: {
+        actionIntrospectionConfig: {
           id,
           providerId: action.providerId || "",
           actionName: action.name,
@@ -384,6 +411,20 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
               onClick={(event) => onCallAction(selectedAction, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)}
             >
               <StartIcon fontSize="inherit" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Introspect" placement="left" disableInteractive>
+          <span>
+            <IconButton
+              disabled={!selectedAction}
+              size="medium"
+              aria-label="introspect"
+              onClick={(event) =>
+                onIntrospectAction(selectedAction, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)
+              }
+            >
+              <TroubleshootIcon fontSize="inherit" />
             </IconButton>
           </span>
         </Tooltip>
