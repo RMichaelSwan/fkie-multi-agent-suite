@@ -13,11 +13,11 @@ import signal
 import sys
 import time
 import traceback
-from typing import Optional
+from typing import Any
 
+from action_msgs.msg import GoalStatus
 import rclpy
 from rclpy.action import ActionClient
-from rclpy.node import Node
 from rosidl_runtime_py.utilities import get_action
 
 from fkie_mas_pylib.interface import SelfEncoder
@@ -58,6 +58,7 @@ class RosActionClientLauncher:
         self._on_shutdown = False
         self._goal_handle = None
         self._goal_id = ""
+        self._goal_done = False  # marks a finished goal (result received)
 
         nmd.ros_node = self.ros_node
         Log.set_ros2_logging_node(self.ros_node)
@@ -94,10 +95,12 @@ class RosActionClientLauncher:
             return
         self._on_shutdown = True
         Log.info('shutdown action client')
+        # Only tries to cancel if the goal is still active
         self._cancel_goal()
         self.stop()
         if rclpy.ok():
             self._action_client.destroy()
+            # This stops rclpy.spin() cleanly instead of spinning again
             rclpy.shutdown()
         print('bye!')
 
@@ -118,11 +121,129 @@ class RosActionClientLauncher:
     def _send_goal_from_json(self, goal_json: str):
         """Parse JSON goal and send it to the action server."""
         try:
-            goal_dict = json.loads(goal_json)
+            parsed = json.loads(goal_json)
+            goal_dict = self._extract_values(parsed)
+            Log.info(f"Parsed goal values: {goal_dict}")
             self._send_goal(goal_dict)
         except json.JSONDecodeError as e:
             Log.error(f"Failed to parse goal JSON: {e}")
             self._publish_result("aborted", None, f"Failed to parse goal: {e}")
+
+    # ------------------------------------------------------------------ #
+    #  GUI-definition -> plain value dict conversion
+    # ------------------------------------------------------------------ #
+    def _extract_values(self, parsed: Any) -> dict:
+        """Convert the GUI goal-definition structure into a plain value dict.
+
+        The GUI sends a structure like:
+          [
+            {
+              "action_name": "/fibonacci",
+              "action_type": "example_interfaces/action/Fibonacci",
+              "goal": "<json-string of the goal definition>"
+            }
+          ]
+        where the goal definition itself is:
+          {
+            "type": "example_interfaces/action/Fibonacci_Goal",
+            "name": "",
+            "def": [
+              {"name": "order", "def": [], "type": "int32",
+               "is_array": false, "useNow": false, "value": "5"}
+            ],
+            "useNow": false
+          }
+
+        This method also accepts a plain value dict like {"order": 5}.
+        """
+        # 1) unwrap a list wrapper -> use the entry that matches our action
+        if isinstance(parsed, list):
+            selected = None
+            for item in parsed:
+                if isinstance(item, dict) and item.get("action_name") == self._action_name:
+                    selected = item
+                    break
+            if selected is None and parsed:
+                selected = parsed[0]
+            parsed = selected
+
+        # 2) unwrap {"goal": "<json-string>"} wrapper
+        if isinstance(parsed, dict) and "goal" in parsed:
+            goal_field = parsed["goal"]
+            if isinstance(goal_field, str):
+                goal_field = json.loads(goal_field)
+            parsed = goal_field
+
+        # 3) GUI definition object with a "def" list of fields
+        if isinstance(parsed, dict) and isinstance(parsed.get("def"), list):
+            result = {}
+            for field in parsed["def"]:
+                name = field.get("name")
+                if not name:
+                    continue
+                result[name] = self._convert_field(field)
+            return result
+
+        # 4) already a plain value dict
+        if isinstance(parsed, dict):
+            return parsed
+
+        # fallback
+        return {}
+
+    def _convert_field(self, field: dict) -> Any:
+        """Convert a single GUI field definition into its typed value."""
+        field_type = field.get("type", "")
+        is_array = field.get("is_array", False)
+        sub_def = field.get("def")
+
+        # Complex (nested message) type: recurse over its "def" list
+        if isinstance(sub_def, list) and sub_def and isinstance(sub_def[0], dict) \
+                and "name" in sub_def[0]:
+            nested = {}
+            for sub in sub_def:
+                sub_name = sub.get("name")
+                if sub_name:
+                    nested[sub_name] = self._convert_field(sub)
+            return nested
+
+        # Primitive value(s) stored in "value"
+        value = field.get("value")
+        if is_array:
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    value = [v.strip() for v in value.split(",") if v.strip() != ""]
+            if not isinstance(value, list):
+                value = [value] if value is not None else []
+            return [self._cast_scalar(field_type, v) for v in value]
+
+        return self._cast_scalar(field_type, value)
+
+    @staticmethod
+    def _cast_scalar(field_type: str, value: Any) -> Any:
+        """Cast a scalar string value to the correct Python type based on ROS type."""
+        if value is None:
+            return value
+        t = field_type.lower()
+        try:
+            if any(t.startswith(p) for p in
+                   ("int", "uint", "byte", "char")):
+                return int(value)
+            if t.startswith("float") or t.startswith("double"):
+                return float(value)
+            if t.startswith("bool"):
+                if isinstance(value, bool):
+                    return value
+                return str(value).lower() in ("1", "true", "t", "yes", "y")
+            # string and everything else
+            return value
+        except (TypeError, ValueError) as e:
+            Log.warn(f"Could not cast value '{value}' to type '{field_type}': {e}")
+            return value
+
+    # ------------------------------------------------------------------ #
 
     def _send_goal(self, goal_dict: dict):
         """Send a goal to the action server."""
@@ -146,15 +267,19 @@ class RosActionClientLauncher:
     def _fill_message_from_dict(self, msg, values: dict):
         """Recursively fill a ROS message from a dictionary."""
         for field_name, field_value in values.items():
-            if hasattr(msg, field_name):
-                attr = getattr(msg, field_name)
-                if isinstance(field_value, dict) and hasattr(attr, '__slots__'):
-                    self._fill_message_from_dict(attr, field_value)
-                else:
-                    try:
-                        setattr(msg, field_name, field_value)
-                    except (TypeError, AttributeError) as e:
-                        Log.warn(f"Could not set field '{field_name}': {e}")
+            if not hasattr(msg, field_name):
+                Log.warn(f"Message has no field '{field_name}' -> skipped")
+                continue
+            attr = getattr(msg, field_name)
+            if isinstance(field_value, dict) and hasattr(attr, '__slots__'):
+                self._fill_message_from_dict(attr, field_value)
+            else:
+                try:
+                    setattr(msg, field_name, field_value)
+                except (TypeError, AttributeError) as e:
+                    # Important: a silently unset field (e.g. 'order') can
+                    # cause the server to abort the goal immediately.
+                    Log.error(f"Could not set field '{field_name}'={field_value}: {e}")
 
     def _goal_response_callback(self, future):
         """Called when the action server accepts or rejects the goal."""
@@ -177,7 +302,8 @@ class RosActionClientLauncher:
         """Called when feedback is received from the action server."""
         feedback = feedback_msg.feedback
         feedback_data = json.loads(
-            json.dumps(feedback, cls=MsgEncoder, **{"no_arr": False, "no_str": False, "array_items_count": 15})
+            json.dumps(feedback, cls=MsgEncoder,
+                       **{"no_arr": False, "no_str": False, "array_items_count": 15})
         )
         event = ActionEvent(
             action_name=self._action_name,
@@ -197,17 +323,26 @@ class RosActionClientLauncher:
         """Called when the action completes with a result."""
         result = future.result()
         status_map = {
-            2: "succeeded",   # STATUS_SUCCEEDED
-            4: "aborted",     # STATUS_ABORTED
-            5: "canceled",    # STATUS_CANCELED
+            GoalStatus.STATUS_SUCCEEDED: "succeeded",
+            GoalStatus.STATUS_ABORTED: "aborted",
+            GoalStatus.STATUS_CANCELED: "canceled",
+            GoalStatus.STATUS_CANCELING: "canceling",
+            GoalStatus.STATUS_EXECUTING: "executing",
+            GoalStatus.STATUS_ACCEPTED: "accepted",
+            GoalStatus.STATUS_UNKNOWN: "unknown",
         }
         status = status_map.get(result.status, f"unknown({result.status})")
         result_data = None
         if result.result is not None:
             result_data = json.loads(
-                json.dumps(result.result, cls=MsgEncoder, **{"no_arr": False, "no_str": False, "array_items_count": 15})
+                json.dumps(result.result, cls=MsgEncoder,
+                        **{"no_arr": False, "no_str": False, "array_items_count": 15})
             )
         Log.info(f"Action '{self._action_name}' finished with status: {status}")
+
+        self._goal_done = True
+        self._goal_handle = None
+
         self._publish_result(status, result_data)
         self.exit_gracefully()
 
@@ -230,15 +365,21 @@ class RosActionClientLauncher:
         )
 
     def _cancel_goal(self):
-        """Cancel the current goal if active."""
-        if self._goal_handle is not None:
-            Log.info(f"Canceling goal for '{self._action_name}'")
-            try:
-                cancel_future = self._goal_handle.cancel_goal_async()
-                rclpy.spin_until_future_complete(self.ros_node, cancel_future, timeout_sec=5.0)
-            except Exception as e:
-                Log.warn(f"Failed to cancel goal: {e}")
-            self._goal_handle = None
+        """Cancel the current goal only if it is still active."""
+        # Nothing to cancel if the goal already finished or was never accepted
+        if self._goal_handle is None or self._goal_done:
+            return
+
+        Log.info(f"Canceling goal for '{self._action_name}'")
+        try:
+            # Do NOT use spin_until_future_complete here:
+            # this method may be called from within a callback while the
+            # executor is already spinning ("Executor is already spinning").
+            # Use a fire-and-forget cancel request instead.
+            self._goal_handle.cancel_goal_async()
+        except Exception as e:
+            Log.warn(f"Failed to cancel goal: {e}")
+        self._goal_handle = None
 
     def _init_arg_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser()
