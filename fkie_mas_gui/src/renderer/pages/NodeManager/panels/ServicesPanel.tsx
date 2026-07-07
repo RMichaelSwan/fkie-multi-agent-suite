@@ -529,23 +529,42 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
             </LongPressIconButton>
           </span>
         </Tooltip>
-        <Tooltip title="Introspect" placement="left" disableInteractive>
+        <Tooltip
+          title={
+            <div>
+              <Typography fontWeight="bold" fontSize="inherit">
+                Introspect service
+              </Typography>
+              <Stack direction="row" spacing={"0.2em"}>
+                <Typography fontWeight="bold" fontSize="inherit">
+                  Shift or long press:
+                </Typography>
+                <Typography fontSize="inherit">alternative open location</Typography>
+              </Stack>
+            </div>
+          }
+          placement="left"
+          disableInteractive
+        >
           <span>
-            <IconButton
+            <LongPressIconButton
               disabled={!serviceForSelected}
               size="medium"
               aria-label="introspect"
               onClick={(event) =>
                 onIntrospect(serviceForSelected, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)
               }
+              onLongPress={() => {
+                onIntrospect(serviceForSelected, true, false);
+              }}
             >
               <TroubleshootIcon fontSize="inherit" />
-            </IconButton>
+            </LongPressIconButton>
           </span>
         </Tooltip>
       </ButtonGroup>
     ),
-    [serviceForSelected, onCallService]
+    [serviceForSelected, onCallService, onIntrospect]
   );
 
   const reloadButton = useMemo(

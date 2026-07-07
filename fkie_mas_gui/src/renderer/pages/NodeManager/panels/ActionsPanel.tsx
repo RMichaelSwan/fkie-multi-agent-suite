@@ -1,7 +1,7 @@
 import RefreshIcon from "@mui/icons-material/Refresh";
 import StartIcon from "@mui/icons-material/Start";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
-import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip } from "@mui/material";
+import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
@@ -9,6 +9,7 @@ import { Virtuoso } from "react-virtuoso";
 
 import ActionGroupTreeItem from "@/renderer/components/ActionTreeView/ActionGroupTreeItem";
 import ActionTreeItem, { ActionInfo } from "@/renderer/components/ActionTreeView/ActionTreeItem";
+import LongPressIconButton from "@/renderer/components/UI/LongPressIconButton";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
@@ -389,35 +390,73 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
   const buttonBox = useMemo(
     () => (
       <ButtonGroup orientation="vertical" aria-label="action control group">
-        <Tooltip title="Send Goal" placement="left" disableInteractive>
+        <Tooltip
+          title={
+            <div>
+              <Typography fontWeight="bold" fontSize="inherit">
+                Send Goal
+              </Typography>
+              <Stack direction="row" spacing={"0.2em"}>
+                <Typography fontWeight="bold" fontSize="inherit">
+                  Shift or long press:
+                </Typography>
+                <Typography fontSize="inherit">alternative open location</Typography>
+              </Stack>
+            </div>
+          }
+          placement="left"
+          disableInteractive
+        >
           <span>
-            <IconButton
+            <LongPressIconButton
               disabled={!selectedAction}
               size="medium"
-              aria-label="send goal"
+              aria-label="Send Goal"
               onClick={(event) => onCallAction(selectedAction, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)}
+              onLongPress={() => {
+                onCallAction(selectedAction, true, false);
+              }}
             >
               <StartIcon fontSize="inherit" />
-            </IconButton>
+            </LongPressIconButton>
           </span>
         </Tooltip>
-        <Tooltip title="Introspect" placement="left" disableInteractive>
+        <Tooltip
+          title={
+            <div>
+              <Typography fontWeight="bold" fontSize="inherit">
+                Introspect action
+              </Typography>
+              <Stack direction="row" spacing={"0.2em"}>
+                <Typography fontWeight="bold" fontSize="inherit">
+                  Shift or long press:
+                </Typography>
+                <Typography fontSize="inherit">alternative open location</Typography>
+              </Stack>
+            </div>
+          }
+          placement="left"
+          disableInteractive
+        >
           <span>
-            <IconButton
+            <LongPressIconButton
               disabled={!selectedAction}
               size="medium"
               aria-label="introspect"
               onClick={(event) =>
                 onIntrospectAction(selectedAction, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)
               }
+              onLongPress={() => {
+                onIntrospectAction(selectedAction, true, false);
+              }}
             >
               <TroubleshootIcon fontSize="inherit" />
-            </IconButton>
+            </LongPressIconButton>
           </span>
         </Tooltip>
       </ButtonGroup>
     ),
-    [selectedAction, onCallAction]
+    [selectedAction, onCallAction, onIntrospectAction]
   );
 
   const reloadButton = useMemo(
