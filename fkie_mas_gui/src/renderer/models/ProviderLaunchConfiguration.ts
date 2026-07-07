@@ -481,7 +481,7 @@ export default class ProviderLaunchConfiguration {
     let envParam = "";
     const ZENOH_CONFIG_OVERRIDE =
       'listen/endpoints=["tcp/0.0.0.0:0"];routing/peer/mode="linkstate";scouting/multicast/enabled=true;scouting/multicast/address="224.0.0.224:${ZENOH_PORT}";scouting/multicast/listen=true';
-    envParam = `ZENOH_CONFIG_OVERRIDE='${ZENOH_CONFIG_OVERRIDE.replace("${ZENOH_PORT}", `${zenohPort}`)}'`;
+    envParam = `ZENOH_CONFIG_OVERRIDE=${ZENOH_CONFIG_OVERRIDE.replace("${ZENOH_PORT}", `${zenohPort}`)}`;
     return envParam;
   }
 
@@ -490,12 +490,12 @@ export default class ProviderLaunchConfiguration {
     const remoteList = this.params.rmw.zenoh.remoteHosts.map((hostname) => {
       return '"tcp/<REMOTE-IP>:7447"'.replace("<REMOTE-IP>", hostname);
     });
-    return `ZENOH_CONFIG_OVERRIDE='mode="router";connect/endpoints=[${remoteList.join(",")}]'`;
+    return `ZENOH_CONFIG_OVERRIDE=mode="router";connect/endpoints=[${remoteList.join(",")}]`;
   }
 
   public getZenohNodeOverride(): string {
     if (this.params.rmw.current !== "rmw_zenoh_cpp") return "";
-    return `ZENOH_CONFIG_OVERRIDE='mode="client";connect/endpoints=["tcp/0.0.0.0:7447"]'`;
+    return `ZENOH_CONFIG_OVERRIDE=mode="client";connect/endpoints=["tcp/0.0.0.0:7447"]`;
   }
 
   public getCycloneEnv(): TEnvEntry[] {
