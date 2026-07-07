@@ -2,6 +2,11 @@
 Changelog for package fkie_mas_pylib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.0 (07.07.2026)
+------------------
+* Improved publisher handling
+* Added action interface
+
 5.7.1 (02.07.2026)
 ------------------
 * Fixed resolve xml includes of not existing files

@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.9.0 - 07.07.2026
+
+Changed close procedure of external subscription
+Improved publisher handling
+Updated icons for introspection tabs
+Fixed start with zenoh config
+Open dialogs for services and actions externally
+Added service introspection
+Added action introspection
+Added action panel
+Added action interface
+Show error on service call timeout
+Fixed delayed update of the domain tab on closing editor tab
+
 ## 5.8.1 - 02.07.2026
 
 Fixed icons of the tabs and delay on rerender domain tab

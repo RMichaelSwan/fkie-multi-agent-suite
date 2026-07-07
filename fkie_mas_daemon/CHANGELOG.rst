@@ -2,6 +2,13 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.0 (07.07.2026)
+------------------
+* Improved publisher handling
+* Added service introspection
+* Added action introspection
+* Added action interface
+
 5.7.2 (29.06.2026)
 ------------------
 * Fixed shutdown: do not stop ros2 build processes
