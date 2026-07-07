@@ -26,6 +26,7 @@ export default function SubscriberApp(): JSX.Element {
   const [connectingHost, setConnectingHost] = useState<string>("");
   const [subInfo, setSubInfo] = useState<ISubscriberInfo | null>(null);
   const [stopRequested, setStopRequested] = useState<string>("");
+  const appInfoRef = useAlwaysCurrentRef(subInfo);
 
   async function initProvider(): Promise<void> {
     const queryString = window.location.search;
@@ -69,34 +70,15 @@ export default function SubscriberApp(): JSX.Element {
     }
   }
 
-  async function stopSubscriber(topic: string, provider: SubscriberProvider): Promise<void> {
-    // stop ros node for given topic
-    logCtx.info(`Stopping subscriber node for '${topic} on '${provider.name()}'`, "");
-    const result = await provider.stopSubscriber(topic);
-    if (result) {
-      logCtx.info(`Stopped subscriber node for '${topic} on '${provider.name()}'`, "");
-    } else {
-      logCtx.error(`Can not stop subscriber node for: ${topic} on '${provider.name()}`, `${result}`);
-    }
-    // close window on stop request
-    window.subscriberManager?.close(stopRequested);
-  }
-
-  useEffect(() => {
-    if (stopRequested) {
-      if (subInfo) {
-        stopSubscriber(subInfo.topic, subInfo.provider);
-      } else {
-        // close window on stop request if no valid info is available
-        window.subscriberManager?.close(stopRequested);
-      }
-    }
-  }, [subInfo, stopRequested]);
-
   useEffect(() => {
     // Anything in here is fired on component mount.
-    window.subscriberManager?.onClose((id: string) => {
-      setStopRequested(id);
+    window.subscriberManager?.onClose(async (id: string) => {
+      logCtx.info(
+        `Stopping subscriber node for '${appInfoRef.current?.topic} on '${appInfoRef.current?.provider.name()}'`,
+        ""
+      );
+      await appInfoRef.current?.provider.stopSubscriber(appInfoRef.current.topic);
+      window.subscriberManager?.close(id);
     });
     initProvider();
     return (): void => {
