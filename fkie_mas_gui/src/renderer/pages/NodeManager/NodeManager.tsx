@@ -9,10 +9,13 @@ import LaunchIcon from "@mui/icons-material/Launch";
 import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SettingsInputCompositeOutlinedIcon from "@mui/icons-material/SettingsInputCompositeOutlined";
+import StartIcon from "@mui/icons-material/Start";
 import SyncAltOutlinedIcon from "@mui/icons-material/SyncAltOutlined";
 import TerminalIcon from "@mui/icons-material/Terminal";
+import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
 import TuneIcon from "@mui/icons-material/Tune";
 import WysiwygIcon from "@mui/icons-material/Wysiwyg";
+
 import {
   Badge,
   Button,
@@ -889,8 +892,15 @@ export default function NodeManager(): JSX.Element {
               <PlayCircleOutlineIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />
             );
             break;
+          case LAYOUT_TABS.ACTION_SEND_GOAL:
+            renderNameValues.leading = <StartIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+            break;
           case LAYOUT_TABS.SERVICE_CALLER:
             renderNameValues.leading = <SyncAltOutlinedIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
+            break;
+          case LAYOUT_TABS.SERVICE_INTROSPECTION:
+          case LAYOUT_TABS.ACTION_INTROSPECTION:
+            renderNameValues.leading = <TroubleshootIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
             break;
           case LAYOUT_TABS.ABOUT:
             renderNameValues.leading = <InfoOutlinedIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
