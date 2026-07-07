@@ -11,6 +11,8 @@ import {
   Box,
   Button,
   ButtonGroup,
+  Chip,
+  ChipProps,
   CircularProgress,
   Divider,
   FormLabel,
@@ -310,6 +312,37 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
     );
   }, [resultMessage, useDarkMode]);
 
+  const { serviceStatus, statusColor } = useMemo<{
+    serviceStatus: string;
+    statusColor: ChipProps["color"];
+  }>(() => {
+    if (!provider) {
+      return { serviceStatus: "Provider disconnected", statusColor: "error" };
+    }
+
+    if (callServiceIsSubmitting) {
+      return { serviceStatus: "Calling...", statusColor: "info" };
+    }
+
+    if (!serviceType) {
+      return { serviceStatus: "Detecting type...", statusColor: "warning" };
+    }
+
+    if (!serviceStruct) {
+      return { serviceStatus: "Definition not found", statusColor: "error" };
+    }
+
+    if (resultError) {
+      return { serviceStatus: "Error", statusColor: "error" };
+    }
+
+    if (resultMessage) {
+      return { serviceStatus: "Response received", statusColor: "success" };
+    }
+
+    return { serviceStatus: "Ready", statusColor: "success" };
+  }, [provider, callServiceIsSubmitting, serviceType, serviceStruct, resultError, resultMessage]);
+
   return (
     <Box height="100%" overflow="auto" alignItems="center" sx={getHostStyle()}>
       <Stack spacing={1} margin={1}>
@@ -324,18 +357,29 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
             />
           </Stack>
         )}
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography fontWeight="bold">{serviceName}</Typography>
-        </Stack>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="column" alignItems="left" spacing={0.3}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Chip
+              label={serviceStatus}
+              color={statusColor}
+              size="small"
+              variant="outlined"
+              sx={{ alignSelf: "flex-start" }}
+            />
+            <Typography fontWeight="bold" flexGrow={1}>
+              {serviceName}
+            </Typography>
+            <Typography color="grey" fontSize="0.8em">
+              {provider?.name()}
+            </Typography>
+          </Stack>
           <Typography color="grey" fontSize="0.8em">
-            {provider?.name()}
+            {serviceType || "detecting type..."}
           </Typography>
         </Stack>
-        <Stack direction="row" spacing={2} display="flex" alignItems="center">
+        <Stack direction="row" spacing={1} display="flex" alignItems="center" paddingBottom={1}>
           {history.length > 0 && (
-            <Stack direction="column" spacing={1} alignItems="left" paddingBottom={1}>
-              <FormLabel sx={{ fontSize: "0.8em", lineHeight: "1em" }}>call history</FormLabel>
+            <Stack direction="column" spacing={1} alignItems="left">
               <ButtonGroup sx={{ maxHeight: "24px" }}>
                 <Tooltip title="edit history" enterDelay={500}>
                   <Button

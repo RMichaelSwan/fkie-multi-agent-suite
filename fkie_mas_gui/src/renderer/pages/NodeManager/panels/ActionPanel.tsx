@@ -512,28 +512,30 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
           />
         )}{" "}
         {/* Header */}
-        <Stack direction="column" alignItems="left" spacing={0.5}>
+        <Stack direction="column" alignItems="left" spacing={0.3}>
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography fontWeight="bold">{actionName}</Typography>
+            <Chip
+              label={actionStatus}
+              color={statusColor}
+              size="small"
+              variant="outlined"
+              sx={{ alignSelf: "flex-start" }}
+            />
+            <Typography fontWeight="bold" flexGrow={1}>
+              {actionName}
+            </Typography>
             <Typography color="grey" fontSize="0.8em">
               {provider?.name()}
             </Typography>
           </Stack>
           <Typography color="grey" fontSize="0.8em">
-            [{actionType || "detecting..."}]
+            {actionType || "detecting type..."}
           </Typography>
-          <Chip
-            label={actionStatus}
-            color={statusColor}
-            size="small"
-            variant="outlined"
-            sx={{ alignSelf: "flex-start" }}
-          />
         </Stack>
         {/* Goal History */}
         {goalHistory.length > 0 && (
           <Stack direction="column" spacing={1} alignItems="left" paddingBottom={1}>
-            <FormLabel sx={{ fontSize: "0.8em", lineHeight: "1em" }}>goal history</FormLabel>
+            {/* <FormLabel sx={{ fontSize: "0.8em", lineHeight: "1em" }}>goal history</FormLabel> */}
             <ButtonGroup sx={{ maxHeight: "24px", flexWrap: "wrap" }}>
               <Tooltip title="edit history" enterDelay={500}>
                 <Button

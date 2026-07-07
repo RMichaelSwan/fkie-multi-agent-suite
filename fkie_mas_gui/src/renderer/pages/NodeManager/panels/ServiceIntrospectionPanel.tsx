@@ -196,25 +196,20 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
     <Box height="100%" overflow="hidden" sx={getHostStyle()}>
       <Stack height="100%" spacing={1} marginLeft={1} marginRight={1} marginBottom={1}>
         <Stack spacing={0.3}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography fontWeight="bold">{serviceName}</Typography>
-          </Stack>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography color="grey" fontSize="0.8em" flexGrow={1}>
-              {provider?.name()}
-            </Typography>
-            <Typography color="grey" fontSize="0.8em">
-              [{serviceType}]
-            </Typography>
-          </Stack>
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" alignItems="center" spacing={1} paddingTop={1}>
             <Chip
               label={monitoring ? "monitoring" : isStarting ? "starting" : "stopped"}
               color={monitoring ? "success" : isStarting ? "info" : "default"}
               size="small"
               variant="outlined"
             />
+            <Typography fontWeight="bold" flexGrow={1}>
+              {serviceName}
+            </Typography>
           </Stack>
+            <Typography color="grey" fontSize="0.8em">
+              {serviceType || "detecting type..."}
+            </Typography>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
           {monitoring ? (
