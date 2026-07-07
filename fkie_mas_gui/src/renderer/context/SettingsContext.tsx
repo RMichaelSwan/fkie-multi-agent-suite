@@ -337,6 +337,13 @@ export const SETTINGS_DEF: Record<string, ISettingsParam> = {
     description: "",
     group: "Window behavior",
   },
+  serviceOpenExternal: {
+    label: "Open service externally",
+    default: false,
+    type: window.commandExecutor ? "boolean" : "none",
+    description: "",
+    group: "Window behavior",
+  },
   showParameterType: {
     label: "Show parameter types",
     default: true,
@@ -545,12 +552,9 @@ export function SettingsProvider({ children, transformer }: Props): React.ReactE
     [config]
   );
 
-  const getChangedCount = useCallback(
-    (): number => {
-      return Object.keys(config).length
-    },
-    [config]
-  );
+  const getChangedCount = useCallback((): number => {
+    return Object.keys(config).length;
+  }, [config]);
 
   const getDefault = useCallback((key: string): JSONValue | undefined => {
     if (key in SETTINGS_DEF) return SETTINGS_DEF[key].default;

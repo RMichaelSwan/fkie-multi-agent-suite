@@ -13,9 +13,13 @@ extraFiles:
   - "mas.png"
 
 asarUnpack:
+  - out/renderer/actionIntrospection.html
+  - out/renderer/actionSendGoal.html
   - out/renderer/editor.html
   - out/renderer/popout.html
   - out/renderer/publisher.html
+  - out/renderer/serviceCaller.html
+  - out/renderer/serviceIntrospection.html
   - out/renderer/subscriber.html
   - out/renderer/terminal.html
 win:

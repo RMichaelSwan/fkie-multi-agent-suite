@@ -1,7 +1,7 @@
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SyncAltOutlinedIcon from "@mui/icons-material/SyncAltOutlined";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
-import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip } from "@mui/material";
+import { alpha, Box, ButtonGroup, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
@@ -9,15 +9,16 @@ import { Virtuoso } from "react-virtuoso";
 
 import ServiceTreeItem from "@/renderer/components/ServiceTreeView/ServiceTreeItem";
 import TopicGroupTreeItem from "@/renderer/components/TopicTreeView/TopicGroupTreeItem";
+import LongPressIconButton from "@/renderer/components/UI/LongPressIconButton";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
+import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { ServiceExtendedInfo } from "@/renderer/models";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { findIn } from "@/renderer/utils/index";
-import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
-import { emitOpenComponent, EVENT_FILTER_SERVICES, TFilterText } from "../layout/events";
+import { EVENT_FILTER_SERVICES, TFilterText } from "../layout/events";
 import { TContentId } from "../layout/LayoutTabConfig";
 
 type TTreeItem = {
@@ -65,6 +66,7 @@ function isActionService(serviceName: string): boolean {
 
 export default function ServicesPanel({ contentId, initialSearchTerm = "" }: ServicesPanelProps): JSX.Element {
   const rosCtx = useRosContext();
+  const navCtx = useNavigationContext();
 
   // Flat list of services for this panel (filtered by contentId)
   const [services, setServices] = useState<ServiceExtendedInfo[]>([]);
@@ -464,68 +466,67 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
       // currently we do not distinguish external / terminal for services,
       // but we keep the parameters for future alignment with topic handling
       console.debug(`call service: external=${external} terminal=${openInTerminal}`);
-      const id = `call-service-${service.id}}`;
-      emitOpenComponent({
-        id: id,
-        title: `Call Service - ${service.name}`,
-        closable: true,
-        component: LAYOUT_TABS.SERVICE_CALLER,
-        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
-        config: {
-          serviceCallerConfig: {
-            id,
-            providerId: service.nodeProviders[0]?.providerId,
-            serviceName: service.name,
-            serviceType: service.srvType,
-          },
-        },
+      navCtx.openServiceCaller({
+        providerId: service.nodeProviders[0]?.providerId || "",
+        serviceName: service.name,
+        serviceType: service.srvType,
+        externalKeyModifier: external,
+        forceOpenTerminal: openInTerminal,
       });
     },
-    []
+    [navCtx.openServiceCaller]
   );
 
   const onIntrospect = useCallback(
     (service: ServiceExtendedInfo | undefined, external: boolean, openInTerminal = false) => {
       if (!service) return;
 
-      // currently we do not distinguish external / terminal for services,
-      // but we keep the parameters for future alignment with topic handling
       console.debug(`introspect service: external=${external} terminal=${openInTerminal}`);
-      const id = `introspect-service-${service.id}}`;
-      emitOpenComponent({
-        id: id,
-        title: `Introspect Service - ${service.name}`,
-        closable: true,
-        component: LAYOUT_TABS.SERVICE_INTROSPECTION,
-        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
-        config: {
-          serviceIntrospectionConfig: {
-            id,
-            providerId: service.nodeProviders[0]?.providerId,
-            serviceName: service.name,
-            serviceType: service.srvType,
-          },
-        },
+      navCtx.openServiceIntrospection({
+        providerId: service.nodeProviders[0]?.providerId || "",
+        serviceName: service.name,
+        serviceType: service.srvType,
+        externalKeyModifier: external,
+        forceOpenTerminal: openInTerminal,
       });
     },
-    []
+    [navCtx.openServiceIntrospection]
   );
 
   const buttonBox = useMemo(
     () => (
       <ButtonGroup orientation="vertical" aria-label="service control group">
-        <Tooltip title="Call service" placement="left" disableInteractive>
+        <Tooltip
+          title={
+            <div>
+              <Typography fontWeight="bold" fontSize="inherit">
+                Call service
+              </Typography>
+              <Stack direction="row" spacing={"0.2em"}>
+                <Typography fontWeight="bold" fontSize="inherit">
+                  Shift or long press:
+                </Typography>
+                <Typography fontSize="inherit">alternative open location</Typography>
+              </Stack>
+            </div>
+          }
+          placement="left"
+          disableInteractive
+        >
           <span>
-            <IconButton
+            <LongPressIconButton
               disabled={!serviceForSelected}
               size="medium"
               aria-label="call service"
               onClick={(event) =>
                 onCallService(serviceForSelected, event.nativeEvent.shiftKey, event.nativeEvent.ctrlKey)
               }
+              onLongPress={() => {
+                onCallService(serviceForSelected, true, false);
+              }}
             >
               <SyncAltOutlinedIcon fontSize="inherit" />
-            </IconButton>
+            </LongPressIconButton>
           </span>
         </Tooltip>
         <Tooltip title="Introspect" placement="left" disableInteractive>

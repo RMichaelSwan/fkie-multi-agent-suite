@@ -7,7 +7,7 @@ export default defineConfig({
     resolve: {
       alias: {
         "@": resolve("./src"),
-        "@public": resolve("./src/renderer/assets")
+        "@public": resolve("./src/renderer/assets"),
       },
     },
     plugins: [externalizeDepsPlugin()],
@@ -44,8 +44,12 @@ export default defineConfig({
         input: {
           app: resolve("src/renderer/index.html"),
           editor: resolve("src/renderer/editor.html"),
+          actionIntrospection: resolve("src/renderer/actionIntrospection.html"),
+          actionSendGoal: resolve("src/renderer/actionSendGoal.html"),
           popout: resolve("src/renderer/popout.html"),
           publisher: resolve("src/renderer/publisher.html"),
+          serviceCaller: resolve("src/renderer/serviceCaller.html"),
+          serviceIntrospection: resolve("src/renderer/serviceIntrospection.html"),
           subscriber: resolve("src/renderer/subscriber.html"),
           terminal: resolve("src/renderer/terminal.html"),
           cliArgs: resolve("src/renderer/assets/cliArgs.json"),

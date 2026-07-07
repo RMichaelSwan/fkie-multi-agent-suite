@@ -14,6 +14,8 @@ import {
   FileRangeCallback,
   PublishCloseCallback,
   PublishManagerEvents,
+  ServiceCloseCallback,
+  ServiceManagerEvents,
   ShutdownManagerEvents,
   SubscriberCloseCallback,
   SubscriberManagerEvents,
@@ -29,6 +31,7 @@ import {
   TLaunchArg,
   TPublishManager,
   TRosInfo,
+  TServiceManager,
   TShutdownManager,
   TSubscriberManager,
   TSystemInfo,
@@ -193,6 +196,30 @@ if (process.contextIsolated) {
           return callback(id);
         }),
     } as TSubscriberManager);
+
+    contextBridge.exposeInMainWorld("serviceManager", {
+      // service interface
+      start: (
+        id: string,
+        host: string,
+        port: number,
+        serviceName: string,
+        serviceType: string,
+        htmlName: string
+      ) => {
+        return ipcRenderer.invoke(ServiceManagerEvents.start, id, host, port, serviceName, serviceType, htmlName);
+      },
+      close: (id: string) => {
+        return ipcRenderer.invoke(ServiceManagerEvents.close, id);
+      },
+      has: (id: string) => {
+        return ipcRenderer.invoke(ServiceManagerEvents.has, id);
+      },
+      onClose: (callback: ServiceCloseCallback) =>
+        ipcRenderer.on(ServiceManagerEvents.onClose, (_event, id) => {
+          return callback(id);
+        }),
+    } as TServiceManager);
 
     contextBridge.exposeInMainWorld("terminalManager", {
       // terminal interface

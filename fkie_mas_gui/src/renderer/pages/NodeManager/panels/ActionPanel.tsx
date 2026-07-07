@@ -35,6 +35,7 @@ import JsonView from "react18-json-view";
 import { v4 as uuid } from "uuid";
 
 import SearchBar from "@/renderer/components/UI/SearchBar";
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { DB_MAX_MSGS, TMsgHistoryEntry, useMsgHistory } from "@/renderer/hooks/useMsgHistory";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
@@ -46,7 +47,6 @@ import {
   EVENT_PROVIDER_ACTION_FEEDBACK_PREFIX,
   EVENT_PROVIDER_ACTION_RESULT_PREFIX,
 } from "@/renderer/providers/eventTypes";
-import { JSONObject } from "@/types";
 import InputElements from "./MessageDialogPanel/InputElements";
 
 interface ActionEventDisplay {
@@ -85,7 +85,11 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
   const [resultEvent, setResultEvent] = useState<ActionEventDisplay | null>(null);
   const [showFeedbackDetails, setShowFeedbackDetails] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [maxFeedbackCount, setMaxFeedbackCount] = useState<number>(50);
+  const { value: maxFeedbackCount, set: setMaxFeedbackCount } = useAppState<number>(
+    "dialogs",
+    "action:feedbackCount",
+    50
+  );
   const [receivedIndex, setReceivedIndex] = useState(0);
   const [historyEditMode, setHistoryEditMode] = useState<boolean>(false);
   const [inputElements, setInputElements] = useState<React.ReactNode | null>(null);
@@ -629,7 +633,7 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
         </Box>
         <Divider />
         {/* Goal input fields */}
-        {showOptions && inputElements}
+        {inputElements}
         {/* Errors */}
         {!goalStruct && actionType && (
           <Alert severity="error" style={{ minWidth: 0 }}>

@@ -64,6 +64,8 @@ export type TParameterConfig = {
 export type TServiceCallerConfig = {
   id: string;
   providerId: string;
+  host: string;
+  port: number;
   serviceName: string;
   serviceType: string;
 };
@@ -71,6 +73,8 @@ export type TServiceCallerConfig = {
 export type TServiceIntrospectionConfig = {
   id: string;
   providerId: string;
+  host: string;
+  port: number;
   serviceName: string;
   serviceType: string;
 };
@@ -78,6 +82,8 @@ export type TServiceIntrospectionConfig = {
 export type TActionConfig = {
   id: string;
   providerId: string;
+  host: string;
+  port: number;
   actionName: string;
   actionType: string;
 };
@@ -85,6 +91,8 @@ export type TActionConfig = {
 export type TActionIntrospectionConfig = {
   id: string;
   providerId: string;
+  host: string;
+  port: number;
   actionName: string;
   actionType: string;
 };

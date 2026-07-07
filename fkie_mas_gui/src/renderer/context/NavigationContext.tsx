@@ -26,6 +26,14 @@ const NO_SELECTION = {
   selectedProviders: [],
 };
 
+export type TServiceCallerProps = {
+  providerId: string;
+  serviceName: string | undefined;
+  serviceType: string | undefined;
+  externalKeyModifier: boolean;
+  forceOpenTerminal: boolean;
+};
+
 export interface INavigationContext {
   selection: TNavSelection;
   setSelected: (triggerId: string, nodes: string[], addToHistory?: boolean) => void;
@@ -57,6 +65,10 @@ export interface INavigationContext {
     externalKeyModifier: boolean,
     forceOpenTerminal: boolean
   ) => void;
+  openServiceCaller: (args: TServiceCallerProps) => void;
+  openServiceIntrospection: (args: TServiceCallerProps) => void;
+  openActionSendGoal: (args: TServiceCallerProps) => void;
+  openActionIntrospection: (args: TServiceCallerProps) => void;
   openTerminal: (
     type: CmdType,
     providerId: string,
@@ -84,6 +96,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
   const [publisherOpenLocation] = useSetting<string>("publisherOpenLocation");
   const [subscriberOpenExternal] = useSetting<boolean>("subscriberOpenExternal");
   const [subscriberOpenLocation] = useSetting<string>("subscriberOpenLocation");
+  const [serviceOpenExternal] = useSetting<boolean>("serviceOpenExternal");
   const [screenOpenExternal] = useSetting<boolean>("screenOpenExternal");
   const [logOpenExternal] = useSetting<boolean>("logOpenExternal");
 
@@ -330,6 +343,200 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
     [rosCtx, subscriberOpenExternal, subscriberOpenLocation, layoutModel, logCtx]
   );
 
+  const openServiceCaller = useCallback(
+    async (args: TServiceCallerProps): Promise<void> => {
+      const provider = rosCtx.getProviderById(args.providerId) || rosCtx.getLocalProvider()[0];
+      if (!provider) return;
+
+      const topic = args.serviceName || "";
+      const type = args.serviceType || "";
+      const id = `service-call-${provider.connection.host}-${provider.connection.port}-${topic}`;
+      const openExternal = xor(serviceOpenExternal, args.externalKeyModifier) && !layoutModel?.getNodeById(id);
+
+      // if (forceOpenTerminal) {
+      //   try {
+      //     const env = provider.createRosEnv();
+      //     const terminalCmd = await provider.cmdForType(CmdType.SERVICE_CALL, "", topic, "", "", env);
+      //     const result = await window.commandExecutor?.execTerminal(null, `"pub ${topic}"`, terminalCmd.cmd);
+      //     if (!result?.result) {
+      //       logCtx.error(
+      //         `Can't call service in external terminal for ${topic}`,
+      //         `${result?.message}`,
+      //         "service not started"
+      //       );
+      //     }
+      //   } catch (error) {
+      //     logCtx.error(`Can't start service in external terminal for ${topic}`, `${error}`, "service not started");
+      //   }
+      //   return;
+      // }
+
+      if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
+        window.serviceManager.start(
+          id,
+          provider.connection.host,
+          provider.connection.port,
+          topic,
+          type,
+          "serviceCaller.html"
+        );
+        return;
+      }
+
+      emitOpenComponent({
+        id: id,
+        title: topic || "unknown",
+        closable: true,
+        component: LAYOUT_TABS.SERVICE_CALLER,
+        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        config: {
+          openExternal: true,
+          serviceCallerConfig: {
+            id,
+            providerId: provider.id,
+            host: provider.connection.host,
+            port: provider.connection.port,
+            serviceName: topic,
+            serviceType: type,
+          },
+        },
+      });
+    },
+    [rosCtx, serviceOpenExternal, layoutModel]
+  );
+
+  const openServiceIntrospection = useCallback(
+    async (args: TServiceCallerProps): Promise<void> => {
+      const provider = rosCtx.getProviderById(args.providerId) || rosCtx.getLocalProvider()[0];
+      if (!provider) return;
+
+      const topic = args.serviceName || "";
+      const type = args.serviceType || "";
+      const id = `service-introspection-${provider.connection.host}-${provider.connection.port}-${topic}`;
+      const openExternal = xor(serviceOpenExternal, args.externalKeyModifier) && !layoutModel?.getNodeById(id);
+
+      if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
+        window.serviceManager.start(
+          id,
+          provider.connection.host,
+          provider.connection.port,
+          topic,
+          type,
+          "serviceIntrospection.html"
+        );
+        return;
+      }
+
+      emitOpenComponent({
+        id: id,
+        title: topic || "unknown",
+        closable: true,
+        component: LAYOUT_TABS.SERVICE_INTROSPECTION,
+        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        config: {
+          openExternal: true,
+          serviceIntrospectionConfig: {
+            id,
+            providerId: provider.id,
+            host: provider.connection.host,
+            port: provider.connection.port,
+            serviceName: topic,
+            serviceType: type,
+          },
+        },
+      });
+    },
+    [rosCtx, serviceOpenExternal, layoutModel]
+  );
+
+  const openActionSendGoal = useCallback(
+    async (args: TServiceCallerProps): Promise<void> => {
+      const provider = rosCtx.getProviderById(args.providerId) || rosCtx.getLocalProvider()[0];
+      if (!provider) return;
+
+      const topic = args.serviceName || "";
+      const type = args.serviceType || "";
+      const id = `action-get-goal-${provider.connection.host}-${provider.connection.port}-${topic}`;
+      const openExternal = xor(serviceOpenExternal, args.externalKeyModifier) && !layoutModel?.getNodeById(id);
+
+      if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
+        window.serviceManager.start(
+          id,
+          provider.connection.host,
+          provider.connection.port,
+          topic,
+          type,
+          "actionSendGoal.html"
+        );
+        return;
+      }
+
+      emitOpenComponent({
+        id: id,
+        title: topic || "unknown",
+        closable: true,
+        component: LAYOUT_TABS.ACTION_SEND_GOAL,
+        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        config: {
+          openExternal: true,
+          actionConfig: {
+            id,
+            providerId: provider.id,
+            host: provider.connection.host,
+            port: provider.connection.port,
+            actionName: topic,
+            actionType: type,
+          },
+        },
+      });
+    },
+    [rosCtx, serviceOpenExternal, layoutModel]
+  );
+
+  const openActionIntrospection = useCallback(
+    async (args: TServiceCallerProps): Promise<void> => {
+      const provider = rosCtx.getProviderById(args.providerId) || rosCtx.getLocalProvider()[0];
+      if (!provider) return;
+
+      const topic = args.serviceName || "";
+      const type = args.serviceType || "";
+      const id = `action-introspection-${provider.connection.host}-${provider.connection.port}-${topic}`;
+      const openExternal = xor(serviceOpenExternal, args.externalKeyModifier) && !layoutModel?.getNodeById(id);
+
+      if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
+        window.serviceManager.start(
+          id,
+          provider.connection.host,
+          provider.connection.port,
+          topic,
+          type,
+          "actionIntrospection.html"
+        );
+        return;
+      }
+
+      emitOpenComponent({
+        id: id,
+        title: topic || "unknown",
+        closable: true,
+        component: LAYOUT_TABS.ACTION_INTROSPECTION,
+        toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
+        config: {
+          openExternal: true,
+          actionIntrospectionConfig: {
+            id,
+            providerId: provider.id,
+            host: provider.connection.host,
+            port: provider.connection.port,
+            actionName: topic,
+            actionType: type,
+          },
+        },
+      });
+    },
+    [rosCtx, serviceOpenExternal, layoutModel]
+  );
+
   const openTerminal = useCallback(
     async (
       type: CmdType,
@@ -423,6 +630,10 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       setLayoutModel,
       openEditor,
       openSubscriber,
+      openServiceCaller,
+      openServiceIntrospection,
+      openActionSendGoal,
+      openActionIntrospection,
       openTerminal,
       startPublisher,
     }),
@@ -434,6 +645,10 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       layoutModel,
       openEditor,
       openSubscriber,
+      openServiceCaller,
+      openServiceIntrospection,
+      openActionSendGoal,
+      openActionIntrospection,
       openTerminal,
       startPublisher,
     ]

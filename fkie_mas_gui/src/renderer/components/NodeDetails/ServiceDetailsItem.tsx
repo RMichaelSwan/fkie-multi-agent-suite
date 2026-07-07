@@ -10,10 +10,10 @@ import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosService, RosTopicId, ServiceExtendedInfo, TServiceNodeInfo } from "@/renderer/models";
-import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
+import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
-import { generateUniqueId, removeDDSuid } from "@/renderer/utils";
+import { removeDDSuid } from "@/renderer/utils";
 import { CopyButton } from "../UI";
 
 type ServiceDetailsItemsProps = {
@@ -32,22 +32,13 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
 
-  function onServiceCallClick(service: ServiceExtendedInfo): void {
-    const id = `call-service-${generateUniqueId()}`;
-    emitOpenComponent({
-      id: id,
-      title: service.name,
-      closable: true,
-      component: LAYOUT_TABS.SERVICE_CALLER,
-      toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
-      config: {
-        serviceCallerConfig: {
-          id,
-          serviceName: service.name,
-          serviceType: service.srvType,
-          providerId: providerId || "",
-        },
-      },
+  function onServiceCallClick(service: ServiceExtendedInfo, event: React.MouseEvent<HTMLButtonElement>): void {
+    navCtx.openServiceCaller({
+      providerId: providerId || "",
+      serviceName: service.name,
+      serviceType: service.srvType,
+      externalKeyModifier: event.shiftKey || event.metaKey,
+      forceOpenTerminal: false,
     });
   }
 
@@ -119,7 +110,7 @@ export default function ServiceDetailsItem(props: ServiceDetailsItemsProps): JSX
           <IconButton
             style={{ color: "#09770fff" }}
             onClick={(event) => {
-              onServiceCallClick(serviceInfo);
+              onServiceCallClick(serviceInfo, event);
               event?.stopPropagation();
             }}
             size="small"

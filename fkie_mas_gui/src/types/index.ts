@@ -15,6 +15,7 @@ import { TFileRange } from "./FileRange";
 import JSONObject, { JSONValue } from "./JsonObject";
 import { TLaunchArg } from "./LaunchArg";
 import { PublishCloseCallback, PublishManagerEvents, TPublishManager } from "./PublishManager";
+import { ServiceCloseCallback, ServiceManagerEvents, TServiceManager } from "./ServiceManager";
 import { ShutdownManagerEvents, TerminateCallback, TShutdownManager } from "./ShutdownManager";
 import { SubscriberCloseCallback, SubscriberManagerEvents, TSubscriberManager } from "./SubscriberManager";
 import { envEntryToExportStr, envEntryToStr, TEnvEntry } from "./TEnvEntry";
@@ -38,6 +39,7 @@ export {
   envEntryToStr,
   InfoStateLevel,
   PublishManagerEvents,
+  ServiceManagerEvents,
   ShutdownManagerEvents,
   SubscriberManagerEvents,
   TerminalManagerEvents
@@ -53,6 +55,7 @@ export type {
   JSONObject,
   JSONValue,
   PublishCloseCallback,
+  ServiceCloseCallback,
   SubscriberCloseCallback,
   TAutoUpdateManager,
   TCommandExecutor,
@@ -71,6 +74,7 @@ export type {
   TResultProcess,
   TRosInfo,
   TRosMessageStruct,
+  TServiceManager,
   TShutdownManager,
   TSubscriberManager,
   TSystemInfo,

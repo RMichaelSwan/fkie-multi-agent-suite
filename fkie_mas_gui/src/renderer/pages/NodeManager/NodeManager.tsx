@@ -961,6 +961,54 @@ export default function NodeManager(): JSX.Element {
                     );
                     deleteTab(node.getId());
                   }
+                  if (cfg.serviceCallerConfig) {
+                    const scfg = cfg.serviceCallerConfig;
+                    window.serviceManager?.start(
+                      scfg.id,
+                      scfg.host,
+                      scfg.port,
+                      scfg.serviceName,
+                      scfg.serviceType,
+                      "serviceCaller.html"
+                    );
+                    deleteTab(node.getId());
+                  }
+                  if (cfg.serviceIntrospectionConfig) {
+                    const scfg = cfg.serviceIntrospectionConfig;
+                    window.serviceManager?.start(
+                      scfg.id,
+                      scfg.host,
+                      scfg.port,
+                      scfg.serviceName,
+                      scfg.serviceType,
+                      "serviceIntrospection.html"
+                    );
+                    deleteTab(node.getId());
+                  }
+                  if (cfg.actionGetGoalConfig) {
+                    const acfg = cfg.actionConfig;
+                    window.serviceManager?.start(
+                      acfg.id,
+                      acfg.host,
+                      acfg.port,
+                      acfg.actionName,
+                      acfg.actionType,
+                      "actionSendGoal.html"
+                    );
+                    deleteTab(node.getId());
+                  }
+                  if (cfg.actionIntrospectionConfig) {
+                    const acfg = cfg.actionIntrospectionConfig;
+                    window.serviceManager?.start(
+                      acfg.id,
+                      acfg.host,
+                      acfg.port,
+                      acfg.actionName,
+                      acfg.actionType,
+                      "actionIntrospection.html"
+                    );
+                    deleteTab(node.getId());
+                  }
                   if (cfg.terminalConfig) {
                     const tcfg = cfg.terminalConfig;
                     window.terminalManager?.open(

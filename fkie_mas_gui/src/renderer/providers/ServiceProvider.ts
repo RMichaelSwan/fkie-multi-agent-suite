@@ -5,9 +5,9 @@ import ConnectionState from "./ConnectionState";
 import Provider, { TConCallback } from "./Provider";
 
 /**
- * Provider with reduced publication to handle external.
+ * Provider with reduced subscriptions to handle external services.
  */
-export default class PublisherProvider extends Provider {
+export default class ServiceProvider extends Provider {
   /**
    * constructor that initializes a new instance of a provider object.
    *
@@ -24,7 +24,7 @@ export default class PublisherProvider extends Provider {
     useSSL: boolean = false
   ) {
     super(logCtxRef, settingsCtxRef, host, rosVersion, port, 0, useSSL);
-    this.className = "PublisherProvider";
+    this.className = "ServiceProvider";
   }
 
   public getCallbacks: () => TConCallback[] = () => {
@@ -42,6 +42,8 @@ export default class PublisherProvider extends Provider {
           this.daemonVersion = dv;
           this.setConnectionState(ConnectionState.STATES.CONNECTED, "");
           this.updateRosNodes({});
+          this.updateRosTopics();
+          this.updateRosServices();
           // this.updateProviderList(true);
           return true;
         }

@@ -17,14 +17,16 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
 import JsonView from "react18-json-view";
 import { v4 as uuid } from "uuid";
 
+import { useAppState } from "@/renderer/hooks/useAppState";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { Provider } from "@/renderer/providers";
+import { EVENT_PROVIDER_ROS_TOPICS } from "@/renderer/providers/eventTypes";
 
 export interface ServiceIntrospectionEvent {
   service_name: string;
@@ -73,8 +75,9 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
   const [monitoring, setMonitoring] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [events, setEvents] = useState<ServiceIntrospectionDisplay[]>([]);
-  const [maxCount, setMaxCount] = useState<number>(100);
+  const { value: maxCount, set: setMaxCount } = useAppState<number>("dialogs", "service:introspection:max-count", 50);
   const [_receivedIndex, setReceivedIndex] = useState(0);
+  const [topicsUpdated, setTopicsUpdated] = useReducer((x) => x + 1, 0);
 
   const [useDarkMode] = useSetting<boolean>("useDarkMode");
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
@@ -91,7 +94,11 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
 
   const introspectionAvailable = useMemo(() => {
     return provider?.hasServiceIntrospection(serviceName) ?? false;
-  }, [provider, serviceName, rosCtx.nodeMap]);
+  }, [provider, serviceName, topicsUpdated]);
+
+  useCustomEventListener(EVENT_PROVIDER_ROS_TOPICS, () => {
+    setTopicsUpdated();
+  });
 
   const getHostStyle = useCallback((): object => {
     if (providerId && colorizeHosts) {

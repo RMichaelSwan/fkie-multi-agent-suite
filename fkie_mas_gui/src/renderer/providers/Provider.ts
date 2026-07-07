@@ -2782,7 +2782,7 @@ export default class Provider implements IProvider {
     this.unlockRequest("updateRosTopics");
   };
 
-  private callbackServicesChanged: (msg: JSONObject) => void = async (msg) => {
+  public callbackServicesChanged: (msg: JSONObject) => void = async (msg) => {
     this.log().debugInterface(URI.ROS_SERVICES_CHANGED, msg, "", this.id);
     if (!msg) {
       return;
@@ -2791,7 +2791,7 @@ export default class Provider implements IProvider {
     this.updateRosServices();
   };
 
-  private callbackTopicsChanged: (msg: JSONObject) => void = async (msg) => {
+  public callbackTopicsChanged: (msg: JSONObject) => void = async (msg) => {
     this.log().debugInterface(URI.ROS_TOPICS_CHANGED, msg, "", this.id);
     if (!msg) {
       return;

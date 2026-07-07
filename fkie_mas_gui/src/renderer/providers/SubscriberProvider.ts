@@ -1,5 +1,6 @@
 import { ILoggingContext } from "../context/LoggingContext";
 import { ISettingsContext } from "../context/SettingsContext";
+import { URI } from "../models";
 import ConnectionState from "./ConnectionState";
 import Provider, { TConCallback } from "./Provider";
 
@@ -20,14 +21,18 @@ export default class SubscriberProvider extends Provider {
     host: string,
     rosVersion: string,
     port: number = 0,
-    useSSL: boolean = false,
+    useSSL: boolean = false
   ) {
     super(logCtxRef, settingsCtxRef, host, rosVersion, port, 0, useSSL);
     this.className = "SubscriberProvider";
   }
 
   public getCallbacks: () => TConCallback[] = () => {
-    return [];
+    return [
+      { uri: URI.ROS_NODES_CHANGED, callback: this.updateRosNodes },
+      { uri: URI.ROS_SERVICES_CHANGED, callback: this.callbackServicesChanged },
+      { uri: URI.ROS_TOPICS_CHANGED, callback: this.callbackTopicsChanged },
+    ];
   };
 
   public updateDaemonInit: () => void = async () => {

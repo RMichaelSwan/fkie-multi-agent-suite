@@ -6,6 +6,7 @@ import {
   TEditorManager,
   TPublishManager,
   TRosInfo,
+  TServiceManager,
   TShutdownManager,
   TSubscriberManager,
   TSystemInfo,
@@ -18,6 +19,7 @@ declare global {
     dialogManager?: TDialogManager;
     editorManager?: TEditorManager;
     publishManager?: TPublishManager;
+    serviceManager?: TServiceManager;
     rosInfo?: TRosInfo;
     systemInfo?: TSystemInfo;
     shutdownManager?: TShutdownManager;

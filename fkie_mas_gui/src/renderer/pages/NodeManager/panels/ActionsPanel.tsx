@@ -11,13 +11,12 @@ import ActionGroupTreeItem from "@/renderer/components/ActionTreeView/ActionGrou
 import ActionTreeItem, { ActionInfo } from "@/renderer/components/ActionTreeView/ActionTreeItem";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
+import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { EVENT_PROVIDER_ROS_SERVICES } from "@/renderer/providers/eventTypes";
 import { findIn } from "@/renderer/utils/index";
-import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
 import { TContentId } from "../layout/LayoutTabConfig";
-import { emitOpenComponent } from "../layout/events";
 
 type TTreeItem = {
   groupKey: string;
@@ -49,6 +48,7 @@ const ACTION_SUFFIX_GET_RESULT = "/_action/get_result";
 
 export default function ActionsPanel({ contentId, initialSearchTerm = "" }: ActionsPanelProps): JSX.Element {
   const rosCtx = useRosContext();
+  const navCtx = useNavigationContext();
 
   const [actions, setActions] = useState<ActionInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
@@ -351,53 +351,40 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
     return rows;
   }, [rootDataList, expandedItems, avoidGroupWithOneItem, genKey]);
 
-  const onCallAction = useCallback((action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
-    if (!action) return;
-    console.debug(
-      `Send action goal: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
-    );
+  const onCallAction = useCallback(
+    (action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
+      if (!action) return;
+      console.debug(
+        `Send action goal: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
+      );
+      navCtx.openActionSendGoal({
+        providerId: action.providerId || "",
+        serviceName: action.name,
+        serviceType: action.actionType,
+        externalKeyModifier: external,
+        forceOpenTerminal: openInTerminal,
+      });
+    },
+    [navCtx.openActionSendGoal]
+  );
 
-    const id = `call-action-${action.name}}`;
-    emitOpenComponent({
-      id: id,
-      title: `Send action - ${action.name}`,
-      closable: true,
-      component: LAYOUT_TABS.ACTION_SEND_GOAL,
-      toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
-      config: {
-        actionConfig: {
-          id,
-          providerId: action.providerId || "",
-          actionName: action.name,
-          actionType: action.actionType,
-        },
-      },
-    });
-  }, []);
+  const onIntrospectAction = useCallback(
+    (action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
+      if (!action) return;
+      console.debug(
+        `Introspect action: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
+      );
 
-  const onIntrospectAction = useCallback((action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
-    if (!action) return;
-    console.debug(
-      `Introspect action: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
-    );
-
-    const id = `introspect-action-${action.name}}`;
-    emitOpenComponent({
-      id: id,
-      title: `Introspect action - ${action.name}`,
-      closable: true,
-      component: LAYOUT_TABS.ACTION_INTROSPECTION,
-      toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
-      config: {
-        actionIntrospectionConfig: {
-          id,
-          providerId: action.providerId || "",
-          actionName: action.name,
-          actionType: action.actionType,
-        },
-      },
-    });
-  }, []);
+      navCtx.openActionIntrospection({
+        providerId: action.providerId || "",
+        serviceName: action.name,
+        serviceType: action.actionType,
+        externalKeyModifier: external,
+        forceOpenTerminal: openInTerminal,
+      });
+    },
+    [navCtx.openActionIntrospection]
+  );
 
   const buttonBox = useMemo(
     () => (
