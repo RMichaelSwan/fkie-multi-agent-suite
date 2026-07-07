@@ -25,7 +25,6 @@ export default function SubscriberApp(): JSX.Element {
   const settingsCtxRef = useAlwaysCurrentRef(settingsCtx);
   const [connectingHost, setConnectingHost] = useState<string>("");
   const [subInfo, setSubInfo] = useState<ISubscriberInfo | null>(null);
-  const [stopRequested, setStopRequested] = useState<string>("");
   const appInfoRef = useAlwaysCurrentRef(subInfo);
 
   async function initProvider(): Promise<void> {
