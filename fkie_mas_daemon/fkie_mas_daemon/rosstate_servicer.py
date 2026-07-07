@@ -27,6 +27,7 @@ from fkie_mas_pylib.system.host import get_hostname
 from fkie_mas_pylib.system.host import get_host_name
 from fkie_mas_pylib.system.host import get_local_addresses
 from fkie_mas_pylib.logging.logging import Log
+from fkie_mas_pylib.defines import ros2_publisher_nodename_tuple
 from fkie_mas_pylib.defines import ros2_subscriber_nodename_tuple
 from fkie_mas_pylib.defines import ros2_action_nodename_tuple
 from fkie_mas_pylib.defines import ros2_action_introspection_nodename_tuple
@@ -134,6 +135,8 @@ class RosStateServicer:
         websocket.register("ros.nodes.stop_node", self.stop_node)
         websocket.register("ros.nodes.get_lifecycle", self.get_lifecycle)
         websocket.register("ros.nodes.get_composable", self.get_composable)
+        websocket.register("ros.publisher.stop", self.stop_publisher)
+        websocket.register("ros.publisher.has", self.has_publisher)
         websocket.register("ros.subscriber.stop", self.stop_subscriber)
         websocket.register("ros.action.stop", self.stop_action)
         websocket.register("ros.action.introspection.stop", self.stop_action_introspection)
@@ -588,6 +591,23 @@ class RosStateServicer:
         if node is not None:
             nmd.launcher.server.launch_servicer.node_stopped(node.name)
         return result
+
+    def has_publisher(self, topic_name: str) -> str:
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.publisher.has]: {str(topic_name)}")
+        ns, name = ros2_publisher_nodename_tuple(topic_name)
+        fullname = os.path.join(ns, name).replace('/', '_')
+        fullname = f"/{fullname}"
+        node: RosNode = self.get_ros_node(fullname)
+        result = node is not None
+        return json.dumps({"result": result, "message": ""}, cls=SelfEncoder)
+
+    def stop_publisher(self, topic_name: str) -> str:
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.publisher.stop]: {str(topic_name)}")
+        ns, name = ros2_publisher_nodename_tuple(topic_name)
+        fullname = os.path.join(ns, name).replace('/', '_')
+        fullname = f"/{fullname}"
+        result = self.stop_node(fullname)
+        return json.dumps({"result": result, "message": ""}, cls=SelfEncoder)
 
     def stop_subscriber(self, topic_name: str) -> str:
         Log.debug(f"{self.__class__.__name__}: Request to [ros.subscriber.stop]: {str(topic_name)}")

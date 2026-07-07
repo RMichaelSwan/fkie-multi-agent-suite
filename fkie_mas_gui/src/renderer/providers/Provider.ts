@@ -1779,7 +1779,7 @@ export default class Provider implements IProvider {
    * Start Publisher
    */
   public publishMessage: (request: LaunchPublishMessage) => Promise<TResult> = async (request) => {
-    const result = await this.makeCall(URI.ROS_LAUNCH_PUBLISH_MESSAGE, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_PUBLISHER_START, [request], true).then((value: TResultData) => {
       if (value.result) {
         return value.data as TResult;
       }
@@ -1787,6 +1787,18 @@ export default class Provider implements IProvider {
       return { result: value.result, message: value.message };
     });
     return Promise.resolve(result);
+  };
+
+  public stopPublisher = async (topicName: string): Promise<Result> => {
+    return this.makeCall(URI.ROS_PUBLISHER_STOP, [topicName], true).then((v: TResultData) =>
+      v.result ? (v.data as Result) : new Result(false, v.message as string)
+    );
+  };
+
+  public hasPublisher = async (topicName: string): Promise<Result> => {
+    return this.makeCall(URI.ROS_PUBLISHER_HAS, [topicName], true).then((v: TResultData) =>
+      v.result ? (v.data as Result) : new Result(false, v.message as string)
+    );
   };
 
   /**

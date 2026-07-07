@@ -59,6 +59,9 @@ const URI = {
   ROS_PARAMETERS_DELETE_PARAMETERS: "ros.parameters.delete_parameters",
   ROS_PROCESS_FIND_NODE: "ros.process.find_node",
   ROS_PROCESS_KILL: "ros.process.kill",
+  ROS_PUBLISHER_START: "ros.publisher.start",
+  ROS_PUBLISHER_STOP: "ros.publisher.stop",
+  ROS_PUBLISHER_HAS: "ros.publisher.has",
   ROS_SUBSCRIBER_START: "ros.subscriber.start",
   ROS_SUBSCRIBER_STOP: "ros.subscriber.stop",
   ROS_SUBSCRIBER_EVENT_PREFIX: "ros.subscriber.event",
@@ -75,5 +78,6 @@ const URI = {
   ROS_SERVICE_STOP_INTROSPECTION: "ros.service.introspection.stop",
   ROS_SERVICE_EVENT_INTROSPECTION_PREFIX: "ros.service.introspection",
 };
+
 
 export default URI;

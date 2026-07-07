@@ -24,6 +24,7 @@ export default function ActionSendGoalApp(): JSX.Element {
   const logCtxRef = useAlwaysCurrentRef(logCtx);
   const settingsCtxRef = useAlwaysCurrentRef(settingsCtx);
   const [appInfo, setAppInfo] = useState<IAppInfo | null>(null);
+  const appInfoRef = useAlwaysCurrentRef(appInfo);
 
   async function initProvider(): Promise<void> {
     const queryString = window.location.search;
@@ -67,7 +68,7 @@ export default function ActionSendGoalApp(): JSX.Element {
 
   useEffect(() => {
     window.serviceManager?.onClose(async (id: string) => {
-      await appInfo?.provider.stopAction(appInfo.serviceName);
+      await appInfoRef.current?.provider.stopAction(appInfoRef.current.serviceName);
       window.serviceManager?.close(id);
     });
     initProvider();

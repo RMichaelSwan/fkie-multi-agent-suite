@@ -34,6 +34,7 @@ if nm_name_suffix:
 ROS_DOMAIN_ID = os.environ["ROS_DOMAIN_ID"] if "ROS_DOMAIN_ID" in os.environ else "0"
 NM_DISCOVERY_NAME = f'_discovery_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_DAEMON_NAME = f'_daemon_{ROS_DOMAIN_ID}{nm_name_suffix}'
+NM_PUBLISHER_NAME = f'_publisher_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_SUBSCRIBER_NAME = f'_subscriber_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_ACTION_NAME = f'_action_{ROS_DOMAIN_ID}{nm_name_suffix}'
 NM_ACTION_INTROSPECTION_NAME = f'_action_introspection_{ROS_DOMAIN_ID}{nm_name_suffix}'
@@ -66,6 +67,15 @@ NMD_DEFAULT_PORT = 35430
 
 # def ros1_subscriber_nodename_tuple(topic: str) -> Tuple[str, str]:  # namespace, name
 #     return ('', '')
+
+def ros2_publisher_nodename_tuple(topic: str) -> Tuple[str, str]:  # namespace, name
+    namespace = os.path.join(NM_NAMESPACE, NM_PUBLISHER_NAME)
+    topic_parts = topic.strip('/').split('/')
+    node_name = topic_parts[-1]
+    topic_ns = '/'.join(topic_parts[:-1])
+    if topic_ns:
+        namespace = os.path.join(namespace, topic_ns)
+    return (namespace, node_name)
 
 def ros2_subscriber_nodename_tuple(topic: str) -> Tuple[str, str]:  # namespace, name
     namespace = os.path.join(NM_NAMESPACE, NM_SUBSCRIBER_NAME)

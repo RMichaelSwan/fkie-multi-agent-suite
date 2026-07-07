@@ -59,6 +59,9 @@ Each URI has one of the following types:
 | [ros.screen.kill_node](#rosnodeskill_node-rpc)                              | RPC  |
 | [ros.screen.get_list](#rosscreenget_list-rpc)                               | RPC  |
 | [ros.screen.list](#rosscreenlist-pub)                                       | PUB  |
+| [ros.publisher.start](#rospublisherstart-rpc)                               | RPC  |
+| [ros.publisher.stop](#rospublisherstop-rpc)                                 | RPC  |
+| [ros.publisher.has](#rospublisherhas-rpc)                                   | RPC  |
 | [ros.subscriber.start](#rossubscriberstart-rpc)                             | RPC  |
 | [ros.subscriber.stop](#rossubscriberstop-rpc)                               | RPC  |
 | [ros.subscriber.event.{TOPIC}](#rossubscribereventtopic-pub)                | PUB  |
@@ -468,6 +471,42 @@ Returns a list off all screens and their name converted to ROS node name.
 Triggers when screens are changed.
 
 [ScreensMapping](#screensmapping)
+
+### ros.publisher.start `RPC`
+
+Launch a ROS publisher as new node.
+
+`Request`: [LaunchPublishMessage](#launchpublishmessage)
+
+`Reply`:
+
+```json
+{"result": bool, "message": str}
+```
+
+### ros.publisher.stop `RPC`
+
+Stops publisher for given topics.
+
+`Request`: `str`_topic name_
+
+`Reply`:
+
+```json
+{"result": bool, "message": str}
+```
+
+### ros.publisher.has `RPC`
+
+Checks if publisher exists for given topic
+
+`Request`: `str`_topic name_
+
+`Reply`:
+
+```json
+{"result": bool, "message": str}
+```
 
 ### ros.subscriber.start `RPC`
 

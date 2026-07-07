@@ -19,6 +19,7 @@ from fkie_mas_pylib.names import ns_join
 from fkie_mas_pylib.logging.logging import Log
 from fkie_mas_pylib.launch import xml
 from fkie_mas_pylib.defines import SEARCH_IN_EXT
+from fkie_mas_pylib.defines import ros2_publisher_nodename_tuple
 from fkie_mas_pylib.defines import ros2_subscriber_nodename_tuple
 from fkie_mas_pylib.defines import ros2_action_nodename_tuple
 from fkie_mas_pylib.defines import ros2_action_introspection_nodename_tuple
@@ -164,6 +165,7 @@ class LaunchServicer(LoggingEventHandler):
         websocket.register("ros.launch.get_srv_struct", self.get_srv_struct)
         websocket.register("ros.launch.call_service", self.call_service)
         websocket.register("ros.launch.get_message_types", self.get_message_types)
+        websocket.register("ros.publisher.start", self.publish_message)
         websocket.register("ros.subscriber.start", self.start_subscriber)
         websocket.register("ros.action.send_goal", self.start_action)
         websocket.register("ros.action.introspection.start", self.start_action_introspection)
@@ -1072,8 +1074,8 @@ class LaunchServicer(LoggingEventHandler):
                 opt_str += ' -p 10'
             if request.use_rostime:
                 opt_str += ' --use-sim-time'
-            fullname = f"/mas_publisher/{request.topic_name.strip('/')}".replace(
-                '/', '_')
+            ns, name = ros2_publisher_nodename_tuple(request.topic_name)
+            fullname = os.path.join(ns, name).replace('/', '_')
             opt_str += f' -n {fullname}'
             data = json.loads(request.data)
             topic_params = self._str_from_dict(data)

@@ -23,7 +23,7 @@ export default function PublisherApp(): JSX.Element {
   const logCtxRef = useAlwaysCurrentRef(logCtx);
   const settingsCtxRef = useAlwaysCurrentRef(settingsCtx);
   const [pubInfo, setPubInfo] = useState<IPublisherInfo | null>(null);
-  const [stopRequested, setStopRequested] = useState<string>("");
+  const appInfoRef = useAlwaysCurrentRef(pubInfo);
 
   async function initProvider(): Promise<void> {
     const queryString = window.location.search;
@@ -65,35 +65,15 @@ export default function PublisherApp(): JSX.Element {
     }
   }
 
-  async function stopPublisher(topic: string, provider: PublisherProvider): Promise<void> {
-    // stop ros node for given topic
-    logCtx.info(`Stopping publisher node for '${topic} on '${provider.name()}'`, "");
-    // const result = await provider.stopPublisher(topic);
-    // if (result) {
-    //   logCtx.info(`Stopped publisher node for '${topic} on '${provider.name()}'`, "");
-    // } else {
-    //   logCtx.error(`Can not stop publisher node for: ${topic} on '${provider.name()}`, `${result}`);
-    // }
-    // close window on stop request
-    window.publishManager?.close(stopRequested);
-  }
-
-  useEffect(() => {
-    window.publishManager?.close(stopRequested);
-    if (stopRequested) {
-      if (pubInfo) {
-        stopPublisher(pubInfo.topicName, pubInfo.provider);
-      } else {
-        // close window on stop request if no valid info is available
-        window.publishManager?.close(stopRequested);
-      }
-    }
-  }, [pubInfo, stopRequested]);
-
   useEffect(() => {
     // Anything in here is fired on component mount.
-    window.publishManager?.onClose((id: string) => {
-      setStopRequested(id);
+    window.publishManager?.onClose(async (id: string) => {
+      logCtx.info(
+        `Stopping publisher node for '${appInfoRef.current?.topicName}' on '${appInfoRef.current?.provider.name()}'`,
+        ""
+      );
+      await appInfoRef.current?.provider.stopPublisher(appInfoRef.current?.topicName);
+      window.publishManager?.close(id);
     });
     initProvider();
     return (): void => {

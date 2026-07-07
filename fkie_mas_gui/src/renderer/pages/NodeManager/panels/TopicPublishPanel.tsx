@@ -237,20 +237,18 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
     [messageStruct, currentMessageType, currentTopicName]
   );
 
-  function stopPublisher(): void {
+  async function stopPublisher(): Promise<void> {
     if (provider && currentTopicName) {
-      const publisherName = getPublisherName();
-      // biome-ignore lint/complexity/noForEach: <explanation>
-      provider.rosNodes.forEach(async (node) => {
-        if (node.name === publisherName) {
-          const result = await provider.stopNode(node.id);
-          if (result.result) {
-            logCtx.success(`Stopped publisher ${publisherName}`, "", `Stopped publisher ${publisherName}`);
-          } else {
-            logCtx.warn(`Failed to stop publisher ${publisherName}`, result.message, `Failed to stop ${publisherName}`);
-          }
-        }
-      });
+      const result = await provider.stopPublisher(currentTopicName);
+      if (result.result) {
+        logCtx.success(`Stopped publisher for ${currentTopicName}`, "", `Stopped publisher for ${currentTopicName}`);
+      } else {
+        logCtx.warn(
+          `Failed to stop publisher for ${currentTopicName}`,
+          result.message,
+          `Failed to stop publisher for ${currentTopicName}`
+        );
+      }
     }
   }
 
@@ -278,12 +276,9 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
 
   useEffect(() => {
     if (provider && currentTopicName) {
-      const publisherName = getPublisherName();
-      setHasPublisher(
-        provider.rosNodes.filter((node) => {
-          return node.name === publisherName;
-        }).length > 0
-      );
+      provider.hasPublisher(currentTopicName).then((hasPub) => {
+        setHasPublisher(hasPub.result);
+      });
     }
   }, [provider, rosCtx.mapProviderRosNodes, currentTopicName]);
 
@@ -314,11 +309,6 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
       }
     }
     return qos;
-  }
-
-  function getPublisherName(): string {
-    const prefix = currentTopicName.startsWith("/") ? "" : "_";
-    return `/_mas_publisher${prefix}${currentTopicName.replaceAll("/", "_")}`;
   }
 
   async function handleStartPublisher(): Promise<void> {
@@ -358,15 +348,18 @@ export default function TopicPublishPanel(props: TopicPublishPanelProps): JSX.El
         qos
       )
     );
-    const publisherName = getPublisherName();
     if (result?.result) {
       logCtx.success(
         `Started publisher for ${currentTopicName} with rate '${publishRate}' and message type: ${currentMessageType}`,
         `${messageStr}`,
-        `started publisher ${publisherName}`
+        `started publisher for ${currentTopicName}`
       );
     } else {
-      logCtx.warn(`Failed to start publisher ${publisherName}`, result?.message, `Failed to start ${publisherName}`);
+      logCtx.warn(
+        `Failed to start publisher for ${currentTopicName}`,
+        result?.message,
+        `Failed to start publisher for ${currentTopicName}`
+      );
     }
     setStartPublisherIsSubmitting(false);
     // close modal
