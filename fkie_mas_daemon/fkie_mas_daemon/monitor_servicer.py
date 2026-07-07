@@ -166,7 +166,7 @@ class MonitorServicer:
                     cmdStr = ' '.join(ps_it.cmdline())
                     if cmdStr.find(SETTINGS_PATH) > -1:
                         # ignore mas daemon pid to kill it last
-                        if 'mas-daemon' in cmdStr:
+                        if 'mas-daemon' not in cmdStr:
                             found_pid, _found_name, _parents2kill = process.get_child_pid(ps_it.pid)
                             procs.append(ps_it)
                             ps_it.terminate()
