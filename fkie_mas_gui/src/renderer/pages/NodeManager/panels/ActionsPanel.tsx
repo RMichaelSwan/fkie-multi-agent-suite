@@ -8,7 +8,7 @@ import { useCustomEventListener } from "react-custom-events";
 import { Virtuoso } from "react-virtuoso";
 
 import ActionGroupTreeItem from "@/renderer/components/ActionTreeView/ActionGroupTreeItem";
-import ActionTreeItem, { ActionInfo } from "@/renderer/components/ActionTreeView/ActionTreeItem";
+import ActionTreeItem, { ActionInfo, ActionNodeInfo } from "@/renderer/components/ActionTreeView/ActionTreeItem";
 import LongPressIconButton from "@/renderer/components/UI/LongPressIconButton";
 import SearchBar from "@/renderer/components/UI/SearchBar";
 import { BUTTON_LOCATIONS } from "@/renderer/context/SettingsContext";
@@ -65,8 +65,48 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
   const genKey = useCallback((items: string[]): string => items.join("#"), []);
 
   /**
+   * Collect action provider nodes from the send_goal service provider ids.
+   * Local nodes are preferred over remote nodes, following the same idea as services.
+   */
+  const collectActionProviderNodes = useCallback(
+    (provider: (typeof rosCtx.providers)[number], serviceProviderIds: string[] | undefined): ActionNodeInfo[] => {
+      const nodeProviders: ActionNodeInfo[] = [];
+
+      for (const rosNode of provider.rosNodes) {
+        for (const providerNodeId of serviceProviderIds || []) {
+          if (providerNodeId !== rosNode.id) {
+            continue;
+          }
+
+          if (rosNode.isLocal) {
+            // If a local node is found, keep only local nodes from this point on
+            const localOnly = nodeProviders.filter((item) => item.isLocal);
+            nodeProviders.length = 0;
+            nodeProviders.push(...localOnly);
+          }
+
+          const hasNode = nodeProviders.some((item) => item.nodeId === rosNode.id);
+          if (!hasNode || rosNode.isLocal) {
+            nodeProviders.push({
+              nodeName: rosNode.name,
+              nodeId: rosNode.id,
+              isLocal: rosNode.isLocal,
+              providerId: rosNode.providerId,
+              providerName: rosNode.providerName,
+            });
+          }
+        }
+      }
+
+      return nodeProviders;
+    },
+    [rosCtx.providers]
+  );
+
+  /**
    * Discover ROS 2 actions by detecting /_action/send_goal services.
-   * Derive goal, result and feedback type names from the service types.
+   * Goal, result and feedback type names are derived from naming conventions.
+   * Provider nodes are resolved from the service provider node ids.
    */
   const updateActionList = useCallback(async () => {
     if (!rosCtx.initialized) return;
@@ -84,7 +124,7 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
         if (providerDomainId !== selectedDomainId) continue;
       }
 
-      // Collect service types by name for lookup
+      // Build a name -> type lookup for companion action services
       const serviceTypeMap = new Map<string, string>();
       for (const service of provider.rosServices) {
         serviceTypeMap.set(service.name, service.srv_type);
@@ -96,20 +136,21 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
         const actionName = service.name.slice(0, -ACTION_SUFFIX_SEND_GOAL.length);
         if (actionMap.has(actionName)) continue;
 
-        // Derive type names from the send_goal service type
-        // e.g. "nav2_msgs/action/NavigateToPose_SendGoal" -> base "nav2_msgs/action/NavigateToPose"
+        // Example:
+        // "nav2_msgs/action/NavigateToPose_SendGoal" -> "nav2_msgs/action/NavigateToPose"
         let actionType = service.srv_type;
-        const goalType = service.srv_type; // full send_goal service type
+        const goalType = service.srv_type;
         if (actionType.endsWith("_SendGoal")) {
           actionType = actionType.slice(0, -"_SendGoal".length);
         }
 
-        // Result type from get_result service
         const getResultName = `${actionName}${ACTION_SUFFIX_GET_RESULT}`;
         const resultType = serviceTypeMap.get(getResultName) || `${actionType}_GetResult`;
 
-        // Feedback type (topic-based, derive conventionally)
+        // Feedback is not a service type, but follows the ROS 2 naming convention
         const feedbackType = `${actionType}_FeedbackMessage`;
+
+        const nodeProviders = collectActionProviderNodes(provider, service.provider);
 
         actionMap.set(actionName, {
           name: actionName,
@@ -118,13 +159,14 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
           resultType,
           feedbackType,
           providerId: provider.id,
+          nodeProviders,
         });
       }
     }
 
     const list = Array.from(actionMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     setActions(list);
-  }, [rosCtx.initialized, rosCtx.providers, contentId]);
+  }, [rosCtx.initialized, rosCtx.providers, contentId, collectActionProviderNodes]);
 
   const getActionList = useCallback(() => {
     for (const provider of rosCtx.providers) {
@@ -235,7 +277,14 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
 
   const filteredActions = useMemo(() => {
     if (!searchTerm.trim()) return actions;
-    return actions.filter((action) => findIn(searchTerm, [action.name, action.actionType]));
+    return actions.filter((action) =>
+      findIn(searchTerm, [
+        action.name,
+        action.actionType,
+        ...action.nodeProviders.map((node) => node.nodeName),
+        ...action.nodeProviders.map((node) => node.providerName),
+      ])
+    );
   }, [actions, searchTerm]);
 
   const treeData = useMemo(() => {
@@ -256,7 +305,7 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
     setRootDataList(treeData);
   }, [treeData]);
 
-  // Auto-expand all groups when searching
+  // Expand all groups while searching
   useEffect(() => {
     if (searchTerm.length >= EXPAND_ON_SEARCH_MIN_CHARS) {
       const allGroupKeys: string[] = [];

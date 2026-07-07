@@ -8,6 +8,17 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 
 /**
+ * Information about a ROS node providing an action.
+ */
+export interface ActionNodeInfo {
+  nodeName: string;
+  nodeId: string;
+  isLocal: boolean;
+  providerId: string;
+  providerName: string;
+}
+
+/**
  * Information about a discovered ROS 2 action.
  */
 export interface ActionInfo {
@@ -17,6 +28,7 @@ export interface ActionInfo {
   resultType: string; // e.g. "nav2_msgs/action/NavigateToPose_GetResult"
   feedbackType: string; // e.g. "nav2_msgs/action/NavigateToPose_FeedbackMessage"
   providerId?: string;
+  nodeProviders: ActionNodeInfo[];
 }
 
 interface ActionTreeItemProps {
@@ -32,7 +44,7 @@ interface ActionTreeItemProps {
 /**
  * Virtualized row for a single ROS 2 action.
  * - Single click selects the item.
- * - Second click on selected item toggles extended info (Goal/Result/Feedback types).
+ * - Second click on selected item toggles extended info.
  */
 export default function ActionTreeItem({
   itemId,
@@ -60,7 +72,7 @@ export default function ActionTreeItem({
     }
   }, [selected]);
 
-  // Parse action name into namespace prefix and leaf name
+  // Split action name into namespace and leaf name
   useEffect(() => {
     const parts = actionInfo.name.split("/");
     setName(`${parts.pop()}`);
@@ -98,7 +110,7 @@ export default function ActionTreeItem({
   }, []);
 
   const handleDoubleClickCopy = useCallback(
-    (e: React.MouseEvent<HTMLSpanElement>, value: string, label: string) => {
+    (e: React.MouseEvent<HTMLElement>, value: string, label: string) => {
       if (e.detail === 2) {
         navigator.clipboard.writeText(value);
         logCtx.info(`${value} copied!`, "", `${label} copied`);
@@ -109,10 +121,9 @@ export default function ActionTreeItem({
   );
 
   /**
-   * Click logic:
-   * - First click on unselected item: select it.
-   * - First click on already-selected item: arm next click.
-   * - Second click: toggle extended info.
+   * Click behavior:
+   * - First click on an unselected item selects it.
+   * - Second click on the same item toggles extended information.
    */
   const handleRowClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -147,7 +158,7 @@ export default function ActionTreeItem({
       onClick={handleRowClick}
       onContextMenu={handleContextMenu}
     >
-      {/* Indentation lines */}
+      {/* Indentation guide lines */}
       {lineKeys.map((key) => (
         <Box
           key={key}
@@ -159,9 +170,9 @@ export default function ActionTreeItem({
         />
       ))}
 
-      {/* Content */}
+      {/* Main content */}
       <Box sx={{ flexGrow: 1, py: 0.2, pr: 1 }}>
-        {/* Header row: action name + action type */}
+        {/* Header row with action name and action type */}
         <Box
           sx={{
             ml: 0.7,
@@ -203,9 +214,29 @@ export default function ActionTreeItem({
           </Stack>
         </Box>
 
-        {/* Extended info: Goal, Result, Feedback types */}
+        {/* Extended information shown after the second click */}
         {showExtendedInfo && (
           <Stack paddingLeft={3} spacing={0.3}>
+            {actionInfo.nodeProviders.length > 0 && (
+              <Stack direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap">
+                <Typography fontWeight="bold" fontSize="small">
+                  Provider:
+                </Typography>
+                <Stack spacing={0.2}>
+                  {actionInfo.nodeProviders.map((node) => (
+                    <Typography
+                      key={node.nodeId}
+                      fontSize="small"
+                      sx={{ cursor: "pointer" }}
+                      onClick={(e) => handleDoubleClickCopy(e, node.nodeName, "provider node")}
+                    >
+                      {node.nodeName}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Stack>
+            )}
+
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography fontWeight="bold" fontSize="small">
                 Goal:
@@ -272,6 +303,18 @@ export default function ActionTreeItem({
           >
             Copy action type
           </MenuItem>
+          {actionInfo.nodeProviders.map((node) => (
+            <MenuItem
+              key={`copy-provider-${node.nodeId}`}
+              sx={{ fontSize: "0.8em" }}
+              onClick={(event) => {
+                navigator.clipboard.writeText(node.nodeName);
+                handleCloseMenu(event);
+              }}
+            >
+              Copy provider node: {node.nodeName}
+            </MenuItem>
+          ))}
           <MenuItem
             sx={{ fontSize: "0.8em" }}
             onClick={(event) => {

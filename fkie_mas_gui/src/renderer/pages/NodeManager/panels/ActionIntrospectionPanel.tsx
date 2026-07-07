@@ -27,6 +27,7 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { Provider } from "@/renderer/providers";
 import { EventProviderActionIntrospection } from "@/renderer/providers/events";
+
 import { EVENT_PROVIDER_ACTION_INTROSPECTION_PREFIX, EVENT_PROVIDER_ROS_TOPICS } from "@/renderer/providers/eventTypes";
 
 interface IntrospectionDisplay {
@@ -45,6 +46,8 @@ interface ActionIntrospectionPanelProps {
   actionType: string;
   providerId: string;
 }
+
+type IntrospectionConfigValue = "disabled" | "metadata" | "contents";
 
 const phaseColor: Record<string, "primary" | "secondary" | "warning"> = {
   send_goal: "primary",
@@ -73,6 +76,10 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
   const [topicsUpdated, setTopicsUpdated] = useReducer((x) => x + 1, 0);
   const [phaseFilter, setPhaseFilter] = useState<string>("all");
 
+  const [targetNodeName, setTargetNodeName] = useState<string>("");
+  const [introspectionConfig, setIntrospectionConfig] = useState<string>("");
+  const [isConfiguring, setIsConfiguring] = useState(false);
+
   const [useDarkMode] = useSetting<boolean>("useDarkMode");
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
   const [backgroundColor] = useSetting<string>("backgroundColor");
@@ -86,9 +93,31 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
     }
   }, [providerId, rosCtx]);
 
+  const loadIntrospectionConfig = useCallback(async () => {
+    if (!provider || !targetNodeName) {
+      setIntrospectionConfig("");
+      return;
+    }
+
+    try {
+      console.log(`targetNodeName: ${targetNodeName}`);
+      // getNodeParameters returns all parameters for the given node list.
+      const result = await provider.getNodeParameters([targetNodeName]);
+      console.log(`reuslg: ${JSON.stringify(result)}`);
+      const param = result.params.find(
+        (p) => p.node === targetNodeName && p.name === "action_server_configure_introspection"
+      );
+
+      setIntrospectionConfig(String(param?.value ?? ""));
+    } catch (_err) {
+      setIntrospectionConfig("");
+    }
+  }, [provider, targetNodeName]);
+
   const introspectionAvailable = useMemo(() => {
+    loadIntrospectionConfig();
     return provider?.hasActionIntrospection(actionName) ?? false;
-  }, [provider, actionName, topicsUpdated]);
+  }, [provider, actionName, topicsUpdated, loadIntrospectionConfig]);
 
   useCustomEventListener(EVENT_PROVIDER_ROS_TOPICS, () => {
     setTopicsUpdated();
@@ -115,6 +144,37 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
     ];
   }, [actionName]);
 
+  const getActionServiceNames = useCallback((): string[] => {
+    return [`${actionName}/_action/send_goal`, `${actionName}/_action/get_result`, `${actionName}/_action/cancel_goal`];
+  }, [actionName]);
+
+  const resolveTargetNodeName = useCallback((): string => {
+    if (!provider?.rosNodes || !provider?.rosServices) return "";
+
+    const serviceNames = getActionServiceNames();
+
+    for (const serviceName of serviceNames) {
+      const service = provider.rosServices.find((s) => s.name === serviceName);
+      if (!service) continue;
+
+      // Prefer a local provider node if available.
+      const providerNodeIds = service.provider || [];
+
+      for (const nodeId of providerNodeIds) {
+        const node = provider.rosNodes.find((n) => n.id === nodeId && n.isLocal);
+        if (node) return node.name;
+      }
+
+      // Fallback to any provider node.
+      for (const nodeId of providerNodeIds) {
+        const node = provider.rosNodes.find((n) => n.id === nodeId);
+        if (node) return node.name;
+      }
+    }
+
+    return "";
+  }, [provider, getActionServiceNames]);
+
   useEffect(() => {
     if (!provider) {
       setMonitoring(false);
@@ -130,6 +190,10 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
     setMonitoring(hasIntrospectionSubscriber);
   }, [provider, getIntrospectionTopics, rosCtx.mapProviderRosNodes]);
+
+  useEffect(() => {
+    setTargetNodeName(resolveTargetNodeName());
+  }, [resolveTargetNodeName, topicsUpdated]);
 
   useEffect(() => {
     if (monitoring) {
@@ -192,6 +256,33 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
     await provider.stopActionIntrospection(actionName);
   }, [provider, actionName]);
 
+  const setNodeIntrospectionConfig = useCallback(
+    async (value: IntrospectionConfigValue) => {
+      if (!provider || !targetNodeName) return;
+
+      try {
+        setIsConfiguring(true);
+
+        // The provider API expects:
+        // setParameter(paramName, paramType, paramValue, nodeName)
+        const result = await provider.setParameter(
+          "action_server_configure_introspection",
+          "str",
+          value,
+          targetNodeName
+        );
+
+        if (result?.result) {
+          setIntrospectionConfig(value);
+          setTopicsUpdated();
+        }
+      } finally {
+        setIsConfiguring(false);
+      }
+    },
+    [provider, targetNodeName]
+  );
+
   const filtered = useMemo(
     () => (phaseFilter === "all" ? events : events.filter((e) => e.phase === phaseFilter)),
     [events, phaseFilter]
@@ -218,9 +309,14 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
           <Typography color="grey" fontSize="0.8em">
             {actionType || "detecting type..."}
           </Typography>
+          {targetNodeName && (
+            <Typography color="grey" fontSize="0.8em">
+              node: {targetNodeName}
+            </Typography>
+          )}
         </Stack>
 
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           {monitoring ? (
             <Button variant="outlined" color="warning" size="small" startIcon={<StopIcon />} onClick={stopMonitoring}>
               Stop
@@ -244,6 +340,7 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
                   ? "Start action introspection"
                   : "This action does not provide introspection topics"
               }
+              disableInteractive
             >
               <span>
                 <Button
@@ -260,7 +357,33 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
             </Tooltip>
           )}
 
-          <Tooltip title="Clear events">
+          <Tooltip title="Configure the introspection parameter 'action_server_configure_introspection' on the related ROS node" placement={"top"} disableInteractive>
+            <span>
+              <Select
+                size="small"
+                value={introspectionConfig || ""}
+                displayEmpty
+                disabled={!targetNodeName || isConfiguring}
+                onChange={(e) => setNodeIntrospectionConfig(e.target.value as IntrospectionConfigValue)}
+                sx={{ fontSize: "0.7em", minWidth: 170 }}
+              >
+                <MenuItem value="" disabled sx={{ fontSize: "0.7em" }}>
+                  unavailable
+                </MenuItem>
+                <MenuItem value="disabled" sx={{ fontSize: "0.7em" }}>
+                  disabled
+                </MenuItem>
+                <MenuItem value="metadata" sx={{ fontSize: "0.7em" }}>
+                  metadata
+                </MenuItem>
+                <MenuItem value="contents" sx={{ fontSize: "0.7em" }}>
+                  contents
+                </MenuItem>
+              </Select>
+            </span>
+          </Tooltip>
+
+          <Tooltip title="Clear events" disableInteractive>
             <IconButton size="small" onClick={() => setEvents([])}>
               <PlaylistRemoveIcon fontSize="small" />
             </IconButton>
@@ -297,6 +420,14 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
         {!provider && <Alert severity="info">Waiting for provider...</Alert>}
 
+        {provider && !targetNodeName && (
+          <Alert severity="warning">
+            Could not resolve the ROS node that provides this action. The parameter
+            <b> service_configure_introspection </b>
+            cannot be configured until the related action service node is visible.
+          </Alert>
+        )}
+
         {provider && !monitoring && !introspectionAvailable && (
           <Alert severity="info">
             This action does not expose introspection topics on the provider. To enable introspection, the ROS 2 action
@@ -316,8 +447,8 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
         {provider && !monitoring && !isStarting && events.length === 0 && introspectionAvailable && (
           <Alert severity="info">
-            Click &ldquo;Start Introspection&rdquo;. Note: The action server/client must have introspection enabled with
-            state <b>METADATA</b> or <b>CONTENTS</b> for events to appear.
+            Click &ldquo;Start Introspection&rdquo;. Note: The action server or client must have introspection enabled
+            with state <b>METADATA</b> or <b>CONTENTS</b> for events to appear.
           </Alert>
         )}
 

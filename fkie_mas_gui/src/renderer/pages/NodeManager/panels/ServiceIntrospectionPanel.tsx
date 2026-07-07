@@ -58,6 +58,8 @@ interface ServiceIntrospectionPanelProps {
   providerId: string;
 }
 
+type IntrospectionConfigValue = "disabled" | "metadata" | "contents";
+
 const EVENT_PROVIDER_SERVICE_INTROSPECTION_PREFIX = "EVENT_PROVIDER_SERVICE_INTROSPECTION";
 
 const eventColor: Record<string, "info" | "success" | "default"> = {
@@ -79,6 +81,10 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
   const [_receivedIndex, setReceivedIndex] = useState(0);
   const [topicsUpdated, setTopicsUpdated] = useReducer((x) => x + 1, 0);
 
+  const [targetNodeName, setTargetNodeName] = useState<string>("");
+  const [introspectionConfig, setIntrospectionConfig] = useState<string>("");
+  const [isConfiguring, setIsConfiguring] = useState(false);
+
   const [useDarkMode] = useSetting<boolean>("useDarkMode");
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
   const [backgroundColor] = useSetting<string>("backgroundColor");
@@ -92,9 +98,28 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
     }
   }, [providerId, rosCtx]);
 
+  const loadIntrospectionConfig = useCallback(async () => {
+    if (!provider || !targetNodeName) {
+      setIntrospectionConfig("");
+      return;
+    }
+
+    try {
+      const result = await provider.getNodeParameters([targetNodeName]);
+      const param = result.params.find(
+        (p) => p.node === targetNodeName && p.name === "service_configure_introspection"
+      );
+
+      setIntrospectionConfig(String(param?.value ?? ""));
+    } catch (_err) {
+      setIntrospectionConfig("");
+    }
+  }, [provider, targetNodeName]);
+
   const introspectionAvailable = useMemo(() => {
+    loadIntrospectionConfig();
     return provider?.hasServiceIntrospection(serviceName) ?? false;
-  }, [provider, serviceName, topicsUpdated]);
+  }, [provider, serviceName, topicsUpdated, loadIntrospectionConfig]);
 
   useCustomEventListener(EVENT_PROVIDER_ROS_TOPICS, () => {
     setTopicsUpdated();
@@ -117,6 +142,27 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
     return `${serviceName}/_service_event`;
   }, [serviceName]);
 
+  const resolveTargetNodeName = useCallback((): string => {
+    if (!provider?.rosNodes || !provider?.rosServices) return "";
+
+    const service = provider.rosServices.find((s) => s.name === serviceName);
+    if (!service) return "";
+
+    const providerNodeIds = service.provider || [];
+
+    for (const nodeId of providerNodeIds) {
+      const node = provider.rosNodes.find((n) => n.id === nodeId && n.isLocal);
+      if (node) return node.name;
+    }
+
+    for (const nodeId of providerNodeIds) {
+      const node = provider.rosNodes.find((n) => n.id === nodeId);
+      if (node) return node.name;
+    }
+
+    return "";
+  }, [provider, serviceName]);
+
   useEffect(() => {
     if (!provider) {
       setMonitoring(false);
@@ -131,6 +177,10 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
 
     setMonitoring(hasIntrospectionSubscriber);
   }, [provider, getIntrospectionTopic, rosCtx.mapProviderRosNodes]);
+
+  useEffect(() => {
+    setTargetNodeName(resolveTargetNodeName());
+  }, [resolveTargetNodeName, topicsUpdated]);
 
   useEffect(() => {
     if (monitoring) {
@@ -192,6 +242,26 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
     await provider.stopServiceIntrospection(serviceName);
   }, [provider, serviceName]);
 
+  const setNodeIntrospectionConfig = useCallback(
+    async (value: IntrospectionConfigValue) => {
+      if (!provider || !targetNodeName) return;
+
+      try {
+        setIsConfiguring(true);
+
+        const result = await provider.setParameter("service_configure_introspection", "str", value, targetNodeName);
+
+        if (result?.result) {
+          setIntrospectionConfig(value);
+          setTopicsUpdated();
+        }
+      } finally {
+        setIsConfiguring(false);
+      }
+    },
+    [provider, targetNodeName]
+  );
+
   return (
     <Box height="100%" overflow="hidden" sx={getHostStyle()}>
       <Stack height="100%" spacing={1} marginLeft={1} marginRight={1} marginBottom={1}>
@@ -206,12 +276,23 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
             <Typography fontWeight="bold" flexGrow={1}>
               {serviceName}
             </Typography>
-          </Stack>
             <Typography color="grey" fontSize="0.8em">
-              {serviceType || "detecting type..."}
+              {provider?.name()}
             </Typography>
+          </Stack>
+
+          <Typography color="grey" fontSize="0.8em">
+            {serviceType || "detecting type..."}
+          </Typography>
+
+          {targetNodeName && (
+            <Typography color="grey" fontSize="0.8em">
+              node: {targetNodeName}
+            </Typography>
+          )}
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center">
+
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           {monitoring ? (
             <Button variant="outlined" color="warning" size="small" startIcon={<StopIcon />} onClick={stopMonitoring}>
               Stop
@@ -235,6 +316,7 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
                   ? "Start service introspection"
                   : "This service does not provide introspection topic"
               }
+              disableInteractive
             >
               <span>
                 <Button
@@ -251,7 +333,37 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
             </Tooltip>
           )}
 
-          <Tooltip title="Clear events">
+          <Tooltip
+            title="Configure the introspection parameter 'service_configure_introspection' on the related ROS node"
+            placement="top"
+            disableInteractive
+          >
+            <span>
+              <Select
+                size="small"
+                value={introspectionConfig || ""}
+                displayEmpty
+                disabled={!targetNodeName || isConfiguring}
+                onChange={(e) => setNodeIntrospectionConfig(e.target.value as IntrospectionConfigValue)}
+                sx={{ fontSize: "0.7em", minWidth: 170 }}
+              >
+                <MenuItem value="" disabled sx={{ fontSize: "0.7em" }}>
+                  unavailable
+                </MenuItem>
+                <MenuItem value="disabled" sx={{ fontSize: "0.7em" }}>
+                  disabled
+                </MenuItem>
+                <MenuItem value="metadata" sx={{ fontSize: "0.7em" }}>
+                  metadata
+                </MenuItem>
+                <MenuItem value="contents" sx={{ fontSize: "0.7em" }}>
+                  contents
+                </MenuItem>
+              </Select>
+            </span>
+          </Tooltip>
+
+          <Tooltip title="Clear events" disableInteractive>
             <IconButton size="small" onClick={() => setEvents([])}>
               <PlaylistRemoveIcon fontSize="small" />
             </IconButton>
@@ -274,6 +386,14 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
         <Divider />
 
         {!provider && <Alert severity="info">Waiting for provider...</Alert>}
+
+        {provider && !targetNodeName && (
+          <Alert severity="warning">
+            Could not resolve the ROS node that provides this service. The parameter
+            <b> service_configure_introspection </b>
+            cannot be configured until the related service node is visible.
+          </Alert>
+        )}
 
         {provider && !monitoring && !introspectionAvailable && (
           <Alert severity="info">
@@ -311,6 +431,7 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
                 <Chip label={evt.eventType} size="small" color={eventColor[evt.eventType] ?? "default"} />
                 <Typography variant="caption">seq: {evt.sequenceNumber}</Typography>
               </Stack>
+
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <Typography variant="caption" color="grey">
                   gid: {Array.isArray(evt.clientGid) ? evt.clientGid.join(".") : evt.clientGid}
