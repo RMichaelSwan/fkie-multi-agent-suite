@@ -20,7 +20,7 @@ import os
 import psutil
 import threading
 
-from rclpy.callback_groups import ReentrantCallbackGroup # MutuallyExclusiveCallbackGroup
+from rclpy.callback_groups import ReentrantCallbackGroup  # MutuallyExclusiveCallbackGroup
 from rclpy.node import Subscription
 from rclpy.qos import QoSCompatibility, qos_check_compatible
 from rclpy.topic_endpoint_info import TopicEndpointInfo

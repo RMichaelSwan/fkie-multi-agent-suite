@@ -199,7 +199,7 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
   return (
     <Box height="100%" overflow="hidden" sx={getHostStyle()}>
-      <Stack spacing={1} margin={1}>
+      <Stack height="100%" spacing={1} marginLeft={1} marginRight={1} marginBottom={1}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Typography fontWeight="bold">{actionName}</Typography>
           <Typography color="grey" fontSize="0.8em">
@@ -324,7 +324,7 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
           <Alert severity="info">Starting action introspection, waiting for provider subscriptions to appear...</Alert>
         )}
 
-        <Stack spacing={0.5} sx={{ maxHeight: "70vh", overflow: "auto" }}>
+        <Stack spacing={0.5} height="100%" sx={{ overflow: "auto" }}>
           {filtered.map((evt) => (
             <Paper key={evt.key} elevation={1} sx={{ p: 0.5 }}>
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">

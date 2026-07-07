@@ -174,7 +174,7 @@ class RosActionIntrospectionLauncher:
             if content:
                 payload = json.loads(
                     json.dumps(content[0], cls=MsgEncoder,
-                               **{"no_arr": False, "no_str": False, "array_items_count": 15})
+                               **{"no_arr": False, "no_str": False, "array_items_count": 50})
                 )
 
             event = ActionIntrospectionEvent(

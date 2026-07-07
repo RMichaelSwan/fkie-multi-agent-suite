@@ -438,6 +438,7 @@ export default class WebsocketConnection extends ProviderConnection {
         // Subscription message
         const cbSub = this.subscriptions[message.uri];
         if (cbSub) {
+          this.log().debugInterface(message.uri, message.args as unknown as JSONObject, "callback", this.uri);
           cbSub(message.message);
         }
       }

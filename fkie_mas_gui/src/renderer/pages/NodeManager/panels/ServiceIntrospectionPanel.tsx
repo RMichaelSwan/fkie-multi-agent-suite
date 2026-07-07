@@ -194,7 +194,7 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
 
   return (
     <Box height="100%" overflow="hidden" sx={getHostStyle()}>
-      <Stack spacing={1} margin={1}>
+      <Stack height="100%" spacing={1} marginLeft={1} marginRight={1} marginBottom={1}>
         <Stack spacing={0.3}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Typography fontWeight="bold">{serviceName}</Typography>
@@ -306,7 +306,7 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
           <Alert severity="info">Starting service introspection, waiting for provider subscriptions to appear...</Alert>
         )}
 
-        <Stack spacing={0.5} sx={{ maxHeight: "70vh", overflow: "auto" }}>
+        <Stack spacing={0.5} height="100%" sx={{ overflow: "auto" }}>
           {events.map((evt) => (
             <Paper key={evt.key} elevation={1} sx={{ p: 0.5 }}>
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -315,6 +315,8 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
                 </Typography>
                 <Chip label={evt.eventType} size="small" color={eventColor[evt.eventType] ?? "default"} />
                 <Typography variant="caption">seq: {evt.sequenceNumber}</Typography>
+              </Stack>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <Typography variant="caption" color="grey">
                   gid: {Array.isArray(evt.clientGid) ? evt.clientGid.join(".") : evt.clientGid}
                 </Typography>
