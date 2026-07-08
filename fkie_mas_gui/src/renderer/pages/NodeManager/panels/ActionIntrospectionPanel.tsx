@@ -1,6 +1,7 @@
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PlaylistRemoveIcon from "@mui/icons-material/PlaylistRemove";
 import StopIcon from "@mui/icons-material/Stop";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import {
   Alert,
   Box,
@@ -78,6 +79,7 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
 
   const [targetNodeName, setTargetNodeName] = useState<string>("");
   const [introspectionConfig, setIntrospectionConfig] = useState<string>("");
+  const [paramAvailable, setParamAvailable] = useState<boolean>(false);
   const [isConfiguring, setIsConfiguring] = useState(false);
 
   const [useDarkMode] = useSetting<boolean>("useDarkMode");
@@ -96,21 +98,23 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
   const loadIntrospectionConfig = useCallback(async () => {
     if (!provider || !targetNodeName) {
       setIntrospectionConfig("");
+      setParamAvailable(false);
       return;
     }
 
     try {
-      console.log(`targetNodeName: ${targetNodeName}`);
       // getNodeParameters returns all parameters for the given node list.
       const result = await provider.getNodeParameters([targetNodeName]);
-      console.log(`reuslg: ${JSON.stringify(result)}`);
       const param = result.params.find(
         (p) => p.node === targetNodeName && p.name === "action_server_configure_introspection"
       );
 
+      // Parameter is available only if it was actually found on the node
+      setParamAvailable(param !== undefined);
       setIntrospectionConfig(String(param?.value ?? ""));
-    } catch (_err) {
+    } catch {
       setIntrospectionConfig("");
+      setParamAvailable(false);
     }
   }, [provider, targetNodeName]);
 
@@ -357,32 +361,45 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
             </Tooltip>
           )}
 
-          <Tooltip title="Configure the introspection parameter 'action_server_configure_introspection' on the related ROS node" placement={"top"} disableInteractive>
-            <span>
-              <Select
-                size="small"
-                value={introspectionConfig || ""}
-                displayEmpty
-                disabled={!targetNodeName || isConfiguring}
-                onChange={(e) => setNodeIntrospectionConfig(e.target.value as IntrospectionConfigValue)}
-                sx={{ fontSize: "0.7em", minWidth: 170 }}
-              >
-                <MenuItem value="" disabled sx={{ fontSize: "0.7em" }}>
-                  unavailable
-                </MenuItem>
-                <MenuItem value="disabled" sx={{ fontSize: "0.7em" }}>
-                  disabled
-                </MenuItem>
-                <MenuItem value="metadata" sx={{ fontSize: "0.7em" }}>
-                  metadata
-                </MenuItem>
-                <MenuItem value="contents" sx={{ fontSize: "0.7em" }}>
-                  contents
-                </MenuItem>
-              </Select>
-            </span>
-          </Tooltip>
-
+          {paramAvailable ? (
+            <Tooltip
+              title="Configure the introspection parameter 'action_server_configure_introspection' on the related ROS node"
+              placement="top"
+              disableInteractive
+            >
+              <span>
+                <Select
+                  size="small"
+                  value={introspectionConfig || ""}
+                  displayEmpty
+                  disabled={!targetNodeName || isConfiguring}
+                  onChange={(e) => setNodeIntrospectionConfig(e.target.value as IntrospectionConfigValue)}
+                  sx={{ fontSize: "0.7em" }}
+                >
+                  <MenuItem value="" disabled sx={{ fontSize: "0.7em" }}>
+                    unavailable
+                  </MenuItem>
+                  <MenuItem value="disabled" sx={{ fontSize: "0.7em" }}>
+                    disabled
+                  </MenuItem>
+                  <MenuItem value="metadata" sx={{ fontSize: "0.7em" }}>
+                    metadata
+                  </MenuItem>
+                  <MenuItem value="contents" sx={{ fontSize: "0.7em" }}>
+                    contents
+                  </MenuItem>
+                </Select>
+              </span>
+            </Tooltip>
+          ) : (
+            <Tooltip
+              title="Parameter 'action_server_configure_introspection' is not available on the related ROS node"
+              placement="top"
+              disableInteractive
+            >
+              <WarningAmberIcon color="warning" fontSize="small" />
+            </Tooltip>
+          )}
           <Tooltip title="Clear events" disableInteractive>
             <IconButton size="small" onClick={() => setEvents([])}>
               <PlaylistRemoveIcon fontSize="small" />
@@ -431,8 +448,8 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
         {provider && !monitoring && !introspectionAvailable && (
           <Alert severity="info">
             This action does not expose introspection topics on the provider. To enable introspection, the ROS 2 action
-            server or client must publish service event topics and use introspection state <b>METADATA</b> or{" "}
-            <b>CONTENTS</b>. Expected topics: <b>{actionName}/_action/send_goal/_service_event</b>,{" "}
+            server or client must publish service event topics and use introspection state <b>metadata</b> or{" "}
+            <b>contents</b>. Expected topics: <b>{actionName}/_action/send_goal/_service_event</b>,{" "}
             <b>{actionName}/_action/get_result/_service_event</b>,{" "}
             <b>{actionName}/_action/cancel_goal/_service_event</b>. See{" "}
             <Link
@@ -448,7 +465,15 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
         {provider && !monitoring && !isStarting && events.length === 0 && introspectionAvailable && (
           <Alert severity="info">
             Click &ldquo;Start Introspection&rdquo;. Note: The action server or client must have introspection enabled
-            with state <b>METADATA</b> or <b>CONTENTS</b> for events to appear.
+            with state <b>metadata</b> or <b>contents</b> for events to appear.
+          </Alert>
+        )}
+
+        {provider && targetNodeName && !paramAvailable && (
+          <Alert severity="warning">
+            The parameter <b>action_server_configure_introspection</b> is not available on node <b>{targetNodeName}</b>.
+            Introspection cannot be configured from here. Make sure the node declares this parameter so its state can be
+            set to <b>metadata</b> or <b>contents</b>.
           </Alert>
         )}
 
