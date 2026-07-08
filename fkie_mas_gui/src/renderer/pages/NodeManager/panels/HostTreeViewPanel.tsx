@@ -121,6 +121,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
   const [buttonLocation] = useSetting<string>("buttonLocation");
   const [nodeLoggerOpenLocation] = useSetting<string>("nodeLoggerOpenLocation");
   const [nodeParamOpenLocation] = useSetting<string>("nodeParamOpenLocation");
+  const [ignoreProcessesOnShutdown] = useSetting<string>("ignoreProcessesOnShutdown");
 
   const [filterText, setFilterText] = useState<string>("");
   const [providerNodes, setProviderNodes] = useState<TProviderNodes[]>([]);
@@ -1409,7 +1410,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
       const provider = rosCtx.getProviderById(id);
       if (!provider) return;
       console.log(`shutdown ${provider.id}`);
-      const result = await provider.shutdown(killRos2);
+      const result = await provider.shutdown(killRos2, ignoreProcessesOnShutdown.split(","));
       console.log(`finished shutdown ${provider.id} ${JSON.stringify(result)}`);
     },
     [rosCtx.getProviderById]

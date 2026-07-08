@@ -230,7 +230,12 @@ Cleans ros log folder.
 
 Kills all screens started by provider. Also MAS nodes.
 
-`Request`: `boolean` _killRos2_
+`Request`: 
+
+```json
+{"killRos2": bool, "exclude": str[]}
+```
+
 
 `Reply`:
 

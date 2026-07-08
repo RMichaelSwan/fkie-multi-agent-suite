@@ -1239,8 +1239,8 @@ export default class Provider implements IProvider {
   /**
    * Terminate all running subprocesses (ROS, TTYD) of the provider
    */
-  public shutdown: (killRos2: boolean) => Promise<Result> = async (killRos2) => {
-    const result = await this.makeCall(URI.ROS_PROVIDER_SHUTDOWN, [killRos2], true).then((value: TResultData) => {
+  public shutdown: (killRos2: boolean, exclude: string[]) => Promise<Result> = async (killRos2, exclude) => {
+    const result = await this.makeCall(URI.ROS_PROVIDER_SHUTDOWN, [killRos2, exclude], true).then((value: TResultData) => {
       if (value.result) {
         return value.data as Result;
       }

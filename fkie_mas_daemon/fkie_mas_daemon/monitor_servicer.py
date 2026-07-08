@@ -10,6 +10,7 @@
 from typing import Dict
 from typing import List
 
+import re
 import json
 import os
 import psutil
@@ -149,12 +150,19 @@ class MonitorServicer:
                 message = f"{e}"
         return json.dumps({"result": result, "message": message}, cls=SelfEncoder)
 
+    def isRos2Process(self, cmd: str, exclude: List[str] = None) -> bool:
+        use_exclude = exclude
+        if not use_exclude:
+            use_exclude = ('colcon', 'cmake', 'CMakeFiles')
+        patterns = []
+        for ex in use_exclude:
+            try:
+                patterns.append(re.compile(ex))
+            except re.error as e:
+                print(f"Ungültiges Regex-Muster '{ex}': {e}")
+        return 'ros2' in cmd and not any(p.search(cmd) for p in patterns)
 
-    def isRos2Process(self, cmd: str) -> bool:
-        exclude = ('colcon', 'cmake', 'CMakeFiles')
-        return 'ros2' in cmd and not any(ex in cmd for ex in exclude)
-
-    def rosShutdown(self, killRos2: bool = False) -> {bool, str}:
+    def rosShutdown(self, killRos2: bool = False, exclude: List[str] = None) -> {bool, str}:
         Log.info(f"{self.__class__.__name__}: ros.provider.shutdown; killRos2: {killRos2}")
         result = False
         message = ''
@@ -173,7 +181,7 @@ class MonitorServicer:
                             if found_pid > -1:
                                 # store child process of the screen we found using SETTINGS_PATH for later kill
                                 screen_child_ids.append(found_pid)
-                    elif killRos2 and self.isRos2Process(cmdStr) and 'mas-daemon' not in cmdStr:
+                    elif killRos2 and self.isRos2Process(cmdStr, exclude) and 'mas-daemon' not in cmdStr:
                         ps_it.terminate()
                         procs.append(ps_it)
                 except (psutil.ZombieProcess, psutil.NoSuchProcess):

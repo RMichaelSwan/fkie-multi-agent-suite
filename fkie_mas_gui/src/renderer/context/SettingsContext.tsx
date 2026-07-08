@@ -295,6 +295,43 @@ export const SETTINGS_DEF: Record<string, ISettingsParam> = {
         })
         .join(","),
   },
+  ignoreProcessesOnShutdown: {
+    label: "Ignore processes on shutdown",
+    freeSolo: true,
+    type: "string",
+    default: "colcon, cmake, CMakeFiles",
+    options: ["colcon, cmake, CMakeFiles"],
+    description:
+      "When closing the GUI, the ROS nodes can also be terminated. Here you can specify which processes containing 'ros2' should not be terminated.",
+    isValid: (value) => {
+      try {
+        const splits: string[] = ((value as string) || "").split(",");
+        for (const item of splits) {
+          try {
+            new RegExp(`/(${item})/`);
+          } catch (error) {
+            console.log(`error while test: ${JSON.stringify(error)}`);
+            return false;
+          }
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    validate: (v) =>
+      ((v as string) || "")
+        .split(",")
+        .filter((i) => {
+          try {
+            new RegExp(`/(${i})/`);
+            return true;
+          } catch {
+            return false;
+          }
+        })
+        .join(","),
+  },
   ntpServer: {
     label: "NTP Server",
     freeSolo: true,
@@ -420,7 +457,7 @@ interface Props {
 }
 
 export function SettingsProvider({ children, transformer }: Props): React.ReactElement {
-  const MIN_VERSION_DAEMON = "5.8.0";
+  const MIN_VERSION_DAEMON = "5.8.1";
   const tx = transformer ?? identityTransformer;
   const txRef = useRef(tx);
   txRef.current = tx;

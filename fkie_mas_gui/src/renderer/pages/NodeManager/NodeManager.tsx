@@ -137,6 +137,7 @@ export default function NodeManager(): JSX.Element {
   const [resetLayout, setResetLayout] = useSetting<boolean>("resetLayout");
   const [dedicatedTabsFor, setDedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
   const [fontSize, setFontSize] = useSetting<number>("fontSize");
+  const [ignoreProcessesOnShutdown] = useSetting<string>("ignoreProcessesOnShutdown");
 
   const { value: layoutJson, set: setLayoutJson } = useAppState<IJsonModel>("layouts", "main", DEFAULT_LAYOUT, {
     version: 2,
@@ -1246,7 +1247,7 @@ export default function NodeManager(): JSX.Element {
         await Promise.all(
           providers.map(async (prov) => {
             console.log(`shutdown ${prov.id}`);
-            const result = await prov.shutdown(true);
+            const result = await prov.shutdown(true, ignoreProcessesOnShutdown.split(","));
             console.log(`finished shutdown ${prov.id} ${JSON.stringify(result)}`);
           })
         );
