@@ -18,7 +18,6 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  FormLabel,
   IconButton,
   MenuItem,
   Paper,
@@ -534,10 +533,9 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
         </Stack>
         {/* Goal History */}
         {goalHistory.length > 0 && (
-          <Stack direction="column" spacing={1} alignItems="left" paddingBottom={1}>
-            {/* <FormLabel sx={{ fontSize: "0.8em", lineHeight: "1em" }}>goal history</FormLabel> */}
-            <ButtonGroup sx={{ maxHeight: "24px", flexWrap: "wrap" }}>
-              <Tooltip title="edit history" enterDelay={500}>
+          <Stack direction="column" spacing={1} alignItems="left">
+            <ButtonGroup sx={{ maxHeight: "24px" }}>
+              <Tooltip title="edit history">
                 <Button
                   color="success"
                   onClick={(event) => {
@@ -605,6 +603,7 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
           ) : (
             <Stack direction="row" spacing="0.5em" alignItems="center">
               <Button
+                type="submit"
                 variant="contained"
                 color="success"
                 onClick={handleSendGoal}

@@ -15,7 +15,6 @@ import {
   ChipProps,
   CircularProgress,
   Divider,
-  FormLabel,
   IconButton,
   Slider,
   Stack,
@@ -377,62 +376,60 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
             {serviceType || "detecting type..."}
           </Typography>
         </Stack>
-        <Stack direction="row" spacing={1} display="flex" alignItems="center" paddingBottom={1}>
-          {history.length > 0 && (
-            <Stack direction="column" spacing={1} alignItems="left">
-              <ButtonGroup sx={{ maxHeight: "24px" }}>
-                <Tooltip title="edit history" enterDelay={500}>
-                  <Button
-                    color="success"
-                    onClick={(event) => {
-                      setServiceStruct(serviceStructOrg);
-                      setHistoryEditMode((prev) => !prev);
-                      event.stopPropagation();
+        {history.length > 0 && (
+          <Stack direction="column" spacing={1} alignItems="left">
+            <ButtonGroup sx={{ maxHeight: "24px" }}>
+              <Tooltip title="edit history">
+                <Button
+                  color="success"
+                  onClick={(event) => {
+                    setServiceStruct(serviceStructOrg);
+                    setHistoryEditMode((prev) => !prev);
+                    event.stopPropagation();
+                  }}
+                  size="small"
+                >
+                  <EditNoteIcon />
+                </Button>
+              </Tooltip>
+              {history.map((entry) => createHistoryButton(entry))}
+            </ButtonGroup>
+            {historyEditMode && (
+              <Stack direction="column" alignContent="start">
+                <Stack direction="row" alignContent="start">
+                  <Slider
+                    aria-label="Temperature"
+                    value={maxHistoryLength}
+                    valueLabelFormat={(index) => `max history length: ${index}`}
+                    valueLabelDisplay="auto"
+                    shiftStep={1}
+                    step={1}
+                    marks
+                    min={1}
+                    max={DB_MAX_MSGS}
+                    onChange={(_event: Event, newValue: number) => {
+                      setMaxHistoryLength(newValue);
                     }}
-                    size="small"
-                  >
-                    <EditNoteIcon />
-                  </Button>
-                </Tooltip>
-                {history.map((entry) => createHistoryButton(entry))}
-              </ButtonGroup>
-              {historyEditMode && (
-                <Stack direction="column" alignContent="start">
-                  <Stack direction="row" alignContent="start">
-                    <Slider
-                      aria-label="Temperature"
-                      value={maxHistoryLength}
-                      valueLabelFormat={(index) => `max history length: ${index}`}
-                      valueLabelDisplay="auto"
-                      shiftStep={1}
-                      step={1}
-                      marks
-                      min={1}
-                      max={DB_MAX_MSGS}
-                      onChange={(_event: Event, newValue: number) => {
-                        setMaxHistoryLength(newValue);
+                    sx={{ maxWidth: "80%", marginRight: "1.5em" }}
+                  />
+                  <Tooltip title="Remove all non-favorite entries" enterDelay={500}>
+                    <IconButton
+                      color="error"
+                      onClick={(event) => {
+                        deleteNonFavorites();
+                        event.stopPropagation();
                       }}
-                      sx={{ maxWidth: "80%", marginRight: "1.5em" }}
-                    />
-                    <Tooltip title="Remove all non-favorite entries" enterDelay={500}>
-                      <IconButton
-                        color="error"
-                        onClick={(event) => {
-                          deleteNonFavorites();
-                          event.stopPropagation();
-                        }}
-                        size="small"
-                      >
-                        <DeleteForeverIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                  {history.map((entry) => createHistoryEditItem(entry))}
+                      size="small"
+                    >
+                      <DeleteForeverIcon />
+                    </IconButton>
+                  </Tooltip>
                 </Stack>
-              )}
-            </Stack>
-          )}
-        </Stack>
+                {history.map((entry) => createHistoryEditItem(entry))}
+              </Stack>
+            )}
+          </Stack>
+        )}
         <Box>
           {callServiceIsSubmitting ? (
             <Stack direction="row" spacing={1}>
