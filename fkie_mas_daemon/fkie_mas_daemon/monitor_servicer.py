@@ -151,7 +151,7 @@ class MonitorServicer:
 
 
     def isRos2Process(self, cmd: str) -> bool:
-        exclude = ('colcon', 'cmake')
+        exclude = ('colcon', 'cmake', 'CMakeFiles')
         return 'ros2' in cmd and not any(ex in cmd for ex in exclude)
 
     def rosShutdown(self, killRos2: bool = False) -> {bool, str}:
