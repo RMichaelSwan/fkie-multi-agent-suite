@@ -2,6 +2,11 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.1 (08.07.2026)
+------------------
+* added parameter: exclude processes on shutdown ros nodes
+* do not terminate 'ros2' processes contain CMakeFiles in command line
+
 5.8.0 (07.07.2026)
 ------------------
 * Improved publisher handling

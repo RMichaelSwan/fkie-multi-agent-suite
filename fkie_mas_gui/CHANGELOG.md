@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.9.1 - 08.07.2026
+
+Added parameter: exclude processes on shutdown ros nodes
+Do not terminate 'ros2' processes contain CMakeFiles in command line
+Show node name in service and action dialogs
+Added additional information about useful introspection parameters
+The ability to change the introspection parameter has been added, where available.
+Updated layout of dialogs for services and actions
+Added long press button for service and action
+
 ## 5.9.0 - 07.07.2026
 
 Changed close procedure of external subscription
