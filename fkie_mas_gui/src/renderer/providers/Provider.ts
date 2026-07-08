@@ -59,7 +59,7 @@ import {
 } from "../models";
 import { parseDiagnostics } from "../models/Diagnostics";
 import { envFromSystemEnv } from "../models/ProviderLaunchConfiguration";
-import { delay } from "../utils";
+import { delay, generateUniqueId } from "../utils";
 import CmdType from "./CmdType";
 import ConnectionState from "./ConnectionState";
 import ProviderConnection, { TProviderTimestamp, TResultClearPath, TResultStartNode } from "./ProviderConnection";
@@ -258,6 +258,7 @@ export default class Provider implements IProvider {
 
   /** Keep tracks of running async request, to prevent multiple executions */
   private currentRequestList = new Set();
+  private currentRequestRunningList = new Set();
 
   private activeActions: string[] = [];
 
@@ -1179,7 +1180,7 @@ export default class Provider implements IProvider {
    * @return Returns a list of [PathItem] elements
    */
   public getLogPaths: (nodes: string[]) => Promise<TReplyLogPathItems> = async (nodes) => {
-    const result = await this.makeCall(URI.ROS_PATH_GET_LOG_PATHS, [nodes], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_PATH_GET_LOG_PATHS, [nodes], false).then((value: TResultData) => {
       if (value.result) {
         const reply: TReplyLogPathItems = { success: true, paths: (value.data as TLogPathItem[]) || [] };
         return reply;
@@ -1200,7 +1201,7 @@ export default class Provider implements IProvider {
    * @return Returns a list of [PathItem] elements
    */
   public clearLogPaths: (nodes: string[]) => Promise<TResultClearPath[]> = async (nodes) => {
-    const result = await this.makeCall(URI.ROS_PATH_CLEAR_LOG_PATHS, [nodes], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_PATH_CLEAR_LOG_PATHS, [nodes], false).then((value: TResultData) => {
       if (value.result) {
         const logPathList: TResultClearPath[] = [];
         const clearPathResults = (value.data as TResultClearPath[]) || [];
@@ -1223,7 +1224,7 @@ export default class Provider implements IProvider {
    * Clear the path of log files for given nodes
    */
   public rosCleanPurge: () => Promise<Result> = async () => {
-    const result = await this.makeCall(URI.ROS_PROVIDER_ROS_CLEAN_PURGE, [], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_PROVIDER_ROS_CLEAN_PURGE, [], false).then((value: TResultData) => {
       if (value.result) {
         return value.data as Result;
       }
@@ -1240,16 +1241,18 @@ export default class Provider implements IProvider {
    * Terminate all running subprocesses (ROS, TTYD) of the provider
    */
   public shutdown: (killRos2: boolean, exclude: string[]) => Promise<Result> = async (killRos2, exclude) => {
-    const result = await this.makeCall(URI.ROS_PROVIDER_SHUTDOWN, [killRos2, exclude], true).then((value: TResultData) => {
-      if (value.result) {
-        return value.data as Result;
+    const result = await this.makeCall(URI.ROS_PROVIDER_SHUTDOWN, [killRos2, exclude], true).then(
+      (value: TResultData) => {
+        if (value.result) {
+          return value.data as Result;
+        }
+        this.log().error(`Provider [${this.id}]: Error at shutdown()`, `${value.message}`);
+        return {
+          result: false,
+          message: `Provider [${this.id}]: Error at shutdown(): ${value.message}`,
+        };
       }
-      this.log().error(`Provider [${this.id}]: Error at shutdown()`, `${value.message}`);
-      return {
-        result: false,
-        message: `Provider [${this.id}]: Error at shutdown(): ${value.message}`,
-      };
-    });
+    );
     return Promise.resolve(result);
   };
 
@@ -1763,7 +1766,7 @@ export default class Provider implements IProvider {
    */
   public getMessageStruct: (request: string) => Promise<LaunchMessageStruct | null> = async (request: string) => {
     console.log(`request: ${JSON.stringify(request)}`);
-    const result = await this.makeCall(URI.ROS_LAUNCH_GET_MSG_STRUCT, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_LAUNCH_GET_MSG_STRUCT, [request], false).then((value: TResultData) => {
       if (value.result) {
         const response = value.data as LaunchMessageStruct;
         if (response.valid) {
@@ -1782,7 +1785,7 @@ export default class Provider implements IProvider {
    * Returns a messages struct for given service type.
    */
   public getServiceStruct: (request: string) => Promise<LaunchMessageStruct | null> = async (request: string) => {
-    const result = await this.makeCall(URI.ROS_LAUNCH_GET_SRV_STRUCT, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_LAUNCH_GET_SRV_STRUCT, [request], false).then((value: TResultData) => {
       if (value.result) {
         const response = value.data as LaunchMessageStruct;
         if (response.valid) {
@@ -1801,7 +1804,7 @@ export default class Provider implements IProvider {
    * Start Publisher
    */
   public publishMessage: (request: LaunchPublishMessage) => Promise<TResult> = async (request) => {
-    const result = await this.makeCall(URI.ROS_PUBLISHER_START, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_PUBLISHER_START, [request], false).then((value: TResultData) => {
       if (value.result) {
         return value.data as TResult;
       }
@@ -1812,13 +1815,13 @@ export default class Provider implements IProvider {
   };
 
   public stopPublisher = async (topicName: string): Promise<Result> => {
-    return this.makeCall(URI.ROS_PUBLISHER_STOP, [topicName], true).then((v: TResultData) =>
+    return this.makeCall(URI.ROS_PUBLISHER_STOP, [topicName], false).then((v: TResultData) =>
       v.result ? (v.data as Result) : new Result(false, v.message as string)
     );
   };
 
   public hasPublisher = async (topicName: string): Promise<Result> => {
-    return this.makeCall(URI.ROS_PUBLISHER_HAS, [topicName], true).then((v: TResultData) =>
+    return this.makeCall(URI.ROS_PUBLISHER_HAS, [topicName], false).then((v: TResultData) =>
       v.result ? (v.data as Result) : new Result(false, v.message as string)
     );
   };
@@ -1827,7 +1830,7 @@ export default class Provider implements IProvider {
    * Call Service
    */
   public callService: (request: LaunchCallService) => Promise<LaunchMessageStruct | null> = async (request) => {
-    const result = await this.makeCall(URI.ROS_LAUNCH_CALL_SERVICE, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_LAUNCH_CALL_SERVICE, [request], false).then((value: TResultData) => {
       if (value.result) {
         if (!value.data) {
           return null;
@@ -1852,7 +1855,7 @@ export default class Provider implements IProvider {
    * Requests the list with known message types
    */
   public getRosMessageMessageTypes: () => Promise<string[]> = async () => {
-    const result = await this.makeCall(URI.ROS_LAUNCH_GET_MESSAGE_TYPES, [], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_LAUNCH_GET_MESSAGE_TYPES, [], false).then((value: TResultData) => {
       if (value.result) {
         if (!value.data) {
           return [];
@@ -1905,7 +1908,7 @@ export default class Provider implements IProvider {
       return Promise.resolve(true);
     }
     this.echoTopics.push(request.topic);
-    const result = await this.makeCall(URI.ROS_SUBSCRIBER_START, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_SUBSCRIBER_START, [request], false).then((value: TResultData) => {
       if (value.result) {
         const parsed = value.data as TResult;
         return parsed;
@@ -1936,7 +1939,7 @@ export default class Provider implements IProvider {
         this.log().error(`Provider [${this.id}]: close subscription failed`, `${err}`);
       });
     }
-    const result = await this.makeCall(URI.ROS_SUBSCRIBER_STOP, [topic], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_SUBSCRIBER_STOP, [topic], false).then((value: TResultData) => {
       if (value.result) {
         const res = value.data as Result;
         return res;
@@ -1966,7 +1969,7 @@ export default class Provider implements IProvider {
   public getCountTopicSubscriptions: (topicName: string) => Promise<string[] | undefined> = async (topicName) => {
     const cbTopic = `${URI.ROS_SUBSCRIBER_FILTER_PREFIX}.${topicName.replaceAll("/", "_")}`;
     this.log().debug(`Provider: (${this.name()}) request count subscriptions for [${cbTopic}]`, "");
-    const result = await this.makeCall("subs", [cbTopic], true).then((value: TResultData) => {
+    const result = await this.makeCall("subs", [cbTopic], false).then((value: TResultData) => {
       if (value.result) {
         const res = value.data as string[];
         return res;
@@ -2016,7 +2019,7 @@ export default class Provider implements IProvider {
       this.activeActions.push(request.action_name);
     }
 
-    const result = await this.makeCall(URI.ROS_ACTION_SEND_GOAL, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_ACTION_SEND_GOAL, [request], false).then((value: TResultData) => {
       if (value.result) {
         return value.data as TResult;
       }
@@ -2062,7 +2065,7 @@ export default class Provider implements IProvider {
       });
     }
 
-    const result = await this.makeCall(URI.ROS_ACTION_STOP, [actionName], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_ACTION_STOP, [actionName], false).then((value: TResultData) => {
       if (value.result) {
         return value.data as Result;
       }
@@ -2098,7 +2101,7 @@ export default class Provider implements IProvider {
     const result = await this.makeCall(
       URI.ROS_ACTION_START_INTROSPECTION,
       [{ action_name: actionName, action_type: actionType }],
-      true
+      false
     ).then((v: TResultData) => (v.result ? (v.data as TResult) : ({ result: false, message: v.message } as TResult)));
 
     if (result.result) {
@@ -2114,7 +2117,7 @@ export default class Provider implements IProvider {
       this.activeIntrospections = this.activeIntrospections.filter((a) => a !== actionName);
       await this.connection.closeSubscription(this.generateIntrospectionUri(actionName)).catch(() => {});
     }
-    return this.makeCall(URI.ROS_ACTION_STOP_INTROSPECTION, [actionName], true).then((v: TResultData) =>
+    return this.makeCall(URI.ROS_ACTION_STOP_INTROSPECTION, [actionName], false).then((v: TResultData) =>
       v.result ? (v.data as Result) : new Result(false, v.message as string)
     );
   };
@@ -2149,7 +2152,7 @@ export default class Provider implements IProvider {
     const result = await this.makeCall(
       "ros.service.introspection.start",
       [{ service_name: serviceName, service_type: serviceType }],
-      true
+      false
     ).then((v: TResultData) => (v.result ? (v.data as TResult) : ({ result: false, message: v.message } as TResult)));
 
     if (result.result) {
@@ -2163,7 +2166,7 @@ export default class Provider implements IProvider {
 
   public stopServiceIntrospection = async (serviceName: string): Promise<Result> => {
     await this.connection.closeSubscription(this.generateServiceIntrospectionUri(serviceName)).catch(() => {});
-    return this.makeCall("ros.service.introspection.stop", [serviceName], true).then((v: TResultData) =>
+    return this.makeCall("ros.service.introspection.stop", [serviceName], false).then((v: TResultData) =>
       v.result ? (v.data as Result) : new Result(false, v.message as string)
     );
   };
@@ -2227,7 +2230,7 @@ export default class Provider implements IProvider {
       node.ignore_timer || false
     );
 
-    const result = await this.makeCall(URI.ROS_LAUNCH_START_NODE, [request], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_LAUNCH_START_NODE, [request], false).then((value: TResultData) => {
       emitCustomEvent(EVENT_PROVIDER_NODE_STARTED, new EventProviderNodeStarted(this, node));
       if (value.result) {
         const response = value.data as LaunchNodeReply;
@@ -2337,7 +2340,7 @@ export default class Provider implements IProvider {
    * Kill a node given a name
    */
   public screenKillNode: (name: string, signal?: string) => Promise<Result> = async (name, signal) => {
-    const result = await this.makeCall(URI.ROS_SCREEN_KILL_NODE, [name, signal], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_SCREEN_KILL_NODE, [name, signal], false).then((value: TResultData) => {
       if (value.result) {
         const parsed = value.data as Result;
         if (!parsed.result) {
@@ -2355,7 +2358,7 @@ export default class Provider implements IProvider {
    * Get list of available screens 'ros.screen.get_list'
    */
   private getScreenList: () => Promise<ScreensMapping[] | null> = async () => {
-    const result = await this.makeCall(URI.ROS_SCREEN_GET_LIST, [], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_SCREEN_GET_LIST, [], false).then((value: TResultData) => {
       if (value.result) {
         const screenMappings = (value.data as ScreensMapping[]) || [];
         const screenList: ScreensMapping[] = [];
@@ -2374,7 +2377,7 @@ export default class Provider implements IProvider {
    * Get list of diagnostics
    */
   private getDiagnostics: () => Promise<DiagnosticArray | null> = async () => {
-    const result = await this.makeCall(URI.ROS_PROVIDER_GET_DIAGNOSTICS, [], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_PROVIDER_GET_DIAGNOSTICS, [], false).then((value: TResultData) => {
       if (value.result) {
         return value.data as DiagnosticArray;
       }
@@ -2388,7 +2391,7 @@ export default class Provider implements IProvider {
    * Get list of warnings
    */
   public updateSystemWarnings: () => Promise<SystemWarningGroup[] | null> = async () => {
-    const result = await this.makeCall(URI.ROS_PROVIDER_GET_WARNINGS, [], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_PROVIDER_GET_WARNINGS, [], false).then((value: TResultData) => {
       if (value.result) {
         const warnings = value.data as SystemWarningGroup[];
         if (Array.isArray(warnings)) {
@@ -2417,7 +2420,7 @@ export default class Provider implements IProvider {
     node,
     loggerNames = []
   ) => {
-    const result = await this.makeCall(URI.ROS_NODES_GET_LOGGERS, [node, loggerNames], true).then(
+    const result = await this.makeCall(URI.ROS_NODES_GET_LOGGERS, [node, loggerNames], false).then(
       (value: TResultData) => {
         if (value.result) {
           // handle the result of type: {result: bool, message: str}
@@ -2438,7 +2441,7 @@ export default class Provider implements IProvider {
    * Set new logger levels for a ros node
    */
   public setNodeLoggers: (node: string, loggers: LoggerConfig[]) => Promise<Result> = async (node, loggers) => {
-    const result = await this.makeCall(URI.ROS_NODES_SET_LOGGER_LEVEL, [node, loggers], true).then(
+    const result = await this.makeCall(URI.ROS_NODES_SET_LOGGER_LEVEL, [node, loggers], false).then(
       (value: TResultData) => {
         if (value.result) {
           return value.data as Result;
@@ -2454,7 +2457,7 @@ export default class Provider implements IProvider {
    * Unregister a node given a name
    */
   public unregisterNode: (name: string) => Promise<Result> = async (name) => {
-    const result = await this.makeCall(URI.ROS_NODES_UNREGISTER, [name], true).then((value: TResultData) => {
+    const result = await this.makeCall(URI.ROS_NODES_UNREGISTER, [name], false).then((value: TResultData) => {
       if (value.result) {
         const parsed = value.data as Result;
         if (parsed.result) {
@@ -2476,7 +2479,7 @@ export default class Provider implements IProvider {
    * Return a list with all registered parameters values and types
    */
   public getParameterList: () => Promise<TParamListResult> = async () => {
-    const result = await this.makeCall("ros.parameters.get_list", [], true, 10000).then((value: TResultData) => {
+    const result = await this.makeCall("ros.parameters.get_list", [], false, 10000).then((value: TResultData) => {
       if (value.result) {
         // update with id
         if ((value.data as TParamListResult)?.params) {
@@ -2548,7 +2551,7 @@ export default class Provider implements IProvider {
     const setResult = await this.makeCall(
       URI.ROS_PARAMETERS_SET_PARAMETER,
       [paramName, paramType, paramValue, nodeName],
-      true
+      false
     ).then((value: TResultData) => {
       if (value.result) {
         const setResponse = value.data as TResultParam;
@@ -2570,7 +2573,7 @@ export default class Provider implements IProvider {
     parameters,
     nodeName
   ) => {
-    const delResult = await this.makeCall(URI.ROS_PARAMETERS_DELETE_PARAMETERS, [parameters, nodeName], true).then(
+    const delResult = await this.makeCall(URI.ROS_PARAMETERS_DELETE_PARAMETERS, [parameters, nodeName], false).then(
       (value: TResultData) => {
         if (value.result) {
           const setResponse = value.data as TResult;
@@ -2647,10 +2650,6 @@ export default class Provider implements IProvider {
     forceRefresh = false
   ) => {
     this.log().debug(`Trigger update ros nodes for ${this.id}`, "");
-    if (await this.lockRequest("updateRosNodes")) {
-      return;
-    }
-
     const dynamicReconfigureNodes = new Set<string>();
     // get nodes from remote provider
     const nlUnfiltered = await this.getNodeList(forceRefresh);
@@ -2764,19 +2763,13 @@ export default class Provider implements IProvider {
     changed = changed || this.rosRunningNodes.length !== nl.length;
     this.rosRunningNodes = nl;
     await this.mergeNodeStates(changed);
-    this.unlockRequest("updateRosNodes");
   };
 
   public updateRosServices: () => Promise<void> = async () => {
     this.log().debug(`Trigger update ros services for ${this.id}`, "");
-    if (await this.lockRequest("updateRosServices")) {
-      return;
-    }
-
     // get service from remote provider
     this.rosServices = await this.getServiceList([]);
     emitCustomEvent(EVENT_PROVIDER_ROS_SERVICES, new EventProviderRosServices(this));
-    this.unlockRequest("updateRosServices");
   };
 
   /**
@@ -2806,14 +2799,9 @@ export default class Provider implements IProvider {
 
   public updateRosTopics: () => Promise<void> = async () => {
     this.log().debug(`Trigger update ros topics for ${this.id}`, "");
-    if (await this.lockRequest("updateRosTopics")) {
-      return;
-    }
-
     // get publishers from remote provider
     this.rosTopics = await this.getTopicList([]);
     emitCustomEvent(EVENT_PROVIDER_ROS_TOPICS, new EventProviderRosTopics(this));
-    this.unlockRequest("updateRosTopics");
   };
 
   public callbackServicesChanged: (msg: JSONObject) => void = async (msg) => {
@@ -2897,10 +2885,7 @@ export default class Provider implements IProvider {
   }
 
   public getLifecycle: () => Promise<LifecycleState[]> = async () => {
-    this.log().debug(`Trigger update lifecycle for ${this.id}`, "");
-    if (await this.lockRequest("getLifecycle")) {
-      return this.lifecycle;
-    }
+    this.log().debug(`Trigger get lifecycle for ${this.id}`, "");
     const rawLifecycleList = await this.makeCall(URI.ROS_NODES_GET_LIFECYCLE, [], true).then((value: TResultData) => {
       if (value.result) {
         return value.data as unknown as LifecycleState[];
@@ -2913,8 +2898,22 @@ export default class Provider implements IProvider {
     for (const lc of rawLifecycleList) {
       emitCustomEvent(EVENT_NODE_LIFECYCLE, { provider: this, lifecycle: lc } as TEventNodeLifecycle);
     }
-    this.unlockRequest("getLifecycle");
     return Promise.resolve(rawLifecycleList);
+  };
+
+  public updateLifecycle: (nodeName: string) => Promise<TResult> = async (nodeName) => {
+    this.log().debug(`Trigger update lifecycle for ${this.id} - ${nodeName}`, "");
+    const updateLifecycleResult = await this.makeCall(URI.ROS_NODES_UPDATE_LIFECYCLE, [nodeName], false).then(
+      (value: TResultData) => {
+        if (value.result) {
+          return { result: value.result, message: value.message };
+        }
+        this.log().error(`Provider [${this.id}]: Error at updateLifecycle()`, `${value.message}`);
+        return { result: value.result, message: value.message };
+      }
+    );
+
+    return Promise.resolve(updateLifecycleResult);
   };
 
   private callbackLifecycle: (msg: JSONObject) => void = async (msg) => {
@@ -2954,9 +2953,6 @@ export default class Provider implements IProvider {
 
   public getComposable: () => Promise<Composable[]> = async () => {
     this.log().debug(`Trigger update composable for ${this.id}`, "");
-    if (await this.lockRequest("getComposable")) {
-      return this.composable;
-    }
     const rawComposableList = await this.makeCall(URI.ROS_NODES_GET_COMPOSABLE, [], true).then((value: TResultData) => {
       if (value.result) {
         return value.data as unknown as Composable[];
@@ -2969,7 +2965,6 @@ export default class Provider implements IProvider {
     for (const ci of rawComposableList) {
       emitCustomEvent(EVENT_NODE_COMPOSABLE, { provider: this, composable: ci } as TEventNodeComposable);
     }
-    this.unlockRequest("getComposable");
     return Promise.resolve(rawComposableList);
   };
 
@@ -3043,6 +3038,9 @@ export default class Provider implements IProvider {
           error: "running",
         };
       }
+      const requestId = `${uri}-${generateUniqueId()}`;
+      this.currentRequestRunningList.add(requestId);
+      emitCustomEvent(EVENT_PROVIDER_ACTIVITY, new EventProviderActivity(this, true, requestId));
       const callRequest: (
         _uri: string,
         _args: unknown[],
@@ -3105,6 +3103,10 @@ export default class Provider implements IProvider {
       const result = await callRequest(uri, args, undefined, timeout);
       // const result = await this.connection.call(uri, args);
       this.unlockRequest(uri);
+      this.currentRequestRunningList.delete(requestId);
+      if (this.currentRequestRunningList.size === 0) {
+        emitCustomEvent(EVENT_PROVIDER_ACTIVITY, new EventProviderActivity(this, false, ""));
+      }
       this.log().debugInterface(uri, result, "reply", this.id);
       return result;
     };
@@ -3139,7 +3141,6 @@ export default class Provider implements IProvider {
         return Promise.resolve(true);
       }
     }
-    emitCustomEvent(EVENT_PROVIDER_ACTIVITY, new EventProviderActivity(this, true, request));
     this.currentRequestList.add(request);
     return Promise.resolve(false);
   };
@@ -3149,8 +3150,5 @@ export default class Provider implements IProvider {
   */
   private unlockRequest: (request: string) => void = (request) => {
     this.currentRequestList.delete(request);
-    if (this.currentRequestList.size === 0) {
-      emitCustomEvent(EVENT_PROVIDER_ACTIVITY, new EventProviderActivity(this, false, ""));
-    }
   };
 }

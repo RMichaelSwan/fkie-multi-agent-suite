@@ -47,6 +47,7 @@ const URI = {
   ROS_NODES_STOP_NODE: "ros.nodes.stop_node",
   ROS_NODES_UNREGISTER: "ros.nodes.unregister",
   ROS_NODES_GET_LIFECYCLE: "ros.nodes.get_lifecycle",
+  ROS_NODES_UPDATE_LIFECYCLE: "ros.nodes.update_lifecycle",
   ROS_NODES_LIFECYCLE: "ros.nodes.lifecycle",
   ROS_NODES_GET_COMPOSABLE: "ros.nodes.get_composable",
   ROS_NODES_COMPOSABLE: "ros.nodes.composable",

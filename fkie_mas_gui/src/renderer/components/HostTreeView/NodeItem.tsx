@@ -6,6 +6,7 @@ import DynamicFeedOutlinedIcon from "@mui/icons-material/DynamicFeedOutlined";
 import FingerprintIcon from "@mui/icons-material/Fingerprint";
 import NewReleasesTwoToneIcon from "@mui/icons-material/NewReleasesTwoTone";
 import PlaylistPlayIcon from "@mui/icons-material/PlaylistPlay";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import ReportIcon from "@mui/icons-material/Report";
 import ScheduleSendIcon from "@mui/icons-material/ScheduleSend";
 import SettingsInputCompositeOutlinedIcon from "@mui/icons-material/SettingsInputCompositeOutlined";
@@ -15,6 +16,7 @@ import { blue, green, grey, orange, red, yellow } from "@mui/material/colors";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileIcon } from "react-file-icon";
 
+import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import {
@@ -61,6 +63,7 @@ export default function NodeItem(props: NodeItemProps): JSX.Element {
   } = props;
 
   const rosCtx = useRosContext();
+  const logCtx = useLoggingContext();
   const [labelText, setLabelText] = useState(nodeNameWithoutNamespace(node));
   const [lifecycle, setLifecycle] = useState<LifecycleState | undefined>();
   const [composableTag, setComposableTag] = useState<TTag | undefined>();
@@ -72,6 +75,7 @@ export default function NodeItem(props: NodeItemProps): JSX.Element {
   const [timerPeriod, setTimerPeriod] = useState<number[]>([]);
   const [sigKillTimeout, setSigKillTimeout] = useState<number[]>([]);
   const [associations, setAssociations] = useState<string[]>([]);
+  const [requestingLifecycle, setRequestingLifecycle] = useState<boolean>(false);
 
   function getColorFromLifecycle(state: string, isDarkMode = false): string {
     switch (state) {
@@ -146,132 +150,192 @@ export default function NodeItem(props: NodeItemProps): JSX.Element {
     node: RosNode,
     diagnosticColor: string,
     isDarkMode?: boolean,
-    lifecycle?: LifecycleState
-  ) => JSX.Element = useCallback((node, diagnosticColor, isDarkMode = false, lifecycle = undefined) => {
-    switch (node.status) {
-      case RosNodeStatus.RUNNING: {
-        const IconType = node.isLocal ? CircleIcon : ReportIcon;
-        if (!lifecycle) {
-          if (node.pid !== -1 || (node.screens || []).length > 0) {
-            return <IconType style={{ marginRight: 0.5, width: 20, color: diagnosticColor }} />;
-          }
-          return (
-            <Tooltip
-              key={`tooltip-icon-${node.id}`}
-              title={
-                <div>
-                  <Typography fontWeight="bold" fontSize="inherit">
-                    The process of the node was not found on the local host.
-                  </Typography>
-                  <Typography fontSize={"inherit"}>
-                    There is no screen with the name of the node, nor was the ROS node started with the __node:=, __ns:=
-                    parameter, nor is the GID of the node detected by mas-discovery.
-                  </Typography>
-                  <Typography fontSize={"inherit"}>
-                    Note: no status checks for life cycle, composable node or other service calls are performed!
-                  </Typography>
-                </div>
-              }
-              placement="left"
-              disableInteractive
-            >
-              <IconType style={{ marginRight: 0.5, width: 20, color: diagnosticColor }} />
-            </Tooltip>
-          );
-        }
-        const colorBorder = getColorFromLifecycle(lifecycle.state, isDarkMode);
-        const iconState = (
-          <Tooltip
-            key={`tooltip-icon-${node.id}`}
-            title={`Lifecycle state: '${lifecycle.state}'`}
-            placement="left"
-            disableInteractive
-          >
-            <IconType
-              style={{ marginRight: 0.5, width: 20, height: 20, color: diagnosticColor, borderColor: colorBorder }}
-              sx={{
-                border: 3,
-                borderRadius: "100%",
-                borderColor: colorBorder,
-              }}
-            />
-          </Tooltip>
-        );
-        // add menu to change the lifecycle state
-        return lifecycle.available_transitions && lifecycle.available_transitions?.length > 0 ? (
-          <OverflowMenu
-            icon={iconState}
-            options={lifecycle.available_transitions?.map((item) => {
-              return {
-                name: item.label,
-                key: item.label,
-                onClick: async (): Promise<void> => {
-                  callLifecycleService(node, item.id);
-                },
-              };
-            })}
-            id={`lifecycle-menu-${node.id}`}
-          />
-        ) : (
-          iconState
-        );
-      }
-
-      case RosNodeStatus.DEAD: {
-        const color = isDarkMode ? orange[600] : orange[400];
-        return <WarningIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
-      }
-
-      case RosNodeStatus.NOT_MONITORED: {
-        const color = isDarkMode ? blue[700] : blue[500];
-        return <ReportIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
-      }
-
-      case RosNodeStatus.ONLY_SCREEN: {
-        const color = isDarkMode ? green[600] : green[500];
-        return (
-          <Tooltip
-            key={`tooltip-icon-${node.id}`}
-            title={"Only screen, no ROS data available for this process"}
-            placement="left"
-            disableInteractive
-          >
-            <DvrIcon style={{ marginRight: 0.5, width: 20, color: color }} />
-          </Tooltip>
-        );
-      }
-
-      case RosNodeStatus.INACTIVE: {
-        if ((node.screens || []).length === 1) {
-          const color = isDarkMode ? green[600] : green[500];
-          return <DvrIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
-        }
-        const color = isDarkMode ? grey[600] : grey[500];
-        let icon = <CircleIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
-        for (const launchInfo of node.launchInfo.values()) {
-          if (launchInfo.cmd?.includes("ros2 run")) {
-            icon = (
+    lifecycle?: LifecycleState,
+    requestingLifecycle?: boolean
+  ) => JSX.Element = useCallback(
+    (node, diagnosticColor, isDarkMode = false, lifecycle = undefined, requestingLifecycle = false) => {
+      console.log(`requestingLifecycle: ${requestingLifecycle} - ${node.name}`);
+      switch (node.status) {
+        case RosNodeStatus.RUNNING: {
+          const IconType = node.isLocal ? CircleIcon : ReportIcon;
+          if (!lifecycle) {
+            if (node.pid !== -1 || (node.screens || []).length > 0) {
+              return <IconType style={{ marginRight: 0.5, width: 20, color: diagnosticColor }} />;
+            }
+            return (
               <Tooltip
-                key={`icon-${node.id}`}
-                title={`Executable '${launchInfo.executable}' or package not found`}
+                key={`tooltip-icon-${node.id}`}
+                title={
+                  <div>
+                    <Typography fontWeight="bold" fontSize="inherit">
+                      The process of the node was not found on the local host.
+                    </Typography>
+                    <Typography fontSize={"inherit"}>
+                      There is no screen with the name of the node, nor was the ROS node started with the __node:=,
+                      __ns:= parameter, nor is the GID of the node detected by mas-discovery.
+                    </Typography>
+                    <Typography fontSize={"inherit"}>
+                      Note: no status checks for life cycle, composable node or other service calls are performed!
+                    </Typography>
+                  </div>
+                }
                 placement="left"
                 disableInteractive
               >
-                <NewReleasesTwoToneIcon style={{ marginRight: 0.5, width: 20, color: color }} />
+                <IconType style={{ marginRight: 0.5, width: 20, color: diagnosticColor }} />
               </Tooltip>
             );
           }
+          const colorBorder = getColorFromLifecycle(lifecycle.state, isDarkMode);
+          const iconState = (
+            <Tooltip
+              key={`tooltip-icon-${node.id}`}
+              title={`Lifecycle state: '${lifecycle.state}'`}
+              placement="left"
+              disableInteractive
+            >
+              <Box
+                sx={{
+                  position: "relative",
+                  width: 20,
+                  height: 20,
+                  mr: 0.5,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    boxSizing: "border-box",
+                    border: "3px solid",
+                    borderColor: requestingLifecycle
+                      ? `${colorBorder} ${colorBorder} transparent ${colorBorder}`
+                      : colorBorder,
+                    animation: requestingLifecycle ? "spin 0.9s linear infinite" : "none",
+                    "@keyframes spin": {
+                      from: { transform: "rotate(0deg)" },
+                      to: { transform: "rotate(360deg)" },
+                    },
+                  }}
+                />
+                <IconType
+                  sx={{
+                    width: 14,
+                    height: 14,
+                    color: diagnosticColor,
+                    zIndex: 1,
+                  }}
+                />
+              </Box>
+            </Tooltip>
+          );
+          // add menu to change the lifecycle state
+          return (
+            <OverflowMenu
+              icon={iconState}
+              options={[
+                ...(lifecycle.available_transitions?.map((item) => {
+                  return {
+                    name: item.label,
+                    key: item.label,
+                    onClick: async (): Promise<void> => {
+                      callLifecycleService(node, item.id);
+                    },
+                  };
+                }) || []),
+                {
+                  name: (
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <RefreshIcon fontSize="inherit" />
+                      <Typography>refresh</Typography>
+                    </Stack>
+                  ),
+                  key: "refresh",
+                  onClick: async (): Promise<void> => {
+                    if (requestingLifecycle) {
+                      const err = `Lifecycle update is running for ${node.name}`;
+                      logCtx.warn(err, "", err);
+                      return;
+                    }
+                    const provider = rosCtx.getProviderById(node.providerId as string, true);
+                    if (provider) setRequestingLifecycle(true);
+                    console.log(`requestingLifecycle set to TRUE`);
+                    const result = await provider?.updateLifecycle(node.id);
+                    if (!result?.result) {
+                      const err = `Lifecycle update for ${node.name} failed`;
+                      logCtx.error(err, result?.message || "", err);
+                      setRequestingLifecycle(false);
+                    }
+                  },
+                },
+              ]}
+              id={`lifecycle-menu-${node.id}`}
+            />
+          );
         }
 
-        return icon;
-      }
+        case RosNodeStatus.DEAD: {
+          const color = isDarkMode ? orange[600] : orange[400];
+          return <WarningIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
+        }
 
-      default: {
-        const color = isDarkMode ? red[600] : red[500];
-        return <CircleIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
+        case RosNodeStatus.NOT_MONITORED: {
+          const color = isDarkMode ? blue[700] : blue[500];
+          return <ReportIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
+        }
+
+        case RosNodeStatus.ONLY_SCREEN: {
+          const color = isDarkMode ? green[600] : green[500];
+          return (
+            <Tooltip
+              key={`tooltip-icon-${node.id}`}
+              title={"Only screen, no ROS data available for this process"}
+              placement="left"
+              disableInteractive
+            >
+              <DvrIcon style={{ marginRight: 0.5, width: 20, color: color }} />
+            </Tooltip>
+          );
+        }
+
+        case RosNodeStatus.INACTIVE: {
+          if ((node.screens || []).length === 1) {
+            const color = isDarkMode ? green[600] : green[500];
+            return <DvrIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
+          }
+          const color = isDarkMode ? grey[600] : grey[500];
+          let icon = <CircleIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
+          for (const launchInfo of node.launchInfo.values()) {
+            if (launchInfo.cmd?.includes("ros2 run")) {
+              icon = (
+                <Tooltip
+                  key={`icon-${node.id}`}
+                  title={`Executable '${launchInfo.executable}' or package not found`}
+                  placement="left"
+                  disableInteractive
+                >
+                  <NewReleasesTwoToneIcon style={{ marginRight: 0.5, width: 20, color: color }} />
+                </Tooltip>
+              );
+            }
+          }
+
+          return icon;
+        }
+
+        default: {
+          const color = isDarkMode ? red[600] : red[500];
+          return <CircleIcon style={{ marginRight: 0.5, width: 20, color: color }} />;
+        }
       }
-    }
-  }, []);
+    },
+    []
+  );
 
   const fromTag: (tag: TTag) => JSX.Element = (tag) => {
     return (
@@ -303,6 +367,9 @@ export default function NodeItem(props: NodeItemProps): JSX.Element {
 
   useCustomEventListener(EVENT_NODE_LIFECYCLE, (data: TEventNodeLifecycle) => {
     if (data.lifecycle.id === node.id && data.provider.id === node.providerId) {
+      const info = `Lifecycle for ${node.name} updated`;
+      logCtx.info(info, JSON.stringify(data.lifecycle), info);
+      setRequestingLifecycle(false);
       setLifecycle(data.lifecycle);
     }
   });
@@ -419,8 +486,8 @@ export default function NodeItem(props: NodeItemProps): JSX.Element {
   );
 
   const nodeIcon = useMemo(
-    () => getNodeIcon(node, diagnosticColor, isDarkMode, lifecycle),
-    [node, isDarkMode, lifecycle, diagnosticColor]
+    () => getNodeIcon(node, diagnosticColor, isDarkMode, lifecycle, requestingLifecycle),
+    [node, isDarkMode, lifecycle, diagnosticColor, requestingLifecycle]
   );
 
   const createNode = useMemo(() => {

@@ -34,6 +34,7 @@ from fkie_mas_pylib.defines import ros2_action_introspection_nodename_tuple
 from fkie_mas_pylib.defines import ros2_service_introspection_nodename_tuple
 from fkie_mas_pylib.defines import NM_NAMESPACE
 from fkie_mas_pylib.defines import NM_DISCOVERY_NAME
+from fkie_mas_pylib.interface.runtime_interface import LifecycleTransition
 from fkie_mas_pylib.interface.runtime_interface import LoggerConfig
 from fkie_mas_pylib.interface.runtime_interface import RosComposable
 from fkie_mas_pylib.interface.runtime_interface import RosLifecycleState
@@ -70,6 +71,14 @@ try:
     HAS_LOGGER_INTERFACE = True
 except:
     print("Can't include rcl_interfaces.srv.GetLoggerLevels: logger interface disabled!")
+
+HAS_LIFECYCLE_INTERFACE = False
+try:
+    from lifecycle_msgs.srv import GetState
+    from lifecycle_msgs.srv import GetAvailableTransitions
+    HAS_LIFECYCLE_INTERFACE = True
+except:
+    print("Can't include lifecycle_msgs.srv.GetState: lifecycle interface disabled!")
 
 
 RATE_CHECK_DISCOVERY_NODE_HZ = 0.5
@@ -126,6 +135,7 @@ class RosStateServicer:
         self._timestamp = 0
         self._callback_group_logger = MutuallyExclusiveCallbackGroup()
         self._callback_group_composed = ReentrantCallbackGroup()
+        self._callback_group_lifecycle = ReentrantCallbackGroup()
         websocket.register("ros.provider.get_list", self.get_provider_list)
         websocket.register("ros.nodes.get_list", self.get_node_list)
         websocket.register("ros.services.get_list", self.get_service_list)
@@ -134,6 +144,7 @@ class RosStateServicer:
         websocket.register("ros.nodes.set_logger_level", self.set_logger_level)
         websocket.register("ros.nodes.stop_node", self.stop_node)
         websocket.register("ros.nodes.get_lifecycle", self.get_lifecycle)
+        websocket.register("ros.nodes.update_lifecycle", self.update_lifecycle)
         websocket.register("ros.nodes.get_composable", self.get_composable)
         websocket.register("ros.publisher.stop", self.stop_publisher)
         websocket.register("ros.publisher.has", self.has_publisher)
@@ -174,6 +185,46 @@ class RosStateServicer:
     def get_lifecycle(self) -> List[RosLifecycleState]:
         with self._ros_lifecycle_mutex:
             return self._lifecycle_state
+
+    def update_lifecycle(self, node_name: str = None) -> None:
+        if node_name is None:
+            return
+        if not HAS_LIFECYCLE_INTERFACE:
+            raise Exception("ros2 version on this client does not support lifecycle interface!")
+
+        lifecycle_state = RosLifecycleState(node_name, node_name)
+        node: RosNode = self.get_ros_node(node_name)
+        if node is None:
+            node = self.get_ros_node_by_id(node_name)
+        if node is None:
+            return
+        try:
+            service_name = f'{node.name}/get_state'
+            service_available = False
+            with self._ros_service_state_mutex:
+                service_available = service_name in self._ros_service_name_list
+            if service_available:
+                Log.debug(f"{self.__class__.__name__}: updated lifecycle state for '{service_name}'")
+                request_state = GetState.Request()
+                get_state = nmd.launcher.call_service(
+                    service_name, GetState, request_state, callback_group=self._callback_group_lifecycle)
+                if get_state:
+                    lifecycle_state.state = get_state.current_state.label
+            service_name = f'{node.name}/get_available_transitions'
+            service_available = False
+            with self._ros_service_state_mutex:
+                service_available = service_name in self._ros_service_name_list
+            if service_available:
+                Log.debug(f"{self.__class__.__name__}: updated lifecycle state for '{service_name}'")
+                request_state = GetAvailableTransitions.Request()
+                response = nmd.launcher.call_service(
+                    service_name, GetAvailableTransitions, request_state, callback_group=self._callback_group_lifecycle)
+                for transition in response.available_transitions:
+                    lifecycle_state.available_transitions.append(
+                        LifecycleTransition(transition.transition.label, transition.transition.id))
+            self._callback_lifecycle_state([lifecycle_state])
+        except Exception as e:
+            Log.warn(f"{self.__class__.__name__}: failed updated lifecycle state for '{service_name}': {e}")
 
     def get_composable(self) -> List[RosComposable]:
         with self._ros_composable_mutex:
