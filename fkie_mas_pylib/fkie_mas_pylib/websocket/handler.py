@@ -9,6 +9,7 @@
 
 import json
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 from typing import List
 from types import SimpleNamespace
@@ -40,6 +41,7 @@ class WebSocketHandler:
             import traceback
             print(traceback.format_exc())
         Log.info(f"{self.address}: connected")
+        self._executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix=f"ws-{self.address}")
         self._shutdown = False
         self.queue = PQueue(100, f"queue[{self.address}]")
         self._subscriptions = set()
@@ -52,6 +54,7 @@ class WebSocketHandler:
 
     def shutdown(self):
         self._shutdown = True
+        self._executor.shutdown(wait=False)
         self.connection.close()
 
     def subscriptions(self) -> List[str]:
@@ -132,8 +135,12 @@ class WebSocketHandler:
                             if callback is not None:
                                 if local:
                                     # call local method
-                                    self.handle_callback(
-                                        msg.id, callback, msg.params if hasattr(msg, 'params') else [])
+                                    self._executor.submit(
+                                        self.handle_callback,
+                                        msg.id,
+                                        callback,
+                                        msg.params if hasattr(msg, 'params') else []
+                                    )
                                 else:
                                     # call rpc of a registered connected client
                                     Log.info(
