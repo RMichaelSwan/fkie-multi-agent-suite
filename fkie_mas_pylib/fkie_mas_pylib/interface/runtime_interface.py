@@ -3,7 +3,7 @@ import json
 import os
 import platform
 import psutil
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 import re
 import time
 from fkie_mas_pylib.logging.logging import Log
@@ -342,6 +342,7 @@ class RosComposable:
         self.containerName = container_name
         self.nodeId = node_id
         self.nodes: List[str] = [] if nodes is None else nodes
+        self.composableIds: List[Tuple[str, int]] = []
 
 
 class LifecycleTransition:

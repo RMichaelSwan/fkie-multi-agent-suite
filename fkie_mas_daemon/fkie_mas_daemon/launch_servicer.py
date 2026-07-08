@@ -66,6 +66,7 @@ import shlex
 import sys
 import time
 import traceback
+from threading import RLock
 from importlib import import_module
 # from launch.launch_context import LaunchContext
 
@@ -135,6 +136,7 @@ class LaunchServicer(LoggingEventHandler):
         Log.info("Create ROS2 launch servicer")
         LoggingEventHandler.__init__(self)
         self._watchdog_observer = Observer()
+        self._lock = RLock()
         self.ws_port = ws_port
         self.xml_validator = LaunchValidator()
         self._observed_dirs = {}  # path: watchdog.observers.api.ObservedWatch
@@ -225,10 +227,14 @@ class LaunchServicer(LoggingEventHandler):
         directory = os.path.dirname(real_path)
         Log.debug(f"{self.__class__.__name__}:observe path: {path}")
         if directory not in self._observed_dirs:
-            Log.debug(
-                f"{self.__class__.__name__}: add directory to observer: {directory}")
-            watch = self._watchdog_observer.schedule(self, directory)
-            self._observed_dirs[directory] = watch
+            try:
+                watch = self._watchdog_observer.schedule(self, directory)
+                self._observed_dirs[directory] = watch
+            except OSError as err:
+                Log.warn(
+                    f"{self.__class__.__name__}: cannot observe {directory}: {err}. "
+                    "Consider increasing fs.inotify.max_user_instances")
+                return
         self._included_files.append(path)
         self._included_dirs.append(directory)
 
@@ -795,11 +801,29 @@ class LaunchServicer(LoggingEventHandler):
             nmd.launcher.server.screen_servicer.system_change()
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
 
-    def node_stopped(self, name: str) -> None:
-        # remove executable path from observer
-        if name in self._node_exec:
-            self._remove_file_from_observe(self._node_exec[name])
-            del self._node_exec[name]
+    def node_stopped(self, node_name: str) -> None:
+        with self._lock:
+            exec_path = self._node_exec.pop(node_name, None)
+        if exec_path is None:
+            return  # bereits aufgeräumt -> idempotent
+        # Watch nur entfernen, wenn kein anderer Node dieselbe Binary nutzt
+        still_used = exec_path in self._node_exec.values()
+        if not still_used:
+            self._remove_file_from_observe(exec_path)
+
+    def reconcile_running_nodes(self, alive_node_names: set[str]) -> None:
+        """Gibt Watches von Nodes frei, die nicht mehr laufen (Crash/extern gekillt)."""
+        with self._lock:  # vorhandenen Mutex verwenden
+            tracked = set(self._node_exec.keys())
+        disappeared = tracked - alive_node_names
+        for node_name in disappeared:
+            try:
+                self.node_stopped(node_name)
+            except Exception:
+                import traceback
+                nmd.launcher.rosnode.get_logger().warn(
+                    f"reconcile: cleanup for '{node_name}' failed:\n{traceback.format_exc()}"
+                )
 
     def start_nodes(self, request_json: List[LaunchNode], continue_on_error: bool = True) -> List[LaunchNodeReply]:
         Log.info(

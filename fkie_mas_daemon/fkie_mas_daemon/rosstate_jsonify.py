@@ -681,9 +681,10 @@ class RosStateJsonify:
                         if wait_future.finished:
                             try:
                                 response = wait_future.future.result()
-                                if response:
+                                if response is not None:
                                     for cn_name in response.full_node_names:
                                         composable.nodes.append(cn_name)
+                                    composable.composableIds = zip(response.full_node_names, response.unique_ids)
                                     with self._lock:
                                         self._composable_nodes[wait_future.node_id] = composable
                             except Exception as exception:

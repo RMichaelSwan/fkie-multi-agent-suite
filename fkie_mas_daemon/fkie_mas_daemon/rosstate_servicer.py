@@ -267,6 +267,9 @@ class RosStateServicer:
                 self.websocket.publish('ros.nodes.changed', {"timestamp": self._ts_state_notified})
                 # update local nodes of the monitor servicer
                 self.monitor_servicer.update_local_node_names(self._state_jsonify.get_local_node_names())
+                # update ionotify for node executables
+                alive = {n.name for n in nodes}
+                nmd.launcher.server.launch_servicer.reconcile_running_nodes(alive)
 
     def _callback_topics(self, topics: Dict[Tuple[TopicNameWoPrefix, TopicType], RosTopic]):
         new_topic_str = json.dumps([v for v in topics.values()], cls=SelfEncoder)
@@ -705,7 +708,7 @@ class RosStateServicer:
                     request = UnloadNode.Request()
                     request.unique_id = unique_id_in_container
                     response = nmd.launcher.call_service(
-                        service_unload_node, UnloadNode, request, callback_group=self._callback_group_composed)
+                        service_unload_node, UnloadNode, request, callback_group=self._callback_group_composed, timeout_sec=1.0)
                     if hasattr(response, "success") and response.success:
                         return True
                     elif not hasattr(response, "success"):
@@ -720,14 +723,21 @@ class RosStateServicer:
         return False
 
     def get_composed_node_id(self, container_name: str, node_name: str) -> Number:
-        service_list_nodes = f'{container_name}/_container/list_nodes'
-        Log.debug(f"{self.__class__.__name__}: list nodes from '{service_list_nodes}'")
-        request_list = ListNodes.Request()
-        response_list = nmd.launcher.call_service(
-            service_list_nodes, ListNodes, request_list, callback_group=self._callback_group_composed)
-        for name, unique_id in zip(response_list.full_node_names, response_list.unique_ids):
-            if name == node_name:
-                return unique_id
+        with self._ros_composable_mutex:
+            for composable in self._composables_nodes:
+                if composable.containerName == container_name:
+                    for name, unique_id in composable.composableIds:
+                        if name == node_name:
+                            return unique_id
+        # service_list_nodes = f'{container_name}/_container/list_nodes'
+        # Log.debug(f"{self.__class__.__name__}: list nodes from '{service_list_nodes}'")
+        # request_list = ListNodes.Request()
+        # response_list = nmd.launcher.call_service(
+        #     service_list_nodes, ListNodes, request_list, callback_group=self._callback_group_composed, timeout_sec=1.0)
+        # if response_list is not None:
+        #     for name, unique_id in zip(response_list.full_node_names, response_list.unique_ids):
+        #         if name == node_name:
+        #             return unique_id
         return -1
 
     def _get_ros_node_list(self, forceRefresh: bool = False) -> List[RosNode]:
