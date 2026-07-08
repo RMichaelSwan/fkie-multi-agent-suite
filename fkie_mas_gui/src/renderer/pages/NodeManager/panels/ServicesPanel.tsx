@@ -465,7 +465,7 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
 
       // currently we do not distinguish external / terminal for services,
       // but we keep the parameters for future alignment with topic handling
-      console.debug(`call service: external=${external} terminal=${openInTerminal}`);
+      console.debug(`open service dialog for '${service.name}'  external=${external} terminal=${openInTerminal}`);
       navCtx.openServiceCaller({
         providerId: service.nodeProviders[0]?.providerId || "",
         serviceName: service.name,
@@ -481,7 +481,7 @@ export default function ServicesPanel({ contentId, initialSearchTerm = "" }: Ser
     (service: ServiceExtendedInfo | undefined, external: boolean, openInTerminal = false) => {
       if (!service) return;
 
-      console.debug(`introspect service: external=${external} terminal=${openInTerminal}`);
+      console.debug(`open dialog for introspect service: external=${external} terminal=${openInTerminal}`);
       navCtx.openServiceIntrospection({
         providerId: service.nodeProviders[0]?.providerId || "",
         serviceName: service.name,

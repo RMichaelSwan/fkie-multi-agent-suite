@@ -405,7 +405,7 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
     (action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
       if (!action) return;
       console.debug(
-        `Send action goal: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
+        `open dialog for action goal: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
       );
       navCtx.openActionSendGoal({
         providerId: action.providerId || "",
@@ -422,7 +422,7 @@ export default function ActionsPanel({ contentId, initialSearchTerm = "" }: Acti
     (action: ActionInfo | undefined, external: boolean, openInTerminal = false) => {
       if (!action) return;
       console.debug(
-        `Introspect action: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
+        `open dialog for introspect action: ${action.name} [${action.actionType}]; external=${external} terminal=${openInTerminal}`
       );
 
       navCtx.openActionIntrospection({

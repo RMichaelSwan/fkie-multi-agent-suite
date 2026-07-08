@@ -60,6 +60,7 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
   const [provider, setProvider] = useState<Provider | null>(null);
   const [inputElements, setInputElements] = useState<React.ReactNode | null>(null);
   const [historyEditMode, setHistoryEditMode] = useState<boolean>(false);
+  const [targetNodeName, setTargetNodeName] = useState<string>("");
 
   const [callServiceDescription, setCallServiceDescription] = useState("");
   const [callServiceIsSubmitting, setCallServiceIsSubmitting] = useState(false);
@@ -142,6 +143,15 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
     },
     [serviceStruct]
   );
+
+  const resolveTargetNodeName = useCallback((): string => {
+    const node = provider?.getNodeForService(serviceName);
+    return node?.name || "";
+  }, [provider, serviceName]);
+
+  useEffect(() => {
+    setTargetNodeName(resolveTargetNodeName());
+  }, [resolveTargetNodeName, provider]);
 
   async function handleCallService(): Promise<void> {
     setResultError("");
@@ -375,6 +385,11 @@ export default function ServiceCallerPanel(props: ServiceCallerPanelProps): JSX.
           <Typography color="grey" fontSize="0.8em">
             {serviceType || "detecting type..."}
           </Typography>
+          {targetNodeName && (
+            <Typography color="grey" fontSize="0.8em">
+              node: {targetNodeName}
+            </Typography>
+          )}
         </Stack>
         {history.length > 0 && (
           <Stack direction="column" spacing={1} alignItems="left">

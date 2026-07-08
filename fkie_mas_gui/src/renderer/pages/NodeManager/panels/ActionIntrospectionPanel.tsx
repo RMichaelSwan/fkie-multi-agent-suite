@@ -158,22 +158,9 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
     const serviceNames = getActionServiceNames();
 
     for (const serviceName of serviceNames) {
-      const service = provider.rosServices.find((s) => s.name === serviceName);
-      if (!service) continue;
-
-      // Prefer a local provider node if available.
-      const providerNodeIds = service.provider || [];
-
-      for (const nodeId of providerNodeIds) {
-        const node = provider.rosNodes.find((n) => n.id === nodeId && n.isLocal);
-        if (node) return node.name;
-      }
-
-      // Fallback to any provider node.
-      for (const nodeId of providerNodeIds) {
-        const node = provider.rosNodes.find((n) => n.id === nodeId);
-        if (node) return node.name;
-      }
+      const node = provider?.getNodeForService(serviceName);
+      if (!node) continue;
+      return node.name;
     }
 
     return "";

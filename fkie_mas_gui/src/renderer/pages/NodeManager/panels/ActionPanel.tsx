@@ -93,6 +93,7 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
   const [historyEditMode, setHistoryEditMode] = useState<boolean>(false);
   const [inputElements, setInputElements] = useState<React.ReactNode | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [targetNodeName, setTargetNodeName] = useState<string>("");
 
   const [useDarkMode] = useSetting<boolean>("useDarkMode");
   const [colorizeHosts] = useSetting<boolean>("colorizeHosts");
@@ -170,6 +171,15 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
     },
     [goalStruct, actionName, actionType]
   );
+
+  const resolveTargetNodeName = useCallback((): string => {
+    const node = provider?.getNodeForService(`${actionName}/_action/send_goal`);
+    return node?.name || "";
+  }, [provider, actionName]);
+
+  useEffect(() => {
+    setTargetNodeName(resolveTargetNodeName());
+  }, [resolveTargetNodeName, provider]);
 
   useEffect(() => {
     if (!goalStruct) return;
@@ -530,6 +540,11 @@ export default function ActionPanel(props: ActionPanelProps): JSX.Element {
           <Typography color="grey" fontSize="0.8em">
             {actionType || "detecting type..."}
           </Typography>
+          {targetNodeName && (
+            <Typography color="grey" fontSize="0.8em">
+              node: {targetNodeName}
+            </Typography>
+          )}
         </Stack>
         {/* Goal History */}
         {goalHistory.length > 0 && (

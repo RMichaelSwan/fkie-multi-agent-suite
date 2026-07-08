@@ -1029,6 +1029,29 @@ export default class Provider implements IProvider {
     return this.rosServices.find((item) => item.name === id.name && item.srv_type === id.msg_type);
   }
 
+  public getNodeForService(serviceName: string): RosNode | undefined {
+    if (!this.rosNodes || !this.rosServices) return;
+
+    const service = this.rosServices.find((s) => s.name === serviceName);
+    if (!service) return;
+
+    // Prefer a local provider node if available.
+    const providerNodeIds = service.provider || [];
+
+    for (const nodeId of providerNodeIds) {
+      const node = this.rosNodes.find((n) => n.id === nodeId && n.isLocal);
+      if (node) return node;
+    }
+
+    // Fallback to any provider node.
+    for (const nodeId of providerNodeIds) {
+      const node = this.rosNodes.find((n) => n.id === nodeId);
+      if (node) return node;
+    }
+
+    return;
+  }
+
   /**
    * Get list of available services
    */
@@ -1741,7 +1764,6 @@ export default class Provider implements IProvider {
   public getMessageStruct: (request: string) => Promise<LaunchMessageStruct | null> = async (request: string) => {
     console.log(`request: ${JSON.stringify(request)}`);
     const result = await this.makeCall(URI.ROS_LAUNCH_GET_MSG_STRUCT, [request], true).then((value: TResultData) => {
-      console.log(`RESP: ${JSON.stringify(value)}`);
       if (value.result) {
         const response = value.data as LaunchMessageStruct;
         if (response.valid) {

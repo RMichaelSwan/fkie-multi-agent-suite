@@ -149,24 +149,8 @@ export default function ServiceIntrospectionPanel(props: ServiceIntrospectionPan
   }, [serviceName]);
 
   const resolveTargetNodeName = useCallback((): string => {
-    if (!provider?.rosNodes || !provider?.rosServices) return "";
-
-    const service = provider.rosServices.find((s) => s.name === serviceName);
-    if (!service) return "";
-
-    const providerNodeIds = service.provider || [];
-
-    for (const nodeId of providerNodeIds) {
-      const node = provider.rosNodes.find((n) => n.id === nodeId && n.isLocal);
-      if (node) return node.name;
-    }
-
-    for (const nodeId of providerNodeIds) {
-      const node = provider.rosNodes.find((n) => n.id === nodeId);
-      if (node) return node.name;
-    }
-
-    return "";
+    const node = provider?.getNodeForService(serviceName);
+    return node?.name || "";
   }, [provider, serviceName]);
 
   useEffect(() => {
