@@ -1026,7 +1026,7 @@ export default function NodeManager(): JSX.Element {
                       tcfg.id,
                       tcfg.host,
                       tcfg.port,
-                      tcfg.cmdType,
+                      `${tcfg.cmdType}`,
                       tcfg.node,
                       tcfg.screen,
                       tcfg.cmd,
