@@ -130,6 +130,11 @@ class RosStateJsonify:
         self._ros_topic_dict: Dict[Tuple[TopicNameWoPrefix, TopicType], RosTopic] = {}
         self._use_name_as_node_id = self.get_rwm_implementation() in ["rmw_zenoh_cpp"]
 
+        # Tracks unassigned local nodes (no process, no screen) that are not yet
+        # listed in any known composable container. Used to detect new composable
+        # nodes between runs without triggering redundant updates.
+        self._unassigned_composable_nodes: set = set()
+
     def stop(self):
         self._shutdown = True
 
@@ -238,6 +243,55 @@ class RosStateJsonify:
         if namespace == '':
             namespace = '/'
         return node_basename, namespace
+
+    def update_all_composables(self) -> None:
+        """Updates all composable nodes currently tracked in self._composable_nodes."""
+        with self._lock:
+            nodes_to_update = [
+                RosNode(node_id, composable.containerName)
+                for node_id, composable in self._composable_nodes.items()
+            ]
+        if nodes_to_update:
+            update_thread = threading.Thread(
+                target=self._thread_update_composables_call,
+                args=(nodes_to_update,),
+                daemon=True
+            )
+            update_thread.start()
+
+    def _has_new_unassigned_nodes(self, discovered_nodes: List[RosNode]) -> List[NodeId]:
+        """Check if new unassigned local nodes appeared since the last run.
+
+        Returns a list of container NodeIds that need to be refreshed.
+        Only triggers if genuinely new nodes were discovered compared to the
+        previous invocation.
+        """
+        containers_to_update: List[NodeId] = []
+        current_unassigned: set = set()
+
+        with self._lock:
+            # Collect all node names already known to belong to a container
+            known_composable_names: set = set()
+            for composable in self._composable_nodes.values():
+                known_composable_names.update(composable.nodes)
+
+            # Identify local nodes without own process/screen that are not
+            # assigned to any composable container
+            for node in discovered_nodes:
+                if node.is_local and len(node.process_ids) == 0 and len(node.screens) == 0:
+                    if node.name not in known_composable_names and '_impl_' not in node.name:
+                        current_unassigned.add(node.name)
+
+            # Only trigger refresh if there are nodes that were NOT unassigned
+            # in the previous run (i.e., genuinely new)
+            new_unassigned = current_unassigned - self._unassigned_composable_nodes
+            if new_unassigned:
+                containers_to_update = list(self._composable_nodes.keys())
+
+            # Store current state for next comparison
+            self._unassigned_composable_nodes = current_unassigned
+
+        return containers_to_update
 
     # Creates a list of RosNode's from discovered ROS2 list
     def update_state(self, forceRefresh: bool) -> None:
@@ -421,11 +475,31 @@ class RosStateJsonify:
             old_container_nodes = set(list(self._composable_nodes.keys())) - set(found_composable_nodes)
             for node_id in old_container_nodes:
                 del self._composable_nodes[node_id]
-            # update the composable node list
-            # for node in new_composable_nodes:
-            update_thread = threading.Thread(target=self._thread_update_composables_call,
-                                             args=(new_composable_nodes,), daemon=True)
-            update_thread.start()
+
+            # check if existing containers need refresh
+            containers_to_refresh = self._has_new_unassigned_nodes(result)
+            # Merge both lists into a single update set to avoid starting two threads
+            refresh_nodes: List[RosNode] = []
+            with self._lock:
+                for cid in containers_to_refresh:
+                    # Avoid duplicates: only add if not already in new_composable_nodes
+                    if cid in self._composable_nodes and not any(n.id == cid for n in new_composable_nodes):
+                        c = self._composable_nodes[cid]
+                        refresh_nodes.append(RosNode(cid, c.containerName))
+
+            # Combine into one list and start a single thread
+            all_nodes_to_update = new_composable_nodes + refresh_nodes
+            if all_nodes_to_update:
+                update_thread = threading.Thread(
+                    target=self._thread_update_composables_call,
+                    args=(all_nodes_to_update,),
+                    daemon=True
+                )
+                update_thread.start()
+            # # update the composable node list
+            # update_thread = threading.Thread(target=self._thread_update_composables_call,
+            #                                  args=(new_composable_nodes,), daemon=True)
+            # update_thread.start()
 
         self._ros_service_dict = cached_data.service_objs
         self._ros_topic_dict = cached_data.topic_objs
@@ -606,7 +680,8 @@ class RosStateJsonify:
             # handle response
             lifecycle_states: Dict[str, RosLifecycleState] = {}
             for wait_future in wait_futures:
-                lifecycle_states[wait_future.node_id] = RosLifecycleState(id=wait_future.node_id, name=wait_future.node_name)
+                lifecycle_states[wait_future.node_id] = RosLifecycleState(
+                    id=wait_future.node_id, name=wait_future.node_name)
             for wait_future in wait_futures:
                 lifecycle_state = lifecycle_states[wait_future.node_id]
                 if wait_future.finished:
@@ -684,7 +759,7 @@ class RosStateJsonify:
                                 if response is not None:
                                     for cn_name in response.full_node_names:
                                         composable.nodes.append(cn_name)
-                                    composable.composableIds = zip(response.full_node_names, response.unique_ids)
+                                    composable.composableIds = list(zip(response.full_node_names, response.unique_ids))
                                     with self._lock:
                                         self._composable_nodes[wait_future.node_id] = composable
                             except Exception as exception:

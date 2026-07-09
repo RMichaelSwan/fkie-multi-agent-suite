@@ -210,18 +210,21 @@ class RosStateServicer:
                     service_name, GetState, request_state, callback_group=self._callback_group_lifecycle)
                 if get_state:
                     lifecycle_state.state = get_state.current_state.label
-            service_name = f'{node.name}/get_available_transitions'
-            service_available = False
-            with self._ros_service_state_mutex:
-                service_available = service_name in self._ros_service_name_list
-            if service_available:
-                Log.debug(f"{self.__class__.__name__}: updated lifecycle state for '{service_name}'")
-                request_state = GetAvailableTransitions.Request()
-                response = nmd.launcher.call_service(
-                    service_name, GetAvailableTransitions, request_state, callback_group=self._callback_group_lifecycle)
-                for transition in response.available_transitions:
-                    lifecycle_state.available_transitions.append(
-                        LifecycleTransition(transition.transition.label, transition.transition.id))
+            if lifecycle_state.state != "unknown":
+                # skip if the sate was not successful
+                service_name = f'{node.name}/get_available_transitions'
+                service_available = False
+                with self._ros_service_state_mutex:
+                    service_available = service_name in self._ros_service_name_list
+                if service_available:
+                    Log.debug(f"{self.__class__.__name__}: updated lifecycle state for '{service_name}'")
+                    request_state = GetAvailableTransitions.Request()
+                    response = nmd.launcher.call_service(
+                        service_name, GetAvailableTransitions, request_state, callback_group=self._callback_group_lifecycle)
+                    if response:
+                        for transition in response.available_transitions:
+                            lifecycle_state.available_transitions.append(
+                                LifecycleTransition(transition.transition.label, transition.transition.id))
             self._callback_lifecycle_state([lifecycle_state])
         except Exception as e:
             Log.warn(f"{self.__class__.__name__}: failed updated lifecycle state for '{service_name}': {e}")
@@ -723,6 +726,9 @@ class RosStateServicer:
         return False
 
     def get_composed_node_id(self, container_name: str, node_name: str) -> Number:
+        # Normally, you would call the _container/list_nodes service to get the ID of the composable node.
+        # However, this can take a long time if the service is unavailable but many composable nodes need to be shut down.
+        # Therefore, we fall back to the last known status.
         with self._ros_composable_mutex:
             for composable in self._composables_nodes:
                 if composable.containerName == container_name:
