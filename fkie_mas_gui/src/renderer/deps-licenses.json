@@ -140,7 +140,7 @@
   {
     "name": "flexlayout-react",
     "licenseType": "ISC",
-    "installedVersion": "0.8.19",
+    "installedVersion": "0.9.1",
     "author": "Caplin Systems Ltd"
   },
   {
@@ -166,6 +166,12 @@
     "licenseType": "ISC",
     "installedVersion": "0.0.1",
     "author": "Jeffrey Liu"
+  },
+  {
+    "name": "license-report",
+    "licenseType": "MIT",
+    "installedVersion": "6.8.5",
+    "author": "BePo65"
   },
   {
     "name": "monaco-editor",
@@ -212,7 +218,7 @@
   {
     "name": "react-router-dom",
     "licenseType": "MIT",
-    "installedVersion": "6.30.3",
+    "installedVersion": "6.30.4",
     "author": "Remix Software <hello@remix.run>"
   },
   {
@@ -236,7 +242,7 @@
   {
     "name": "shell-quote",
     "licenseType": "MIT",
-    "installedVersion": "1.8.3",
+    "installedVersion": "1.8.4",
     "author": "James Halliday mail@substack.net http://substack.net"
   },
   {
@@ -254,7 +260,7 @@
   {
     "name": "systeminformation",
     "licenseType": "MIT",
-    "installedVersion": "5.31.5",
+    "installedVersion": "5.31.6",
     "author": "Sebastian Hildebrandt <hildebrandt@plus-innovations.com> (https://plus-innovations.com)"
   },
   {
@@ -392,7 +398,7 @@
   {
     "name": "vite",
     "licenseType": "MIT",
-    "installedVersion": "6.4.2",
+    "installedVersion": "6.4.3",
     "author": "Evan You"
   }
 ]
