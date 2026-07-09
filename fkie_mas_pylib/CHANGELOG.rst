@@ -2,6 +2,11 @@
 Changelog for package fkie_mas_pylib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.1 (09.07.2026)
+------------------
+* improve handle of composable nodes
+* added executer pool for websocket to reduce blocked rpc calls
+
 5.8.0 (07.07.2026)
 ------------------
 * Improved publisher handling

@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.9.2 - 09.07.2026
+
+Switched to google icons for external components
+Fixed open action in external windows
+Show load launch file dialog while requesting launch parameter
+Improved stop / update of composable nodes
+Improve handle of composable nodes
+Added executer pool for websocket to reduce blocked rpc calls
+Added handler to update state of a single lifecycle node
+
 ## 5.9.1 - 08.07.2026
 
 Added parameter: exclude processes on shutdown ros nodes

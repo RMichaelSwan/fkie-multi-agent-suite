@@ -2,6 +2,12 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.2 (09.07.2026)
+------------------
+* improved stop / update of composable nodes
+* improve handle of composable nodes
+* added handler to update state of a single lifecycle node
+
 5.8.1 (08.07.2026)
 ------------------
 * added parameter: exclude processes on shutdown ros nodes
