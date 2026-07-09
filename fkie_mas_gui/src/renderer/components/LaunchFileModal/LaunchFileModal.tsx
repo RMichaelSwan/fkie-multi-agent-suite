@@ -5,6 +5,7 @@ import {
   AlertTitle,
   Autocomplete,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -17,14 +18,15 @@ import {
 } from "@mui/material";
 import { HTMLAttributes, useCallback, useEffect, useState } from "react";
 
+import { useAlwaysCurrentRef } from "@/renderer/hooks/useAlwaysCurrentRef";
 import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { getFileName, LaunchArgument, LaunchLoadReply, LaunchLoadRequest, PathItem } from "@/renderer/models";
+import { getDir } from "@/renderer/models/FileItem";
 import { enqueueSnackbar } from "notistack";
 import { ErrorAlertComponent } from "../UI";
 import DraggablePaper from "../UI/DraggablePaper";
-import Tag from "../UI/Tag";
 
 interface LaunchArgumentWithHistory extends LaunchArgument {
   history: string[];
@@ -47,7 +49,9 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
 
   const rosCtx = useRosContext();
   const logCtx = useLoggingContext();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const loadingRef = useAlwaysCurrentRef(loading);
   const [selectedLaunch, setSelectedLaunch] = useState<LaunchLoadReply | null>(null);
   const [messageLaunchLoaded, setMessageLaunchLoaded] = useState("");
   const { value: argHistory, set: setArgHistory } = useAppState<{ [key: string]: string[] }>(
@@ -86,18 +90,8 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
       if (!provider || !provider.isAvailable()) return;
 
       if (provider.launchLoadFile) {
-        /*
-         * ros_package -
-         * launch - Launch file in the package path.
-         * path - if set, this will be used instead of package/launch
-         * @param {LaunchArgument[]} args - Arguments to load the launch file.
-         * @param {boolean} force_first_file - If True, use first file if more than one was found in the package.
-         * @param {boolean} request_args - If True, the launch file will not be loaded, only launch arguments are requested.
-         * masteruri - Starts nodes of this file with specified ROS_MASTER_URI.
-         * host - Start nodes of this file on specified host.
-         * */
-        const rosPackage = ""; // ROS package name.
-        const launch = ""; // Launch file in the package path.
+        const rosPackage = "";
+        const launch = "";
         const path = file;
         const args = [];
         const forceFirstFile = true;
@@ -114,12 +108,16 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
           masteruri,
           host
         );
+
+        setLoading(true);
         const result: LaunchLoadReply = await provider.launchLoadFile(request, false);
+        setLoading(false);
+        if (!loadingRef.current) return;
+
         if (result.status.code === "ALREADY_OPEN") {
           logCtx.warn(`Launch file [${getFileName(path)}] was already loaded`, `File: ${path}`, "already loaded");
           setMessageLaunchLoaded("Launch file was already loaded");
-
-          // nothing else to do return
+          setOpen(false);
           onLaunchCallback();
           provider.updateLaunchContent();
           return;
@@ -128,7 +126,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
         if (result.status.code === "PARAMS_REQUIRED") {
           setSelectedLaunch(() => result);
 
-          // set default values to arguments in form
           const argList: LaunchArgumentWithHistory[] = [];
           if (result.args) {
             for (const arg of result.args) {
@@ -136,11 +133,8 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
               let historyList = argHistory[arg.name];
               if (historyList === undefined) {
                 historyList = [];
-                // historyList = options.filter((value) => value !== argValue);
               }
-              // complement history with initial values in case they have never been used
               historyList = [...new Set([...historyList, argValue])];
-              // special: add true/false if value is true or false and no history available
               if (historyList.length === 1) {
                 if (`${argValue}`.toLocaleLowerCase().localeCompare("true") === 0) {
                   historyList.push("False");
@@ -159,20 +153,13 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
             }
           }
           setCurrentArgs(argList);
-
           setMessageLaunchLoaded("");
         }
 
         if (result.status.code === "OK") {
-          // launch file does not have required arguments and will be loaded automatically
-          // we need to trigger a launch update and close the modal
-
+          setOpen(false);
           setMessageLaunchLoaded("Launch file loaded successfully");
           setSelectedLaunch(null);
-
-          // update node and launch list
-          // rosCtx.updateNodeList(provider(.name()));
-          // rosCtx.updateLaunchList(provider.name());
           if (result.status.msg) {
             logCtx.warn(
               `Launch file [${getFileName(path)}] loaded with warnings`,
@@ -182,9 +169,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
           } else {
             logCtx.success(`Launch file [${getFileName(path)}] loaded`, `File: ${path}`, "launch file loaded");
           }
-          // trigger update launch list
-          // provider.updateLaunchContent();
-          // nothing else to do return
           onLaunchCallback();
           return;
         }
@@ -208,15 +192,7 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
         );
       }
     },
-    // Do not include [logCtx] or [rosCtx] as dependency, because it will cause infinity loops
-    [
-      argHistory,
-      rosCtx.initialized,
-      rosCtx.providers,
-      selectedProvider,
-      selectedLaunchFile,
-      // rosCtx.updateLaunchList,
-    ]
+    [argHistory, rosCtx.initialized, rosCtx.providers, selectedProvider, selectedLaunchFile]
   );
 
   // The user clicked on launch, fill arguments a make a request to provider
@@ -229,28 +205,16 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
     if (!provider || !provider.isAvailable()) return;
 
     if (provider.launchLoadFile) {
-      /*
-       * ros_package -
-       * launch - Launch file in the package path.
-       * path - if set, this will be used instead of package/launch
-       * @param {LaunchArgument[]} args - Arguments to load the launch file.
-       * @param {boolean} force_first_file - If True, use first file if more than one was found in the package.
-       * @param {boolean} request_args - If True, the launch file will not be loaded, only launch arguments are requested.
-       * masteruri - Starts nodes of this file with specified ROS_MASTER_URI.
-       * host - Start nodes of this file on specified host.
-       * */
-      const rosPackage = ""; // ROS package name.
-      const launch = ""; // Launch file in the package path.
+      const rosPackage = "";
+      const launch = "";
       const path = selectedLaunch.paths && selectedLaunch.paths.length > 0 ? selectedLaunch.paths[0] : "";
       const forceFirstFile = true;
       const requestArgs = false;
 
-      // fill arguments
       const args: LaunchArgument[] = [];
 
       for (const arg of currentArgs) {
         args.push(new LaunchArgument(arg.name, arg.value));
-        // update history
         let hList: string[] = argHistory[arg.name];
         if (hList !== undefined) {
           hList = hList.filter((value) => value != null && `${value}`.length > 0 && value !== arg.value);
@@ -274,7 +238,9 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
         provider.host()
       );
 
+      setLoading(true);
       const resultLaunchLoadFile = await provider.launchLoadFile(request, false);
+      setLoading(false);
 
       if (!resultLaunchLoadFile) {
         logCtx.error(
@@ -318,21 +284,14 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
       );
     }
 
-    // clear launch objects
     setSelectedLaunch(null);
     setSelectedLaunchFile(undefined);
-
     onLaunchCallback();
-    // provider.updateLaunchContent();
-
-    // trigger node's update (will force a reload using useEffect hook)
-    // rosCtx.updateNodeList(provider.name());
-    // rosCtx.updateLaunchList(provider.name());
   }, [currentArgs, argHistory, selectedLaunch, selectedProvider, logCtx.success, setSelectedLaunchFile, setArgHistory]);
 
-  // Request file and load arguments
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
+    if (selectedLaunchFile) setOpen(true);
     getLaunchFile(selectedLaunchFile.path);
   }, [selectedLaunchFile]);
 
@@ -352,7 +311,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
         })
       );
       const newHistory = {};
-      // eslint-disable-next-line no-restricted-syntax
       for (const [key, value] of Object.entries(argHistory)) {
         if (key === argName) {
           newHistory[key] = value.filter((val) => val !== option);
@@ -391,7 +349,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
 
   function isPathParam(name: string, value: string): boolean {
     if (!value) {
-      // offer path select dialog on empty string
       return true;
     }
     const lValue = value.toLocaleLowerCase();
@@ -427,11 +384,26 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
         Launch file
       </DialogTitle>
       <DialogContent sx={{ overflow: scrollBar }}>
-        {selectedLaunch && (
+        {selectedLaunch?.paths && selectedLaunch.paths.length > 0 && (
+          <Stack paddingBottom={1}>
+            <Typography
+              variant="body2"
+              sx={{ color: "grey", wordBreak: "break-all", overflow: "hidden" }}
+            >
+              {getDir(selectedLaunch.paths[0])}/<b>{getFileName(selectedLaunch.paths[0])}</b>
+            </Typography>
+          </Stack>
+        )}
+        {loading && (
+          <Stack alignItems="center" justifyContent="center" sx={{ py: 4 }}>
+            <CircularProgress />
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Requesting launch parameter...
+            </Typography>
+          </Stack>
+        )}
+        {!loading && selectedLaunch && (
           <Stack>
-            {selectedLaunch.paths && selectedLaunch.paths.length > 0 && (
-              <Tag className="not-draggable" color="info" text={selectedLaunch.paths[0]} wrap />
-            )}
             <Stack>
               {currentArgs.map((arg) => {
                 const optionsTmp = new Set([...(arg.choices || []), ...arg.history]);
@@ -439,19 +411,15 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                 return (
                   <Stack key={`stack-launch-load-${arg.name}`} direction="row">
                     {options.length > 1 || (options.length === 1 && options[0] !== arg.value) ? (
-                      // show autocomplete only if we have multiple option
                       <Autocomplete
                         key={`autocomplete-launch-load-${arg.name}`}
                         size="small"
                         fullWidth
                         autoHighlight
-                        // clearOnEscape
                         disableListWrap
                         handleHomeEndKeys={false}
-                        // noOptionsText="Package not found"
                         options={options}
                         getOptionLabel={(option) => option}
-                        // This prevents warnings on invalid autocomplete values
                         value={arg.value}
                         renderInput={(params) => (
                           <TextField
@@ -467,8 +435,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                                 ? "Use uppercase True/False, otherwise some eval statements may fail."
                                 : ""
                             }
-
-                            // autoFocus
                           />
                         )}
                         renderOption={(props, option) => {
@@ -494,7 +460,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                             prev.map((item) => {
                               if (item.name === arg.name) {
                                 item.value = newArgValue as string;
-                                // update last path
                                 if (isPathParam(item.name, item.value)) {
                                   setLastOpenPath(item.value);
                                 }
@@ -508,7 +473,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                             prev.map((item) => {
                               if (item.name === arg.name) {
                                 item.value = newInputValue;
-                                // update last path
                                 if (isPathParam(item.name, item.value)) {
                                   setLastOpenPath(item.value);
                                 }
@@ -521,7 +485,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                           return value === undefined || value === "" || option === value;
                         }}
                         onWheel={(event) => {
-                          // scroll through the options using mouse wheel
                           let newIndex = -1;
                           options.forEach((value, index) => {
                             if (value === (event.target as HTMLInputElement).value) {
@@ -538,7 +501,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                             prev.map((item) => {
                               if (item.name === arg.name) {
                                 item.value = options[newIndex];
-                                // update last path on wheel
                                 if (isPathParam(item.name, item.value)) {
                                   setLastOpenPath(item.value);
                                 }
@@ -555,7 +517,6 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                         }}
                       />
                     ) : (
-                      // we have no history, show only the text field
                       <TextField
                         id={`textfield-launch-load-${arg.name}`}
                         fullWidth
@@ -596,16 +557,10 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                             </Stack>
                           </div>
                         }
-                        // placement="right"
                         disableInteractive
                       >
                         <IconButton
                           component="label"
-                          // sx={{
-                          //   visibility: isPathParam(arg.name)
-                          //     ? 'visible'
-                          //     : 'hidden',
-                          // }}
                           onClick={(event: React.MouseEvent) => {
                             openFileDialog(arg.name, arg.value, event.nativeEvent.shiftKey);
                           }}
@@ -620,8 +575,7 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
             </Stack>
           </Stack>
         )}
-        {messageLaunchLoaded && messageLaunchLoaded.length > 0 && (
-          // Prevent display issues when long path files are returned
+        {!loading && messageLaunchLoaded && messageLaunchLoaded.length > 0 && (
           <Alert severity="warning" style={{ minWidth: 0 }}>
             <AlertTitle>{messageLaunchLoaded.replaceAll("/", " / ")}</AlertTitle>
           </Alert>
@@ -631,12 +585,13 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
         <Button
           onClick={() => {
             setOpen(false);
+            loadingRef.current = false;
             setSelectedLaunch(null);
           }}
         >
           Cancel
         </Button>
-        <Button autoFocus color="success" onClick={launchSelectedFile}>
+        <Button autoFocus color="success" onClick={launchSelectedFile} disabled={loading}>
           Load
         </Button>
       </DialogActions>

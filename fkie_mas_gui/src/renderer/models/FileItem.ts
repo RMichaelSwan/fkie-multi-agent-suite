@@ -8,6 +8,12 @@ export function getFileName(path: string): string {
   return path.replace(/^.*[\\/]/, "");
 }
 
+export function getDir(path: string): string {
+  if (!path) return path;
+  return path.substring(0, path.lastIndexOf("/"));
+}
+
+
 /**
  * Return the filename without extension from a given path
  */
