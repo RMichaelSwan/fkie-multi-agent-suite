@@ -1,0 +1,11 @@
+## Google Material Symbols
+
+This project includes icons from Google Material Symbols.
+
+Copyright © Google LLC
+
+Licensed under the Apache License, Version 2.0.
+https://www.apache.org/licenses/LICENSE-2.0
+
+Source:
+https://fonts.google.com/icons

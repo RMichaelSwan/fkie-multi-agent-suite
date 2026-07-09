@@ -1,13 +1,13 @@
 import {
-  EditorCloseCallback,
-  EditorManagerEvents,
-  FileRangeCallback,
-  TEditorManager,
-  TFileRange,
-  TLaunchArg,
+    EditorCloseCallback,
+    EditorManagerEvents,
+    FileRangeCallback,
+    TEditorManager,
+    TFileRange,
+    TLaunchArg,
 } from "@/types";
 import { is } from "@electron-toolkit/utils";
-import editorIcon from "@public/crystal_clear_edit_launch.png?asset";
+import editorIcon from "@public/google_edit_document.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import windowStateKeeper from "../windowStateKeeper";

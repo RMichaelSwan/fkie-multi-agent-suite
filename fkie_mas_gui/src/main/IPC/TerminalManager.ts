@@ -1,7 +1,7 @@
 import { TEnvEntry, TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "@/types";
 import { is } from "@electron-toolkit/utils";
-import ioIcon from "@public/crystal_clear_show_io.png?asset";
-import logIcon from "@public/crystal_clear_show_log.png?asset";
+import ioIcon from "@public/google_terminal.png?asset";
+import logIcon from "@public/google_text_snippet.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import windowStateKeeper from "../windowStateKeeper";

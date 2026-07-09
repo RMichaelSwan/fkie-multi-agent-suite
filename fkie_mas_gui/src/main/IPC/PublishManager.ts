@@ -1,6 +1,6 @@
 import { PublishCloseCallback, PublishManagerEvents, TPublishManager } from "@/types";
 import { is } from "@electron-toolkit/utils";
-import pubIcon from "@public/sekkyumu_topic_pub.png?asset";
+import pubIcon from "@public/google_play_circle.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import windowStateKeeper from "../windowStateKeeper";

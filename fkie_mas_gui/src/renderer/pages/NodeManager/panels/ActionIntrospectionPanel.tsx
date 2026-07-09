@@ -235,7 +235,7 @@ export default function ActionIntrospectionPanel(props: ActionIntrospectionPanel
     try {
       setIsStarting(true);
       await provider.startActionIntrospection(actionName, actionType);
-    } catch (_err) {
+    } catch {
       setIsStarting(false);
     }
   }, [provider, introspectionAvailable, actionName, actionType]);

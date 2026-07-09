@@ -1,8 +1,8 @@
 import { ServiceCloseCallback, ServiceManagerEvents, TServiceManager } from "@/types";
 import { is } from "@electron-toolkit/utils";
-import introspectionIcon from "@public/crystal_clear_introspection.png?asset";
-import serviceCallIcon from "@public/sekkyumu_call_service.png?asset";
-import actionIcon from "@public/sekkyumu_play_alt.png?asset";
+import actionIcon from "@public/google_start.png?asset";
+import serviceCallIcon from "@public/google_sync_alt.png?asset";
+import introspectionIcon from "@public/google_troubleshoot.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import windowStateKeeper from "../windowStateKeeper";
