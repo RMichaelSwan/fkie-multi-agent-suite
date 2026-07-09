@@ -937,7 +937,7 @@ export default function NodeManager(): JSX.Element {
                 onMouseDown={(event) => {
                   if (event?.button === 1) return;
 
-                  const cfg = node.getConfig();
+                  const cfg: TLayoutTabConfig = node.getConfig();
 
                   if (cfg.extTerminalConfig) {
                     openExternalTerminal(cfg.extTerminalConfig, node.getId());
@@ -996,7 +996,7 @@ export default function NodeManager(): JSX.Element {
                     );
                     deleteTab(node.getId());
                   }
-                  if (cfg.actionGetGoalConfig) {
+                  if (cfg.actionConfig) {
                     const acfg = cfg.actionConfig;
                     window.serviceManager?.start(
                       acfg.id,
