@@ -6,6 +6,8 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
 import packageJson from "../../package.json";
+import darkThemeUrl from "./assets/flexlayout/alpha_dark.css?url";
+import lightThemeUrl from "./assets/flexlayout/alpha_light.css?url";
 import { ElectronProvider } from "./context/ElectronContext";
 import { LoggingProvider } from "./context/LoggingContext";
 import { NavigationProvider } from "./context/NavigationContext";
@@ -67,7 +69,7 @@ export default function ProviderStack({ children }: { children: React.ReactNode 
     const link = document.getElementById("flexlayout-theme") as HTMLLinkElement | null;
     if (!link) return;
 
-    link.href = useDarkMode ? "assets/flexlayout/alpha_dark.css" : "assets/flexlayout/alpha_light.css";
+    link.href = useDarkMode ? darkThemeUrl : lightThemeUrl;
   }, [useDarkMode]);
 
   useEffect(() => {

@@ -10,7 +10,16 @@ import { AppStateProvider } from "./context/AppStateContext";
 import CliArgsProvider from "./context/CliArgsContext";
 import { SettingsProvider } from "./context/SettingsContext";
 
+// add link for flexlayout theme
+// enables dark theme in headless mode
+const link = document.createElement('link');
+link.id = 'flexlayout-theme';
+link.rel = 'stylesheet';
+link.href = new URL('assets/flexlayout/alpha_light.css', import.meta.url).href;
+document.head.appendChild(link);
+
 const container = document.getElementById("root");
+
 if (container) {
   const root = createRoot(container);
   root.render(
