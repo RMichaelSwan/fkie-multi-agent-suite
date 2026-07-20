@@ -67,6 +67,9 @@ const startServer = async (): Promise<void> => {
 
   if (__dirname.indexOf("/app.asar/") > 0) {
     dirPrefix = path.join(__dirname, "../renderer");
+  } else if (is.dev && process.env.ELECTRON_RENDERER_URL) {
+    // Dev mode: serve nothing, Vite handles renderer
+    dirPrefix = path.join(__dirname, "../../out/renderer");
   } else {
     dirPrefix = path.join(__dirname, "../../dist/linux-unpacked/resources/app.asar/out/renderer");
   }
@@ -100,32 +103,27 @@ const startServer = async (): Promise<void> => {
     res.sendFile(realPath);
   });
 
-  serverApp.use((req, res, next) => {
+  serverApp.use(async (req, res, next) => {
     const url = req.path;
-    if (url.includes("/assets/cliArgs")) {
-      // instead of env.js we send our desired env file
-      res.type("text/javascript");
-      res.send(`const CliArgs = {
-  "hide-output-from-background-processes": { "default": ${commandLine.getArg("hide-output-from-background-processes")} },
-  "headless": { "default": ${commandLine.getArg("headless")} },
-  "headless-server-port": { "default": ${commandLine.getArg("headless-server-port")} },
-  "update-debs": { "default": "", "fromEnv": "", "hint": "" },
-  "update-debs-prerelease": { "default": "", "fromEnv": "", "hint": "" },
-  "ros-version": { "default": "${commandLine.getArg("ros-version") || ""}" },
-  "ros-domain-id": { "default": ${commandLine.getArg("ros-domain-id")} },
-  "host": { "default": "${commandLine.getArg("host")}" },
-  "rmw-implementation": { "default": "${commandLine.getArg("rmw-implementation") || ""}" },
-  "join": { "default": ${commandLine.getArg("join")} },
-  "start": { "default": ${commandLine.getArg("start")} }
-};
-export {
-  CliArgs as C
-};
-      `);
+    if (url.includes("/api/cliArgs")) {
+      res.json({
+        "hide-output-from-background-processes": {
+          default: commandLine.getArg("hide-output-from-background-processes"),
+        },
+        headless: { default: commandLine.getArg("headless") },
+        "headless-server-port": { default: commandLine.getArg("headless-server-port") },
+        "ros-version": { default: commandLine.getArg("ros-version") || "" },
+        "ros-domain-id": { default: commandLine.getArg("ros-domain-id") },
+        host: { default: commandLine.getArg("host") },
+        "rmw-implementation": { default: commandLine.getArg("rmw-implementation") || "" },
+        join: { default: commandLine.getArg("join") },
+        start: { default: commandLine.getArg("start") },
+      });
       return;
     }
     next();
   });
+
   serverApp.use(async (req, res) => {
     const filePath = `${dirPrefix}/${req.path}`;
     try {
@@ -257,6 +255,11 @@ app.on("window-all-closed", () => {
 });
 
 // start app
+
+if (headless) {
+  app.setPath("userData", join(app.getPath("userData"), "headless"));
+}
+
 app
   .whenReady()
   .then(() => {

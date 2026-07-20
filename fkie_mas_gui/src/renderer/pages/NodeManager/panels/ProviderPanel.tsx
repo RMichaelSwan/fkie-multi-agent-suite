@@ -317,9 +317,7 @@ export default function ProviderPanel(): JSX.Element {
   }, [rosCtx.providers, filterText]);
 
   useEffect(() => {
-    if (!rosCtx.rosInfo) return;
-    if (!window.commandLine) return;
-    if (cliCtx.updatedArgs === 0) return;
+    if (!window.commandLine && cliCtx.updatedArgs === 0 && rosCtx.rosInfo) return;
     handleAutostart();
   }, [cliCtx.updatedArgs, window.commandLine, rosCtx.rosInfo]);
 

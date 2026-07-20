@@ -6,7 +6,8 @@ interface IJsonBorderNodeExt extends IJsonBorderNode {
   id: string;
 }
 
-const enablePopout = !window.commandExecutor && window.location.href.indexOf(":6275") === -1;
+console.log(`window.location.href: ${window.location.href}`);
+const enablePopout = !window.commandExecutor;
 
 export const LAYOUT_NO_RUNNING_DAEMONS = {
   id: LAYOUT_TABS.NO_RUNNING_DAEMONS,

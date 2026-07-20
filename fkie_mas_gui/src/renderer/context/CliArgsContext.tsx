@@ -33,11 +33,33 @@ export function CliArgsProvider({ children }: ICliArgsProvider): ReturnType<Reac
     forceUpdateArgs();
   }
 
+  async function readCommandLineArgsFromServer(): Promise<void> {
+    try {
+      // in headless-Modus the Express-Server is running on the same host
+      const baseUrl = window.location.origin;
+      const res = await fetch(`${baseUrl}/api/cliArgs`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const serverArgs = await res.json();
+      const newCliArgs: { [name: string]: TCliArg } = {};
+      for (const [name, value] of Object.entries(serverArgs)) {
+        newCliArgs[name] = value as TCliArg;
+      }
+      setCliArgs(newCliArgs);
+      forceUpdateArgs();
+    } catch (error) {
+      console.warn("Failed to load cliArgs from server:", error);
+    }
+  }
+
   useEffect(() => {
     if (window.commandLine) {
+      // Electron mode: read via IPC
       readCommandLineArgs();
+    } else {
+      // Headless/Browser mode: fetch from express server
+      readCommandLineArgsFromServer();
     }
-  }, [window.commandLine]);
+  }, []);
 
   const getArgument = useCallback(
     (name: string): string | boolean | number | undefined => {

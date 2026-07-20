@@ -1,6 +1,22 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import { resolve } from "node:path";
+import cliArgs from "./src/renderer/assets/cliArgs.json";
+
+function getDefaultHeadlessPort(): number {
+  return Number(cliArgs["headless-server-port"]?.default ?? 6275);
+}
+
+function getHeadlessPort(): number {
+  const defaultPort = getDefaultHeadlessPort();
+  const idx = process.argv.findIndex((a) => a.startsWith("--headless-server-port"));
+  if (idx !== -1) {
+    // Format: --headless-server-port=1234 or --headless-server-port 1234
+    const val = process.argv[idx].includes("=") ? process.argv[idx].split("=")[1] : process.argv[idx + 1];
+    return Number.parseInt(val) || defaultPort;
+  }
+  return defaultPort; // default
+}
 
 export default defineConfig({
   main: {
@@ -38,6 +54,12 @@ export default defineConfig({
     server: {
       port: 6274,
       host: true,
+      proxy: {
+        "/api": {
+          target: `http://localhost:${getHeadlessPort()}`,
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       rollupOptions: {

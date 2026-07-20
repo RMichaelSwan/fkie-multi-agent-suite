@@ -157,9 +157,7 @@ export default function NodeManager(): JSX.Element {
   const [infoStateTimer, setInfoStateTimer] = useState<NodeJS.Timeout | undefined>();
   const [currentInfoState, setCurrentInfoState] = useState<TInfoState | undefined>();
 
-  const [enablePopout, setEnablePopout] = useState<boolean>(
-    !window.commandExecutor && window.location.href.indexOf(":6275") === -1
-  );
+  const [enablePopout, setEnablePopout] = useState<boolean>(!window.commandExecutor);
 
   const modelRef = useRef<Model>(model);
   useEffect(() => {
@@ -173,7 +171,7 @@ export default function NodeManager(): JSX.Element {
 
   // enable/disable popout depending on environment
   useEffect(() => {
-    setEnablePopout(!window.commandExecutor && window.location.href.indexOf(":6275") === -1);
+    setEnablePopout(!window.commandExecutor);
   }, []);
 
   // info state queue handling

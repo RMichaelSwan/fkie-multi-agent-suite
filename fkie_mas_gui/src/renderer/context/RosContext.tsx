@@ -654,8 +654,6 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
 
   const startConfig = useCallback(
     async (config: ProviderLaunchConfiguration, connectConfig: ConnectConfig | null = null): Promise<boolean> => {
-      if (!window.commandExecutor) return false;
-
       console.log(`start provider with config: ${JSON.stringify(config)}`);
       let allStarted = true;
       try {
@@ -712,6 +710,8 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
             return true;
           }
         }
+
+        if (!window.commandExecutor) return false;
 
         // If no service is enabled, default to daemon + discovery + terminal
         if (
