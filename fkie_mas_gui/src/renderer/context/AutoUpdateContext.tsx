@@ -6,11 +6,10 @@ import GithubCredentialsDialog from "@/renderer/components/PasswordModal/GithubC
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { JSONObject, TAutoUpdateManager } from "@/types";
+import { CmdType, JSONObject, TAutoUpdateManager } from "@/types";
 import packageJson from "../../../package.json";
 import { useAppState } from "../hooks/useAppState";
 import { useSetting } from "../hooks/useSetting";
-import { CmdType } from "../providers";
 
 /**
  * Context providing automatic update management for both AppImage and Debian builds.
@@ -226,7 +225,7 @@ export const AutoUpdateProvider = ({
 
         if (!release) throw new Error(`No ${channel} release found`);
         const pkgVersion = packageJson.version;
-        console.log("Latest release:", release.name, "Current version:", pkgVersion, " data:", JSON.stringify(release) );
+        console.log("Latest release:", release.name, "Current version:", pkgVersion, " data:", JSON.stringify(release));
         const newRelease = !autoUpdateManager ? semver.gt(release.name, pkgVersion) : pkgVersion !== release.name;
         if (newRelease) {
           // build changelog for all newer versions

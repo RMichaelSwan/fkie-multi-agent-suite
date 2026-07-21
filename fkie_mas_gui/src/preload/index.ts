@@ -22,21 +22,25 @@ import {
   TAutoUpdateManager,
   TCommandExecutor,
   TCommandLine,
+  TEditorConfig,
   TEditorManager,
-  TEnvEntry,
   TerminalCloseCallback,
   TerminalManagerEvents,
   TerminateCallback,
   TFileRange,
   TLaunchArg,
+  TPublisherConfig,
   TPublishManager,
   TRosInfo,
   TServiceManager,
   TShutdownManager,
+  TSubscriberConfig,
   TSubscriberManager,
   TSystemInfo,
   TTerminalManager,
 } from "@/types";
+import { TServiceConfig } from "@/types/ServiceManager";
+import { TTerminalConfig } from "@/types/TerminalManager";
 import { contextBridge, ipcRenderer } from "electron";
 import { ConnectConfig } from "ssh2";
 
@@ -130,16 +134,8 @@ if (process.contextIsolated) {
 
     // register editor interface
     contextBridge.exposeInMainWorld("editorManager", {
-      open: (
-        id: string,
-        host: string,
-        port: number,
-        path: string,
-        rootLaunch: string,
-        fileRange: TFileRange,
-        launchArgs: TLaunchArg[]
-      ) => {
-        return ipcRenderer.invoke(EditorManagerEvents.open, id, host, port, rootLaunch, path, fileRange, launchArgs);
+      open: (props: TEditorConfig) => {
+        return ipcRenderer.invoke(EditorManagerEvents.open, props);
       },
       close: (id: string) => {
         return ipcRenderer.invoke(EditorManagerEvents.close, id);
@@ -165,8 +161,8 @@ if (process.contextIsolated) {
 
     contextBridge.exposeInMainWorld("publishManager", {
       // publisher interface
-      start: (id: string, host: string, port: number, topicName: string, topicType: string) => {
-        return ipcRenderer.invoke(PublishManagerEvents.start, id, host, port, topicName, topicType);
+      start: (props: TPublisherConfig) => {
+        return ipcRenderer.invoke(PublishManagerEvents.start, props);
       },
       close: (id: string) => {
         return ipcRenderer.invoke(PublishManagerEvents.close, id);
@@ -182,8 +178,8 @@ if (process.contextIsolated) {
 
     contextBridge.exposeInMainWorld("subscriberManager", {
       // subscriber interface
-      open: (id: string, host: string, port: number, topic: string, showOptions: boolean, noData: boolean) => {
-        return ipcRenderer.invoke(SubscriberManagerEvents.open, id, host, port, topic, showOptions, noData);
+      open: (props: TSubscriberConfig) => {
+        return ipcRenderer.invoke(SubscriberManagerEvents.open, props);
       },
       close: (id: string) => {
         return ipcRenderer.invoke(SubscriberManagerEvents.close, id);
@@ -199,15 +195,8 @@ if (process.contextIsolated) {
 
     contextBridge.exposeInMainWorld("serviceManager", {
       // service interface
-      start: (
-        id: string,
-        host: string,
-        port: number,
-        serviceName: string,
-        serviceType: string,
-        htmlName: string
-      ) => {
-        return ipcRenderer.invoke(ServiceManagerEvents.start, id, host, port, serviceName, serviceType, htmlName);
+      start: (props: TServiceConfig) => {
+        return ipcRenderer.invoke(ServiceManagerEvents.start, props);
       },
       close: (id: string) => {
         return ipcRenderer.invoke(ServiceManagerEvents.close, id);
@@ -223,17 +212,8 @@ if (process.contextIsolated) {
 
     contextBridge.exposeInMainWorld("terminalManager", {
       // terminal interface
-      open: (
-        id: string,
-        host: string,
-        port: number,
-        info: string,
-        node: string,
-        screen: string,
-        cmd: string,
-        env: TEnvEntry[]
-      ) => {
-        return ipcRenderer.invoke(TerminalManagerEvents.open, id, host, port, info, node, screen, cmd, env);
+      open: (props: TTerminalConfig) => {
+        return ipcRenderer.invoke(TerminalManagerEvents.open, props);
       },
       close: (id: string) => {
         return ipcRenderer.invoke(TerminalManagerEvents.close, id);

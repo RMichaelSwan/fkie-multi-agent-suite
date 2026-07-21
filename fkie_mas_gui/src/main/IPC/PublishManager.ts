@@ -1,8 +1,8 @@
-import { PublishCloseCallback, PublishManagerEvents, TPublishManager } from "@/types";
-import { is } from "@electron-toolkit/utils";
+import { PublishCloseCallback, PublishManagerEvents, TPublisherConfig, TPublishManager } from "@/types";
 import pubIcon from "@public/google_play_circle.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
+import { openUrl } from ".";
 import windowStateKeeper from "../windowStateKeeper";
 
 type TPublisher = {
@@ -26,19 +26,9 @@ export default class PublishManager implements TPublishManager {
     ipcMain.handle(PublishManagerEvents.close, (_event: Electron.IpcMainInvokeEvent, id: string) => {
       return this.close(id);
     });
-    ipcMain.handle(
-      PublishManagerEvents.start,
-      (
-        _event: Electron.IpcMainInvokeEvent,
-        id: string,
-        host: string,
-        port: number,
-        topicName: string,
-        topicType: string
-      ) => {
-        return this.start(id, host, port, topicName, topicType);
-      }
-    );
+    ipcMain.handle(PublishManagerEvents.start, (_event: Electron.IpcMainInvokeEvent, props: TPublisherConfig) => {
+      return this.start(props);
+    });
   }
 
   public has: (id: string) => Promise<boolean> = async (id) => {
@@ -57,16 +47,10 @@ export default class PublishManager implements TPublishManager {
     return Promise.resolve(false);
   };
 
-  public start: (
-    id: string,
-    host: string,
-    port: number,
-    topicName: string,
-    topicType: string
-  ) => Promise<string | null> = async (id, host, port, topicName, topicType) => {
-    if (this.instances[id]) {
-      this.instances[id].window.restore();
-      this.instances[id].window.focus();
+  public start: (props: TPublisherConfig) => Promise<string | null> = async (props) => {
+    if (this.instances[props.id]) {
+      this.instances[props.id].window.restore();
+      this.instances[props.id].window.focus();
       return Promise.resolve(null);
     }
 
@@ -87,7 +71,7 @@ export default class PublishManager implements TPublishManager {
         preload: join(__dirname, "../preload/index.js"),
       },
     });
-    this.instances[id] = { window: window };
+    this.instances[props.id] = { window: window };
     // Track window state
     pubWindowStateKeeper.track(window);
 
@@ -104,33 +88,19 @@ export default class PublishManager implements TPublishManager {
 
     window.on("close", async (e) => {
       // send close request to the renderer
-      if (this.instances[id]) {
+      if (this.instances[props.id]) {
         e.preventDefault();
-        this.instances[id].window.webContents.send(PublishManagerEvents.onClose, id);
+        this.instances[props.id].window.webContents.send(PublishManagerEvents.onClose, props.id);
       }
     });
 
     window.on("closed", () => {
-      delete this.instances[id];
+      delete this.instances[props.id];
     });
 
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
-    if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-      window.loadURL(
-        `${process.env.ELECTRON_RENDERER_URL}/publisher.html?id=${id}&host=${host}&port=${port}&topicName=${topicName}&topicType=${topicType}`
-      );
-    } else {
-      window.loadFile(join(__dirname, "../renderer/publisher.html"), {
-        query: {
-          id: id,
-          host: host,
-          port: `${port}`,
-          topicName: topicName,
-          topicType: `${topicType}`,
-        },
-      });
-    }
+    openUrl(window, "publisher", props);
     return Promise.resolve(null);
   };
 }

@@ -1,9 +1,10 @@
-import { TEnvEntry, TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "@/types";
-import { is } from "@electron-toolkit/utils";
+import { TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "@/types";
+import { TTerminalConfig } from "@/types/TerminalManager";
 import ioIcon from "@public/google_terminal.png?asset";
 import logIcon from "@public/google_text_snippet.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
+import { openUrl } from ".";
 import windowStateKeeper from "../windowStateKeeper";
 import { ROSInfo } from "./ROSInfo";
 
@@ -34,22 +35,9 @@ export default class TerminalManager implements TTerminalManager {
     ipcMain.handle(TerminalManagerEvents.close, (_event: Electron.IpcMainInvokeEvent, id: string) => {
       return this.close(id);
     });
-    ipcMain.handle(
-      TerminalManagerEvents.open,
-      (
-        _event: Electron.IpcMainInvokeEvent,
-        id: string,
-        host: string,
-        port: number,
-        info: string,
-        node: string,
-        screen: string,
-        cmd: string,
-        env: TEnvEntry[]
-      ) => {
-        return this.open(id, host, port, info, node, screen, cmd, env);
-      }
-    );
+    ipcMain.handle(TerminalManagerEvents.open, (_event: Electron.IpcMainInvokeEvent, props: TTerminalConfig) => {
+      return this.open(props);
+    });
   }
 
   public has: (id: string) => Promise<boolean> = async (id) => {
@@ -68,22 +56,13 @@ export default class TerminalManager implements TTerminalManager {
     return Promise.resolve(false);
   };
 
-  public open: (
-    id: string,
-    host: string,
-    port: number,
-    info: string,
-    node: string,
-    screen: string,
-    cmd: string,
-    env: TEnvEntry[]
-  ) => Promise<string | null> = async (id, host, port, info, node, screen, cmd, env) => {
+  public open: (props: TTerminalConfig) => Promise<string | null> = async (props) => {
     // if (isDebug) {
     //   await installExtensions()
     // }
-    if (this.instances[id]) {
-      this.instances[id].window.restore();
-      this.instances[id].window.focus();
+    if (this.instances[props.id]) {
+      this.instances[props.id].window.restore();
+      this.instances[props.id].window.focus();
       return Promise.resolve(null);
     }
     const editorWindowStateKeeper = await windowStateKeeper("editor");
@@ -96,14 +75,14 @@ export default class TerminalManager implements TTerminalManager {
       y: editorWindowStateKeeper.y,
       width: editorWindowStateKeeper.width,
       height: editorWindowStateKeeper.height,
-      icon: `${info}` === "log" ? logIcon : ioIcon,
+      icon: `${props.cmdType}` === "log" ? logIcon : ioIcon,
       webPreferences: {
         sandbox: false,
         nodeIntegration: true,
         preload: join(__dirname, "../preload/index.js"),
       },
     });
-    this.instances[id] = { window: window };
+    this.instances[props.id] = { window: window };
     // Track window state
     editorWindowStateKeeper.track(window);
 
@@ -120,40 +99,19 @@ export default class TerminalManager implements TTerminalManager {
 
     window.on("close", async (e) => {
       // send close request to the renderer
-      if (this.instances[id]) {
+      if (this.instances[props.id]) {
         e.preventDefault();
-        this.instances[id].window.webContents.send(TerminalManagerEvents.onClose, id);
+        this.instances[props.id].window.webContents.send(TerminalManagerEvents.onClose, props.id);
       }
     });
 
     window.on("closed", () => {
-      delete this.instances[id];
+      delete this.instances[props.id];
     });
 
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
-    if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-      const nodeStr = node ? `&node=${node}` : "";
-      const screenStr = screen ? `&screen=${screen}` : "";
-      const cmdStr = cmd ? `&cmd=${cmd}` : "";
-      const envStr = env ? `&env=${JSON.stringify(env)}` : "";
-      window.loadURL(
-        `${process.env.ELECTRON_RENDERER_URL}/terminal.html?id=${id}&host=${host}&port=${port}&info=${info}${nodeStr}${screenStr}${cmdStr}${envStr}`
-      );
-    } else {
-      window.loadFile(join(__dirname, "../renderer/terminal.html"), {
-        query: {
-          id: id,
-          host: host,
-          port: `${port}`,
-          info: `${info}`,
-          node: node,
-          screen: screen,
-          cmd: cmd,
-          env: JSON.stringify(env),
-        },
-      });
-    }
+    openUrl(window, "terminal", props);
     return Promise.resolve(null);
   };
 }

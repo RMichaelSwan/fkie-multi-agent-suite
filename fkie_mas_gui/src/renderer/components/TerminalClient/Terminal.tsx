@@ -20,8 +20,8 @@ import "@xterm/xterm/css/xterm.css";
 import React from "react";
 
 import { ISettingsContext } from "@/renderer/context/SettingsContext";
-import { CmdType } from "@/renderer/providers";
 import Provider from "@/renderer/providers/Provider";
+import { CmdType } from "@/types";
 import SearchBar from "../UI/SearchBar";
 
 enum Command {
@@ -371,14 +371,14 @@ export class Terminal extends React.Component<Props, XtermState> {
     if (!this.provider || !this.remoteProvider || this.timeSyncIterations > 5) return;
     if (await this.provider.updateTimeDiff()) {
       if (await this.remoteProvider?.updateTimeDiff()) {
-        let diff =  0;
+        let diff = 0;
         let diffInfoStr = ` - current difference ${this.remoteProvider.timeDiff.toFixed(0)}ms`;
         if (this.timeSyncIterations > 1) {
           if (Math.abs(this.remoteProvider.timeDiff) < 100) {
-            return
+            return;
           }
           diff = this.remoteProvider.timeDiff;
-          diffInfoStr = ` - add difference ${diff.toFixed(0)}ms`
+          diffInfoStr = ` - add difference ${diff.toFixed(0)}ms`;
         }
         this.socket?.send(
           this.textEncoder.encode(

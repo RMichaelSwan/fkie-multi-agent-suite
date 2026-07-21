@@ -7,8 +7,18 @@ export const ServiceManagerEvents = {
 
 export type ServiceCloseCallback = (id: string) => void;
 
+export type TServiceConfig = {
+  id: string;
+  providerId: string;
+  host: string;
+  port: number;
+  serviceName: string;
+  serviceType: string;
+  htmlName: "serviceCaller" | "serviceIntrospection" | "actionSendGoal" | "actionIntrospection"
+};
+
 export type TServiceManager = {
-  start: (id: string, host: string, port: number, serviceName: string, serviceType: string, htmlName: string) => Promise<string | null>;
+  start: (props: TServiceConfig) => Promise<string | null>;
   close: (id: string) => Promise<boolean>;
   has: (id: string) => Promise<boolean>;
   onClose: (callback: ServiceCloseCallback) => void;

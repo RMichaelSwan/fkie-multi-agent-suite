@@ -1,4 +1,13 @@
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Stack } from "@mui/material";
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Stack,
+} from "@mui/material";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useState } from "react";
 import { useCustomEventListener } from "react-custom-events";
@@ -23,6 +32,7 @@ type TLaunchInfo = {
   rootLaunch: string;
   fileRange: TFileRange | null;
   launchArgs: TLaunchArg[];
+  topLevelLaunchArgs: TLaunchArg[];
 };
 
 export default function EditorApp(): JSX.Element {
@@ -47,16 +57,21 @@ export default function EditorApp(): JSX.Element {
     const path = urlParams.get("path");
     const host = urlParams.get("host");
     const port = urlParams.get("port");
-    const rootLaunch = urlParams.get("root");
-    const range = urlParams.get("range");
+    const rootLaunch = urlParams.get("rootLaunch");
+    const range = urlParams.get("fileRange");
     const launchArgsStr = urlParams.get("launchArgs");
+    const topLevelLaunchArgsStr = urlParams.get("topLevelLaunchArgs");
     let fileRange: TFileRange | null = null;
     let launchArgs: TLaunchArg[] = [];
+    let topLevelLaunchArgs: TLaunchArg[] = [];
     if (range) {
       fileRange = JSON.parse(range);
     }
     if (launchArgsStr) {
       launchArgs = JSON.parse(launchArgsStr);
+    }
+    if (topLevelLaunchArgsStr) {
+      topLevelLaunchArgs = JSON.parse(topLevelLaunchArgsStr);
     }
     if (!host || !port) {
       logCtx.error(`invalid address ${host}:${port}`, "");
@@ -87,6 +102,7 @@ export default function EditorApp(): JSX.Element {
         rootLaunch: rootLaunch,
         fileRange: fileRange,
         launchArgs: launchArgs,
+        topLevelLaunchArgs: topLevelLaunchArgs,
       });
     } else {
       logCtx.error(`connection to ${host}:${port} failed`, "");
@@ -151,7 +167,7 @@ export default function EditorApp(): JSX.Element {
           currentFilePath={launchInfo.launch}
           fileRange={launchInfo.fileRange}
           launchArgs={launchInfo.launchArgs}
-          topLevelLaunchArgs={launchInfo.launchArgs}
+          topLevelLaunchArgs={launchInfo.topLevelLaunchArgs}
         />
       )}
       {launchInfo && dirtyModels.length > 0 && (

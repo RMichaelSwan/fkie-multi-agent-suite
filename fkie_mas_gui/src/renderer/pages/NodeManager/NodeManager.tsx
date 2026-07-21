@@ -35,10 +35,10 @@ import {
   Actions,
   BorderNode,
   DockLocation,
-  IJsonBorderNode,
+  // IJsonBorderNode,
   IJsonModel,
   IJsonRowNode,
-  IJsonTabSetNode,
+  // IJsonTabSetNode,
   ITabAttributes,
   ITabRenderValues,
   ITabSetRenderValues,
@@ -67,11 +67,12 @@ import { useSetting } from "@/renderer/hooks/useSetting";
 import { getBaseName, getFileName } from "@/renderer/models";
 import { SaveResult } from "@/renderer/monaco/types";
 import { isEditorEditorId } from "@/renderer/monaco/utils";
-import { CmdType, Provider } from "@/renderer/providers";
+import { Provider } from "@/renderer/providers";
 import { EventProviderAuthRequest } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_AUTH_REQUEST } from "@/renderer/providers/eventTypes";
 import { basename } from "@/renderer/utils";
-import { InfoStateLevel, TInfoState } from "@/types";
+import { isElectron, openBrowserSite } from "@/renderer/utils/popout";
+import { CmdType, InfoStateLevel, TInfoState } from "@/types";
 import { DEFAULT_LAYOUT, LAYOUT_TAB_LIST, LAYOUT_TAB_SETS, LAYOUT_TABS } from "./layout";
 import {
   emitSelectTab,
@@ -134,6 +135,7 @@ export default function NodeManager(): JSX.Element {
 
   const [tabFullName] = useSetting<boolean>("tabFullName");
   const [useDarkMode] = useSetting<boolean>("useDarkMode");
+  const [openAsPopout] = useSetting<boolean>("openAsPopout");
   const [resetLayout, setResetLayout] = useSetting<boolean>("resetLayout");
   const [dedicatedTabsFor, setDedicatedTabsFor] = useSetting<string>("dedicatedTabsFor");
   const [fontSize, setFontSize] = useSetting<number>("fontSize");
@@ -157,7 +159,7 @@ export default function NodeManager(): JSX.Element {
   const [infoStateTimer, setInfoStateTimer] = useState<NodeJS.Timeout | undefined>();
   const [currentInfoState, setCurrentInfoState] = useState<TInfoState | undefined>();
 
-  const [enablePopout, setEnablePopout] = useState<boolean>(!window.commandExecutor);
+  // const [enablePopout, setEnablePopout] = useState<boolean>(!window.commandExecutor);
 
   const modelRef = useRef<Model>(model);
   useEffect(() => {
@@ -170,9 +172,9 @@ export default function NodeManager(): JSX.Element {
   const layoutComponentsRef = useRef<Record<string, React.ReactNode>>({});
 
   // enable/disable popout depending on environment
-  useEffect(() => {
-    setEnablePopout(!window.commandExecutor);
-  }, []);
+  // useEffect(() => {
+  //   setEnablePopout(!window.commandExecutor);
+  // }, []);
 
   // info state queue handling
   useEffect(() => {
@@ -215,55 +217,55 @@ export default function NodeManager(): JSX.Element {
     return found.length > 0;
   }, []);
 
-  /** Disable float button if the GUI is not running in a browser */
-  const updateFloatButton = useCallback(
-    (layout: IJsonRowNode | IJsonBorderNode | IJsonTabSetNode): boolean => {
-      if (!layout.children) return false;
-      let result = false;
+  // /** Disable float button if the GUI is not running in a browser */
+  // const updateFloatButton = useCallback(
+  //   (layout: IJsonRowNode | IJsonBorderNode | IJsonTabSetNode): boolean => {
+  //     if (!layout.children) return false;
+  //     let result = false;
 
-      // biome-ignore lint/complexity/noForEach: <explanation>
-      layout.children.forEach((item) => {
-        if (item.type === "tab") {
-          if (item.enablePopout !== enablePopout) {
-            item.enablePopout = enablePopout;
-            result = true;
-          }
-          if (item.children) {
-            if (updateFloatButton(item)) {
-              result = true;
-            }
-          }
-        }
-      });
-      return result;
-    },
-    [enablePopout]
-  );
+  //     // biome-ignore lint/complexity/noForEach: <explanation>
+  //     layout.children.forEach((item) => {
+  //       if (item.type === "tab") {
+  //         if (item.enablePopout !== enablePopout) {
+  //           item.enablePopout = enablePopout;
+  //           result = true;
+  //         }
+  //         if (item.children) {
+  //           if (updateFloatButton(item)) {
+  //             result = true;
+  //           }
+  //         }
+  //       }
+  //     });
+  //     return result;
+  //   },
+  //   [enablePopout]
+  // );
 
   useEffect(() => {
     navCtx.setLayoutModel(model);
   }, [model, navCtx]);
 
-  useEffect(() => {
-    // update float button for all tabs on load or when layoutJson changes
-    let changed = updateFloatButton(layoutJson.layout);
+  // useEffect(() => {
+  //   // update float button for all tabs on load or when layoutJson changes
+  //   let changed = updateFloatButton(layoutJson.layout);
 
-    for (const border of layoutJson.borders || []) {
-      if (updateFloatButton(border)) {
-        changed = true;
-      }
-    }
-    for (const layout of layoutJson.layout.children || []) {
-      if (updateFloatButton(layout)) {
-        changed = true;
-      }
-    }
+  //   for (const border of layoutJson.borders || []) {
+  //     if (updateFloatButton(border)) {
+  //       changed = true;
+  //     }
+  //   }
+  //   for (const layout of layoutJson.layout.children || []) {
+  //     if (updateFloatButton(layout)) {
+  //       changed = true;
+  //     }
+  //   }
 
-    if (changed) {
-      setLayoutJson(layoutJson);
-      setModel(Model.fromJson(layoutJson));
-    }
-  }, [layoutJson]);
+  //   if (changed) {
+  //     setLayoutJson(layoutJson);
+  //     setModel(Model.fromJson(layoutJson));
+  //   }
+  // }, [layoutJson]);
 
   useEffect(() => {
     const needsReset = resetLayout || !hasTab(layoutJson.layout, LAYOUT_TABS.DETAILS);
@@ -382,7 +384,7 @@ export default function NodeManager(): JSX.Element {
           component: data.component,
           toNodeId: data.toNodeId,
           enableClose: data.closable,
-          enablePopout,
+          enablePopout: false,
           config: data.config,
         };
         // store react node and return it in factory()
@@ -434,7 +436,7 @@ export default function NodeManager(): JSX.Element {
           component: data.component,
           toNodeId: data.toNodeId,
           enableClose: data.closable,
-          enablePopout: enablePopout,
+          enablePopout: false,
           config: data.config,
         };
         if (data.config?.reactNode) {
@@ -713,8 +715,8 @@ export default function NodeManager(): JSX.Element {
             key={config.actionConfig.id}
             showOptions={true}
             providerId={config.actionConfig.providerId}
-            actionName={config.actionConfig.actionName}
-            actionType={config.actionConfig.actionType}
+            actionName={config.actionConfig.serviceName}
+            actionType={config.actionConfig.serviceType}
           />
         );
       }
@@ -730,8 +732,8 @@ export default function NodeManager(): JSX.Element {
           <ActionIntrospectionPanel
             key={config.actionIntrospectionConfig.id}
             providerId={config.actionIntrospectionConfig.providerId}
-            actionName={config.actionIntrospectionConfig.actionName}
-            actionType={config.actionIntrospectionConfig.actionType}
+            actionName={config.actionIntrospectionConfig.serviceName}
+            actionType={config.actionIntrospectionConfig.serviceType}
           />
         );
       }
@@ -799,19 +801,23 @@ export default function NodeManager(): JSX.Element {
       config.env
     );
 
-    try {
-      window.commandExecutor?.execTerminal(
-        provider.isLocalHost ? null : { host: provider.host() },
-        `"${config.type} ${config.nodeName}@${provider.host()}"`,
-        terminalCmd.cmd
-      );
-      deleteTab(tabNodeId);
-    } catch (error) {
-      logCtx.error(
-        `Can't open external terminal for ${config.nodeName}`,
-        JSON.stringify(error),
-        "not external terminal"
-      );
+    if (!isElectron()) {
+      openBrowserSite("terminal", tabNodeId, terminalCmd, openAsPopout);
+    } else {
+      try {
+        window.commandExecutor?.execTerminal(
+          provider.isLocalHost ? null : { host: provider.host() },
+          `"${config.type} ${config.nodeName}@${provider.host()}"`,
+          terminalCmd.cmd
+        );
+        deleteTab(tabNodeId);
+      } catch (error) {
+        logCtx.error(
+          `Can't open external terminal for ${config.nodeName}`,
+          JSON.stringify(error),
+          "not external terminal"
+        );
+      }
     }
   }
 
@@ -922,7 +928,7 @@ export default function NodeManager(): JSX.Element {
         }
 
         // add "open externally" button if supported
-        if (node.getConfig()?.openExternal && window.commandExecutor) {
+        if (node.getConfig()?.openExternal) {
           renderNameValues.buttons.push(
             <Tooltip
               key={`button-close-${node.getId()}`}
@@ -941,95 +947,82 @@ export default function NodeManager(): JSX.Element {
                     openExternalTerminal(cfg.extTerminalConfig, node.getId());
                   }
                   if (cfg.editorConfig) {
-                    const ecfg = cfg.editorConfig;
-                    window.editorManager?.open(
-                      ecfg.id,
-                      ecfg.host,
-                      ecfg.port,
-                      ecfg.path,
-                      ecfg.rootLaunch,
-                      ecfg.fileRange,
-                      ecfg.launchArgs
-                    );
+                    if (!isElectron()) {
+                      openBrowserSite("editor", node.getId(), cfg.editorConfig, openAsPopout);
+                    } else {
+                      window.editorManager?.open(cfg.editorConfig);
+                    }
                     deleteTab(node.getId());
                   }
                   if (cfg.publisherConfig) {
-                    const pcfg = cfg.publisherConfig;
-                    window.publishManager?.start(pcfg.id, pcfg.host, pcfg.port, pcfg.topicName, pcfg.topicType);
+                    if (!isElectron()) {
+                      openBrowserSite("publisher", node.getId(), cfg.publisherConfig, openAsPopout);
+                    } else {
+                      window.publishManager?.start(cfg.publisherConfig);
+                    }
                     deleteTab(node.getId());
                   }
                   if (cfg.subscriberConfig) {
-                    const scfg = cfg.subscriberConfig;
-                    window.subscriberManager?.open(
-                      scfg.id,
-                      scfg.host,
-                      scfg.port,
-                      scfg.topic,
-                      scfg.showOptions,
-                      scfg.noData
-                    );
+                    if (!isElectron()) {
+                      openBrowserSite("publisher", node.getId(), cfg.subscriberConfig, openAsPopout);
+                    } else {
+                      window.subscriberManager?.open(cfg.subscriberConfig);
+                    }
                     deleteTab(node.getId());
                   }
                   if (cfg.serviceCallerConfig) {
-                    const scfg = cfg.serviceCallerConfig;
-                    window.serviceManager?.start(
-                      scfg.id,
-                      scfg.host,
-                      scfg.port,
-                      scfg.serviceName,
-                      scfg.serviceType,
-                      "serviceCaller.html"
-                    );
+                    if (!isElectron()) {
+                      openBrowserSite(
+                        cfg.serviceCallerConfig.htmlName,
+                        node.getId(),
+                        cfg.serviceCallerConfig,
+                        openAsPopout
+                      );
+                    } else {
+                      window.serviceManager?.start(cfg.serviceCallerConfig);
+                    }
                     deleteTab(node.getId());
                   }
                   if (cfg.serviceIntrospectionConfig) {
-                    const scfg = cfg.serviceIntrospectionConfig;
-                    window.serviceManager?.start(
-                      scfg.id,
-                      scfg.host,
-                      scfg.port,
-                      scfg.serviceName,
-                      scfg.serviceType,
-                      "serviceIntrospection.html"
-                    );
+                    if (!isElectron()) {
+                      openBrowserSite(
+                        cfg.serviceIntrospectionConfig.htmlName,
+                        node.getId(),
+                        cfg.serviceIntrospectionConfig,
+                        openAsPopout
+                      );
+                    } else {
+                      window.serviceManager?.start(cfg.serviceIntrospectionConfig);
+                    }
                     deleteTab(node.getId());
                   }
                   if (cfg.actionConfig) {
-                    const acfg = cfg.actionConfig;
-                    window.serviceManager?.start(
-                      acfg.id,
-                      acfg.host,
-                      acfg.port,
-                      acfg.actionName,
-                      acfg.actionType,
-                      "actionSendGoal.html"
-                    );
+                    if (!isElectron()) {
+                      openBrowserSite(cfg.actionConfig.htmlName, node.getId(), cfg.actionConfig, openAsPopout);
+                    } else {
+                      window.serviceManager?.start(cfg.actionConfig);
+                    }
                     deleteTab(node.getId());
                   }
                   if (cfg.actionIntrospectionConfig) {
-                    const acfg = cfg.actionIntrospectionConfig;
-                    window.serviceManager?.start(
-                      acfg.id,
-                      acfg.host,
-                      acfg.port,
-                      acfg.actionName,
-                      acfg.actionType,
-                      "actionIntrospection.html"
-                    );
+                    if (!isElectron()) {
+                      openBrowserSite(
+                        cfg.actionIntrospectionConfig.htmlName,
+                        node.getId(),
+                        cfg.actionIntrospectionConfig,
+                        openAsPopout
+                      );
+                    } else {
+                      window.serviceManager?.start(cfg.actionIntrospectionConfig);
+                    }
                     deleteTab(node.getId());
                   }
                   if (cfg.terminalConfig) {
-                    const tcfg = cfg.terminalConfig;
-                    window.terminalManager?.open(
-                      tcfg.id,
-                      tcfg.host,
-                      tcfg.port,
-                      `${tcfg.cmdType}`,
-                      tcfg.node,
-                      tcfg.screen,
-                      tcfg.cmd,
-                      tcfg.env
-                    );
+                    if (!isElectron()) {
+                      openBrowserSite("terminal", node.getId(), cfg.terminalConfig, openAsPopout);
+                    } else {
+                      window.terminalManager?.open(cfg.terminalConfig);
+                    }
                     deleteTab(node.getId());
                   }
 

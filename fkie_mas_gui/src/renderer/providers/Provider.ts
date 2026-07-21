@@ -1,4 +1,5 @@
 import {
+  CmdType,
   envEntryToExportStr,
   envEntryToStr,
   JSONObject,
@@ -60,7 +61,6 @@ import {
 import { parseDiagnostics } from "../models/Diagnostics";
 import { envFromSystemEnv } from "../models/ProviderLaunchConfiguration";
 import { delay, generateUniqueId } from "../utils";
-import CmdType from "./CmdType";
 import ConnectionState from "./ConnectionState";
 import ProviderConnection, { TProviderTimestamp, TResultClearPath, TResultStartNode } from "./ProviderConnection";
 import RosProviderState from "./RosProviderState";

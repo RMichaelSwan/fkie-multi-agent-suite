@@ -43,12 +43,11 @@ import {
   TEventKillNodes,
   TEventShowScreens,
 } from "@/renderer/pages/NodeManager/layout/events";
-import { CmdType } from "@/renderer/providers";
 import { ConnectionState, EventProviderRestartNodes } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_RESTART_NODES } from "@/renderer/providers/eventTypes";
 import { TResultClearPath } from "@/renderer/providers/ProviderConnection";
 import { findIn } from "@/renderer/utils/index";
-import { TFileRange } from "@/types";
+import { CmdType, TFileRange } from "@/types";
 import { contentToId, TContentId } from "../layout/LayoutTabConfig";
 
 type TProviderNodes = {

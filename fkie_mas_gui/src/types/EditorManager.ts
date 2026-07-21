@@ -20,16 +20,20 @@ export type FileRangeCallback = (
 
 export type EditorCloseCallback = (editorId: string) => void;
 
+export type TEditorConfig = {
+  id: string;
+  providerId: string;
+  host: string;
+  port: number;
+  rootLaunch: string;
+  path: string;
+  fileRange: TFileRange | null;
+  launchArgs: TLaunchArg[];
+  topLevelLaunchArgs: TLaunchArg[];
+};
+
 export type TEditorManager = {
-  open: (
-    id: string,
-    host: string,
-    port: number,
-    path: string,
-    rootLaunch: string,
-    fileRange: TFileRange | null,
-    launchArgs: TLaunchArg[]
-  ) => Promise<string | null>;
+  open: (props: TEditorConfig) => Promise<string | null>;
 
   close: (id: string) => Promise<boolean>;
 

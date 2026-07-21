@@ -1,15 +1,16 @@
 import {
-    EditorCloseCallback,
-    EditorManagerEvents,
-    FileRangeCallback,
-    TEditorManager,
-    TFileRange,
-    TLaunchArg,
+  EditorCloseCallback,
+  EditorManagerEvents,
+  FileRangeCallback,
+  TEditorConfig,
+  TEditorManager,
+  TFileRange,
+  TLaunchArg,
 } from "@/types";
-import { is } from "@electron-toolkit/utils";
 import editorIcon from "@public/google_edit_document.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
+import { openUrl } from ".";
 import windowStateKeeper from "../windowStateKeeper";
 
 type TEditor = {
@@ -34,21 +35,9 @@ export default class EditorManager implements TEditorManager {
     ipcMain.handle(EditorManagerEvents.has, (_event: Electron.IpcMainInvokeEvent, id: string) => {
       return this.has(id);
     });
-    ipcMain.handle(
-      EditorManagerEvents.open,
-      (
-        _event: Electron.IpcMainInvokeEvent,
-        id: string,
-        host: string,
-        port: number,
-        rootLaunch: string,
-        launchFile: string,
-        fileRange: TFileRange,
-        launchArgs: TLaunchArg[]
-      ) => {
-        return this.open(id, host, port, rootLaunch, launchFile, fileRange, launchArgs);
-      }
-    );
+    ipcMain.handle(EditorManagerEvents.open, (_event: Electron.IpcMainInvokeEvent, props: TEditorConfig) => {
+      return this.open(props);
+    });
     ipcMain.handle(EditorManagerEvents.close, (_event: Electron.IpcMainInvokeEvent, id: string) => {
       return this.close(id);
     });
@@ -117,19 +106,17 @@ export default class EditorManager implements TEditorManager {
     return Promise.resolve(false);
   };
 
-  public open: (
-    id: string,
-    host: string,
-    port: number,
-    path: string,
-    launchFile: string,
-    fileRange: TFileRange | null,
-    launchArgs: TLaunchArg[]
-  ) => Promise<string | null> = async (id, host, port, path, launchFile, fileRange, launchArgs) => {
-    if (this.editors[id]) {
-      this.editors[id].window.restore();
-      this.editors[id].window.focus();
-      this.editors[id].window.webContents.send(EditorManagerEvents.onFileRange, id, path, fileRange, launchArgs);
+  public open: (props: TEditorConfig) => Promise<string | null> = async (props) => {
+    if (this.editors[props.id]) {
+      this.editors[props.id].window.restore();
+      this.editors[props.id].window.focus();
+      this.editors[props.id].window.webContents.send(
+        EditorManagerEvents.onFileRange,
+        props.id,
+        props.path,
+        props.fileRange,
+        props.launchArgs
+      );
       return Promise.resolve(null);
     }
 
@@ -150,7 +137,7 @@ export default class EditorManager implements TEditorManager {
         preload: join(__dirname, "../preload/index.js"),
       },
     });
-    this.editors[id] = { window: editorWindow, changed: [] };
+    this.editors[props.id] = { window: editorWindow, changed: [] };
     // Track window state
     editorWindowStateKeeper.track(editorWindow);
 
@@ -168,35 +155,16 @@ export default class EditorManager implements TEditorManager {
     editorWindow.on("close", async (e) => {
       // send close request to the renderer
       e.preventDefault();
-      this.editors[id].window.webContents.send(EditorManagerEvents.onClose, id);
+      this.editors[props.id].window.webContents.send(EditorManagerEvents.onClose, props.id);
     });
 
     editorWindow.on("closed", () => {
-      delete this.editors[id];
+      delete this.editors[props.id];
     });
 
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
-    if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-      // const fileRangeStr=`&sl=${fileRange.startLineNumber}&el=${fileRange.endLineNumber}&sc=${fileRange.startColumn}&ec=${fileRange.endColumn}`
-      const fileRangeStr = fileRange ? `&range=${JSON.stringify(fileRange)}` : "";
-      const launchArgsStr = launchArgs ? `&launchArgs=${JSON.stringify(launchArgs)}` : "";
-      editorWindow.loadURL(
-        `${process.env.ELECTRON_RENDERER_URL}/editor.html?id=${id}&host=${host}&port=${port}&root=${path}&path=${launchFile}${fileRangeStr}${launchArgsStr}`
-      );
-    } else {
-      editorWindow.loadFile(join(__dirname, "../renderer/editor.html"), {
-        query: {
-          id: id,
-          host: host,
-          port: `${port}`,
-          root: path,
-          path: launchFile,
-          range: `${JSON.stringify(fileRange)}`,
-          launchArgs: `${JSON.stringify(launchArgs)}`,
-        },
-      });
-    }
+    openUrl(editorWindow, "editor", props);
     return Promise.resolve(null);
   };
 }

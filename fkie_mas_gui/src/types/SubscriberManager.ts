@@ -7,15 +7,18 @@ export const SubscriberManagerEvents = {
 
 export type SubscriberCloseCallback = (editorId: string) => void;
 
+export type TSubscriberConfig = {
+  id: string;
+  providerId: string;
+  host: string;
+  port: number;
+  topic: string;
+  showOptions: boolean;
+  noData: boolean;
+};
+
 export type TSubscriberManager = {
-  open: (
-    id: string,
-    host: string,
-    port: number,
-    topic: string,
-    showOptions: boolean,
-    noData: boolean
-  ) => Promise<string | null>;
+  open: (props: TSubscriberConfig) => Promise<string | null>;
   close: (id: string) => Promise<boolean>;
   has: (id: string) => Promise<boolean>;
   onClose: (callback: SubscriberCloseCallback) => void;

@@ -5,9 +5,8 @@ import { useAlwaysCurrentRef } from "@/renderer/hooks/useAlwaysCurrentRef";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
-import { TEnvEntry } from "@/types";
+import { CmdType, cmdTypeFromString, TEnvEntry } from "@/types";
 import SingleTerminalPanel from "../../pages/NodeManager/panels/SingleTerminalPanel";
-import { CmdType, cmdTypeFromString } from "../../providers";
 import TerminalProvider from "../../providers/TerminalProvider";
 
 interface ITerminalInfo {
@@ -36,7 +35,7 @@ export default function TerminalApp(): JSX.Element {
     const id = urlParams.get("id");
     const host = urlParams.get("host");
     const port = urlParams.get("port");
-    const info = urlParams.get("info");
+    const info = urlParams.get("cmdType");
     const node = urlParams.get("node");
     const screen = urlParams.get("screen");
     const cmd = urlParams.get("cmd");

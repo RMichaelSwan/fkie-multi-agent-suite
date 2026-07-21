@@ -7,8 +7,17 @@ export const PublishManagerEvents = {
 
 export type PublishCloseCallback = (editorId: string) => void;
 
+export type TPublisherConfig = {
+  id: string;
+  providerId: string;
+  host: string;
+  port: number;
+  topicName: string;
+  topicType: string;
+};
+
 export type TPublishManager = {
-  start: (id: string, host: string, port: number, topicName: string, topicType: string) => Promise<string | null>;
+  start: (props: TPublisherConfig) => Promise<string | null>;
   close: (id: string) => Promise<boolean>;
   has: (id: string) => Promise<boolean>;
   onClose: (callback: PublishCloseCallback) => void;

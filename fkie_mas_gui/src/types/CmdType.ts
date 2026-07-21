@@ -1,4 +1,4 @@
-export default class CmdType extends String {
+export class CmdType extends String {
   static CMD = new CmdType("cmd");
 
   static SCREEN = new CmdType("screen");

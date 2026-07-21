@@ -92,6 +92,11 @@ const startServer = async (): Promise<void> => {
 
   serverApp.listen(headlessServerPort);
 
+  // serverApp.use((req, _res, next) => {
+  //   console.log(`${new Date().toISOString()} ${req.method} ${req.url} from ${req.ip}`);
+  //   next();
+  // });
+
   serverApp.get("/", async (_req, res) => {
     const filePath = `${dirPrefix}/index.html`;
     const realPath = fs.realpathSync(path.resolve(filePath));

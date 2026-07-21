@@ -7,17 +7,30 @@ import {
   AuUpdateErrorCallback,
   TAutoUpdateManager,
 } from "./AutoUpdateManager";
+import { CmdType, cmdTypeFromString } from "./CmdType";
 import { CommandExecutorEvents, TCommandExecutor } from "./CommandExecutor";
 import { CommandLineEvents, TCommandLine } from "./CommandLine";
 import { DialogManagerEvents, TDialogManager } from "./DialogManager";
-import { EditorCloseCallback, EditorManagerEvents, FileRangeCallback, TEditorManager } from "./EditorManager";
+import {
+  EditorCloseCallback,
+  EditorManagerEvents,
+  FileRangeCallback,
+  TEditorConfig,
+  TEditorManager,
+} from "./EditorManager";
 import { TFileRange } from "./FileRange";
 import JSONObject, { JSONValue } from "./JsonObject";
 import { TLaunchArg } from "./LaunchArg";
-import { PublishCloseCallback, PublishManagerEvents, TPublishManager } from "./PublishManager";
+import { PopoutParams } from "./PopoutParams";
+import { PublishCloseCallback, PublishManagerEvents, TPublisherConfig, TPublishManager } from "./PublishManager";
 import { ServiceCloseCallback, ServiceManagerEvents, TServiceManager } from "./ServiceManager";
 import { ShutdownManagerEvents, TerminateCallback, TShutdownManager } from "./ShutdownManager";
-import { SubscriberCloseCallback, SubscriberManagerEvents, TSubscriberManager } from "./SubscriberManager";
+import {
+  SubscriberCloseCallback,
+  SubscriberManagerEvents,
+  TSubscriberConfig,
+  TSubscriberManager,
+} from "./SubscriberManager";
 import { envEntryToExportStr, envEntryToStr, TEnvEntry } from "./TEnvEntry";
 import { TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "./TerminalManager";
 import { InfoStateLevel, TInfoState } from "./TInfoState";
@@ -31,6 +44,8 @@ import { TTag } from "./TTag";
 
 export {
   AutoUpdateManagerEvents,
+  CmdType,
+  cmdTypeFromString,
   CommandExecutorEvents,
   CommandLineEvents,
   DialogManagerEvents,
@@ -54,6 +69,7 @@ export type {
   FileRangeCallback,
   JSONObject,
   JSONValue,
+  PopoutParams,
   PublishCloseCallback,
   ServiceCloseCallback,
   SubscriberCloseCallback,
@@ -61,6 +77,7 @@ export type {
   TCommandExecutor,
   TCommandLine,
   TDialogManager,
+  TEditorConfig,
   TEditorManager,
   TEnvEntry,
   TerminalCloseCallback,
@@ -68,6 +85,7 @@ export type {
   TFileRange,
   TInfoState,
   TLaunchArg,
+  TPublisherConfig,
   TPublishManager,
   TResult,
   TResultData,
@@ -76,6 +94,7 @@ export type {
   TRosMessageStruct,
   TServiceManager,
   TShutdownManager,
+  TSubscriberConfig,
   TSubscriberManager,
   TSystemInfo,
   TTag,

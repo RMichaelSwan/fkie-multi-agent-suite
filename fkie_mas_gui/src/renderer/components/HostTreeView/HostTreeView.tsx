@@ -12,10 +12,11 @@ import { getFileName, LaunchContent, LaunchFile, RosNode, RosNodeStatus } from "
 import { LAYOUT_TABS } from "@/renderer/pages/NodeManager/layout";
 import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import InfoNoRunningDaemons from "@/renderer/pages/NodeManager/panels/InfoNoRunningDaemons";
-import { CmdType, Provider } from "@/renderer/providers";
+import { Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_LAUNCH_LOADED } from "@/renderer/providers/eventTypes";
 import { EventProviderLaunchLoaded } from "@/renderer/providers/events";
 import { generateUniqueId, idFromDDSLocations, nodeNameWithoutNamespace, removeDDSuid } from "@/renderer/utils";
+import { CmdType } from "@/types";
 import { alpha, Box, Stack } from "@mui/material";
 import GroupItem, { GroupIcon, MultiScreenIcon, NodesCount } from "./GroupItem";
 import HostItem from "./HostItem";

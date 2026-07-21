@@ -35,13 +35,14 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { RosNode } from "@/renderer/models";
-import { CmdType, ConnectionState, Provider } from "@/renderer/providers";
+import { ConnectionState, Provider } from "@/renderer/providers";
 import {
   EVENT_PROVIDER_ACTIVITY,
   EVENT_PROVIDER_DELAY,
   EVENT_PROVIDER_STATE,
   EVENT_PROVIDER_WARNINGS,
 } from "@/renderer/providers/eventTypes";
+import { CmdType } from "@/types";
 import { LAYOUT_TABS } from "../layout";
 import { emitSelectTab } from "../layout/events";
 import { EMenuProvider } from "./OverflowMenuProvider";

@@ -1,3 +1,4 @@
+import { CmdType } from "@/types";
 import { TEnvEntry } from "./TEnvEntry";
 
 export const TerminalManagerEvents = {
@@ -9,17 +10,20 @@ export const TerminalManagerEvents = {
 
 export type TerminalCloseCallback = (editorId: string) => void;
 
+export type TTerminalConfig = {
+  id: string;
+  providerId: string;
+  host: string;
+  port: number;
+  cmdType: CmdType;
+  node: string;
+  screen: string;
+  cmd: string;
+  env: TEnvEntry[];
+};
+
 export type TTerminalManager = {
-  open: (
-    id: string,
-    host: string,
-    port: number,
-    info: string,
-    node: string,
-    screen: string,
-    cmd: string,
-    env: TEnvEntry[]
-  ) => Promise<string | null>;
+  open: (props: TTerminalConfig) => Promise<string | null>;
   close: (id: string) => Promise<boolean>;
   has: (id: string) => Promise<boolean>;
   onClose: (callback: TerminalCloseCallback) => void;

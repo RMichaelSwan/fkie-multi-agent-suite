@@ -6,11 +6,13 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { getBaseName } from "@/renderer/models";
 import { emitEditorSelectRange, emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { xor } from "@/renderer/utils/index";
-import { TFileRange, TLaunchArg } from "@/types";
+import { CmdType, TEditorConfig, TFileRange, TLaunchArg, TPublisherConfig, TSubscriberConfig } from "@/types";
+import { TServiceConfig } from "@/types/ServiceManager";
+import { TTerminalConfig } from "@/types/TerminalManager";
 import { useSetting } from "../hooks/useSetting";
 import { createEditorId } from "../monaco/utils";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../pages/NodeManager/layout";
-import { CmdType } from "../providers";
+import { isElectron, openBrowserSite } from "../utils/popout";
 
 export type TNavSelection = {
   triggerId: string;
@@ -99,6 +101,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
   const [serviceOpenExternal] = useSetting<boolean>("serviceOpenExternal");
   const [screenOpenExternal] = useSetting<boolean>("screenOpenExternal");
   const [logOpenExternal] = useSetting<boolean>("logOpenExternal");
+  const [openAsPopout] = useSetting<boolean>("openAsPopout");
 
   const [selection, setSelection] = useState<TNavSelection>(NO_SELECTION);
 
@@ -169,17 +172,25 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         window.editorManager?.emitFileRange(id, path, fileRange, launchArgs);
         return;
       }
+      const editorProps: TEditorConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        path,
+        rootLaunch,
+        fileRange,
+        launchArgs,
+        topLevelLaunchArgs,
+      };
+
+      if (openExternal && !isElectron()) {
+        openBrowserSite("editor", id, editorProps, openAsPopout);
+        return;
+      }
 
       if (openExternal && window.editorManager) {
-        window.editorManager.open(
-          id,
-          provider.connection.host,
-          provider.connection.port,
-          path,
-          rootLaunch,
-          fileRange,
-          launchArgs
-        );
+        window.editorManager.open(editorProps);
         return;
       }
       emitEditorSelectRange({
@@ -197,17 +208,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         config: {
           contentId: { domainId: provider.connection.domainId },
           openExternal: true,
-          editorConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            rootLaunch,
-            path,
-            fileRange,
-            launchArgs,
-            topLevelLaunchArgs,
-          },
+          editorConfig: editorProps,
         },
       });
     },
@@ -248,8 +249,22 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
+      const publisherProps: TPublisherConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        topicName: topic,
+        topicType: type,
+      };
+
+      if (openExternal && !isElectron()) {
+        openBrowserSite("publisher", id, publisherProps, openAsPopout);
+        return;
+      }
+
       if (window.publishManager && (openExternal || (await window.publishManager?.has(id)))) {
-        window.publishManager.start(id, provider.connection.host, provider.connection.port, topic, type);
+        window.publishManager.start(publisherProps);
         return;
       }
 
@@ -261,14 +276,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS[publisherOpenLocation],
         config: {
           openExternal: true,
-          publisherConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            topicName: topic,
-            topicType: type,
-          },
+          publisherConfig: publisherProps,
         },
       });
     },
@@ -308,15 +316,23 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
+      const subscriberProps: TSubscriberConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        topic,
+        showOptions,
+        noData: defaultNoData,
+      };
+
+      if (openExternal && !isElectron()) {
+        openBrowserSite("subscriber", id, subscriberProps, openAsPopout);
+        return;
+      }
+
       if (window.subscriberManager && (openExternal || (await window.subscriberManager?.has(id)))) {
-        window.subscriberManager.open(
-          id,
-          provider.connection.host,
-          provider.connection.port,
-          topic,
-          showOptions,
-          defaultNoData
-        );
+        window.subscriberManager.open(subscriberProps);
         return;
       }
 
@@ -328,15 +344,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS[subscriberOpenLocation],
         config: {
           openExternal: true,
-          subscriberConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            topic,
-            showOptions,
-            noData: defaultNoData,
-          },
+          subscriberConfig: subscriberProps,
         },
       });
     },
@@ -371,15 +379,23 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       //   return;
       // }
 
+      const serviceProps: TServiceConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        serviceName: topic,
+        serviceType: type,
+        htmlName: "serviceCaller",
+      };
+
+      if (openExternal && !isElectron()) {
+        openBrowserSite(serviceProps.htmlName, id, serviceProps, openAsPopout);
+        return;
+      }
+
       if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
-        window.serviceManager.start(
-          id,
-          provider.connection.host,
-          provider.connection.port,
-          topic,
-          type,
-          "serviceCaller.html"
-        );
+        window.serviceManager.start(serviceProps);
         return;
       }
 
@@ -391,14 +407,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
         config: {
           openExternal: true,
-          serviceCallerConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            serviceName: topic,
-            serviceType: type,
-          },
+          serviceCallerConfig: serviceProps,
         },
       });
     },
@@ -415,15 +424,22 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       const id = `service-introspection-${provider.connection.host}-${provider.connection.port}-${topic}`;
       const openExternal = xor(serviceOpenExternal, args.externalKeyModifier) && !layoutModel?.getNodeById(id);
 
+      const serviceProps: TServiceConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        serviceName: topic,
+        serviceType: type,
+        htmlName: "serviceIntrospection",
+      };
+
+      if (openExternal && !isElectron()) {
+        openBrowserSite(serviceProps.htmlName, id, serviceProps, openAsPopout);
+        return;
+      }
       if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
-        window.serviceManager.start(
-          id,
-          provider.connection.host,
-          provider.connection.port,
-          topic,
-          type,
-          "serviceIntrospection.html"
-        );
+        window.serviceManager.start(serviceProps);
         return;
       }
 
@@ -435,14 +451,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
         config: {
           openExternal: true,
-          serviceIntrospectionConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            serviceName: topic,
-            serviceType: type,
-          },
+          serviceIntrospectionConfig: serviceProps,
         },
       });
     },
@@ -459,15 +468,22 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       const id = `action-get-goal-${provider.connection.host}-${provider.connection.port}-${topic}`;
       const openExternal = xor(serviceOpenExternal, args.externalKeyModifier) && !layoutModel?.getNodeById(id);
 
+      const serviceProps: TServiceConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        serviceName: topic,
+        serviceType: type,
+        htmlName: "actionSendGoal",
+      };
+
+      if (openExternal && !isElectron()) {
+        openBrowserSite(serviceProps.htmlName, id, serviceProps, openAsPopout);
+        return;
+      }
       if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
-        window.serviceManager.start(
-          id,
-          provider.connection.host,
-          provider.connection.port,
-          topic,
-          type,
-          "actionSendGoal.html"
-        );
+        window.serviceManager.start(serviceProps);
         return;
       }
 
@@ -479,14 +495,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
         config: {
           openExternal: true,
-          actionConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            actionName: topic,
-            actionType: type,
-          },
+          actionConfig: serviceProps,
         },
       });
     },
@@ -503,15 +512,22 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       const id = `action-introspection-${provider.connection.host}-${provider.connection.port}-${topic}`;
       const openExternal = xor(serviceOpenExternal, args.externalKeyModifier) && !layoutModel?.getNodeById(id);
 
+      const serviceProps: TServiceConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        serviceName: topic,
+        serviceType: type,
+        htmlName: "actionIntrospection",
+      };
+
+      if (openExternal && !isElectron()) {
+        openBrowserSite(serviceProps.htmlName, id, serviceProps, openAsPopout);
+        return;
+      }
       if (window.serviceManager && (openExternal || (await window.serviceManager?.has(id)))) {
-        window.serviceManager.start(
-          id,
-          provider.connection.host,
-          provider.connection.port,
-          topic,
-          type,
-          "actionIntrospection.html"
-        );
+        window.serviceManager.start(serviceProps);
         return;
       }
 
@@ -523,14 +539,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         toNodeId: LAYOUT_TAB_SETS.BORDER_RIGHT,
         config: {
           openExternal: true,
-          actionIntrospectionConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            actionName: topic,
-            actionType: type,
-          },
+          actionIntrospectionConfig: serviceProps,
         },
       });
     },
@@ -580,17 +589,24 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         return;
       }
 
+      const terminalProps: TTerminalConfig = {
+        id,
+        providerId: provider.id,
+        host: provider.connection.host,
+        port: provider.connection.port,
+        cmdType: type,
+        node,
+        screen,
+        cmd,
+        env,
+      };
+      if (openExternal && !isElectron()) {
+        openBrowserSite("terminal", id, terminalProps, openAsPopout);
+        return;
+      }
+
       if (window.terminalManager && (openExternal || (await window.terminalManager?.has(id)))) {
-        window.terminalManager.open(
-          id,
-          provider.connection.host,
-          provider.connection.port,
-          `${type}`,
-          node,
-          screen,
-          cmd,
-          env
-        );
+        window.terminalManager.open(terminalProps);
         return;
       }
 
@@ -603,17 +619,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         config: {
           openExternal: !noPopout,
           terminalType: type,
-          terminalConfig: {
-            id,
-            providerId: provider.id,
-            host: provider.connection.host,
-            port: provider.connection.port,
-            cmdType: type,
-            node,
-            screen,
-            cmd,
-            env,
-          },
+          terminalConfig: terminalProps,
         },
       });
     },

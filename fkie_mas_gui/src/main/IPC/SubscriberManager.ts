@@ -1,8 +1,8 @@
-import { SubscriberCloseCallback, SubscriberManagerEvents, TSubscriberManager } from "@/types";
-import { is } from "@electron-toolkit/utils";
+import { SubscriberCloseCallback, SubscriberManagerEvents, TSubscriberConfig, TSubscriberManager } from "@/types";
 import subIcon from "@public/google_chat_bubble.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
+import { openUrl } from ".";
 import windowStateKeeper from "../windowStateKeeper";
 
 type TSubscriber = {
@@ -26,20 +26,9 @@ export default class SubscriberManager implements TSubscriberManager {
     ipcMain.handle(SubscriberManagerEvents.close, (_event: Electron.IpcMainInvokeEvent, id: string) => {
       return this.close(id);
     });
-    ipcMain.handle(
-      SubscriberManagerEvents.open,
-      (
-        _event: Electron.IpcMainInvokeEvent,
-        id: string,
-        host: string,
-        port: number,
-        topic: string,
-        showOptions: boolean,
-        noData: boolean
-      ) => {
-        return this.open(id, host, port, topic, showOptions, noData);
-      }
-    );
+    ipcMain.handle(SubscriberManagerEvents.open, (_event: Electron.IpcMainInvokeEvent, props: TSubscriberConfig) => {
+      return this.open(props);
+    });
   }
 
   public has: (id: string) => Promise<boolean> = async (id) => {
@@ -58,17 +47,10 @@ export default class SubscriberManager implements TSubscriberManager {
     return Promise.resolve(false);
   };
 
-  public open: (
-    id: string,
-    host: string,
-    port: number,
-    topic: string,
-    showOptions: boolean,
-    noData: boolean
-  ) => Promise<string | null> = async (id, host, port, topic, showOptions, noData) => {
-    if (this.instances[id]) {
-      this.instances[id].window.restore();
-      this.instances[id].window.focus();
+  public open: (props: TSubscriberConfig) => Promise<string | null> = async (props) => {
+    if (this.instances[props.id]) {
+      this.instances[props.id].window.restore();
+      this.instances[props.id].window.focus();
       return Promise.resolve(null);
     }
 
@@ -89,7 +71,7 @@ export default class SubscriberManager implements TSubscriberManager {
         preload: join(__dirname, "../preload/index.js"),
       },
     });
-    this.instances[id] = { window: window };
+    this.instances[props.id] = { window: window };
     // Track window state
     editorWindowStateKeeper.track(window);
 
@@ -106,34 +88,19 @@ export default class SubscriberManager implements TSubscriberManager {
 
     window.on("close", async (e) => {
       // send close request to the renderer
-      if (this.instances[id]) {
+      if (this.instances[props.id]) {
         e.preventDefault();
-        this.instances[id].window.webContents.send(SubscriberManagerEvents.onClose, id);
+        this.instances[props.id].window.webContents.send(SubscriberManagerEvents.onClose, props.id);
       }
     });
 
     window.on("closed", () => {
-      delete this.instances[id];
+      delete this.instances[props.id];
     });
 
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
-    if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-      window.loadURL(
-        `${process.env.ELECTRON_RENDERER_URL}/subscriber.html?id=${id}&host=${host}&port=${port}&topic=${topic}&showOptions=${showOptions}&noData=${noData}`
-      );
-    } else {
-      window.loadFile(join(__dirname, "../renderer/subscriber.html"), {
-        query: {
-          id: id,
-          host: host,
-          port: `${port}`,
-          topic: topic,
-          showOptions: `${showOptions}`,
-          noData: `${noData}`,
-        },
-      });
-    }
+    openUrl(window, "subscriber", props);
     return Promise.resolve(null);
   };
 }

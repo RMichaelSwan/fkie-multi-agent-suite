@@ -67,18 +67,31 @@ export default function PublisherApp(): JSX.Element {
 
   useEffect(() => {
     // Anything in here is fired on component mount.
-    window.publishManager?.onClose(async (id: string) => {
+    if (window.publishManager) {
+      window.publishManager?.onClose(async (id: string) => {
+        logCtx.info(
+          `Stopping publisher node for '${appInfoRef.current?.topicName}' on '${appInfoRef.current?.provider.name()}'`,
+          ""
+        );
+        await appInfoRef.current?.provider.stopPublisher(appInfoRef.current?.topicName);
+        window.publishManager?.close(id);
+      });
+      initProvider();
+      return (): void => {
+        // Anything in here is fired on component unmount.
+      };
+    }
+    // Browser: on tab close
+    const handler = (): void => {
       logCtx.info(
         `Stopping publisher node for '${appInfoRef.current?.topicName}' on '${appInfoRef.current?.provider.name()}'`,
         ""
       );
-      await appInfoRef.current?.provider.stopPublisher(appInfoRef.current?.topicName);
-      window.publishManager?.close(id);
-    });
-    initProvider();
-    return (): void => {
-      // Anything in here is fired on component unmount.
+      appInfoRef.current?.provider.stopPublisher(appInfoRef.current?.topicName);
     };
+    window.addEventListener("beforeunload", handler);
+    initProvider();
+    return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
   return (

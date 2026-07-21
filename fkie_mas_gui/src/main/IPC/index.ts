@@ -1,4 +1,8 @@
-import { ipcMain } from "electron";
+import { CmdType, PopoutParams } from "@/types";
+import { is } from "@electron-toolkit/utils";
+import { BrowserWindow, ipcMain } from "electron";
+import { join } from "node:path";
+
 import AutoUpdateManager from "./AutoUpdateManager";
 import DialogManager from "./DialogManager";
 import EditorManager from "./EditorManager";
@@ -32,6 +36,28 @@ export const registerHandlers = (): void => {
   ipcMain.handle("systemInfo:getInfo", () => {
     return new SystemInfo().getInfo();
   });
+};
+
+export const openUrl = (window: BrowserWindow, site: string, params: PopoutParams): void => {
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined) continue;
+
+    if (Array.isArray(v) || (typeof v === "object" && v !== null && !(v instanceof CmdType))) {
+      search.set(k, JSON.stringify(v));
+    } else {
+      search.set(k, String(v));
+    }
+  }
+
+  if (is.dev && process.env.ELECTRON_RENDERER_URL) {
+    const url = `${process.env.ELECTRON_RENDERER_URL}/${site}.html?${search.toString()}`;
+    window.loadURL(url);
+  } else {
+    window.loadFile(join(__dirname, `../renderer/${site}.html`), {
+      query: Object.fromEntries(search.entries()),
+    });
+  }
 };
 
 export {

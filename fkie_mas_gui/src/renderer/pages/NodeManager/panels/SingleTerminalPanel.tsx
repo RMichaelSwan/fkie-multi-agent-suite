@@ -4,11 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import TerminalClient from "@/renderer/components/TerminalClient/TerminalClient";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
-import CmdType from "@/renderer/providers/CmdType";
 import Provider from "@/renderer/providers/Provider";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import { ConnectionState, EventProviderState } from "@/renderer/providers/events";
-import { TEnvEntry } from "@/types";
+import { CmdType, TEnvEntry } from "@/types";
 import { useCustomEventListener } from "react-custom-events";
 import { emitCloseComponent } from "../layout/events";
 

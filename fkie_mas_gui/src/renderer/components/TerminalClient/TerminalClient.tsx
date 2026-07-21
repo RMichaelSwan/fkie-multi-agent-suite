@@ -9,8 +9,8 @@ import { ITerminalOptions, ITheme } from "@xterm/xterm";
 
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
-import { CmdType } from "@/renderer/providers";
 import Provider from "@/renderer/providers/Provider";
+import { CmdType } from "@/types";
 import { ClientOptions, Terminal } from "./Terminal";
 
 // TODO: Add parameter for this

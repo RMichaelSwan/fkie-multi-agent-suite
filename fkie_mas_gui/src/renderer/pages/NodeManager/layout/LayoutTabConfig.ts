@@ -1,6 +1,7 @@
 import { ProviderLaunchConfiguration, RosNode } from "@/renderer/models";
-import { CmdType } from "@/renderer/providers";
-import { TEnvEntry, TFileRange, TLaunchArg } from "@/types";
+import { CmdType, TEditorConfig, TEnvEntry, TPublisherConfig, TSubscriberConfig } from "@/types";
+import { TServiceConfig } from "@/types/ServiceManager";
+import { TTerminalConfig } from "@/types/TerminalManager";
 
 export type TExtTerminalConfig = {
   type: CmdType;
@@ -12,89 +13,10 @@ export type TExtTerminalConfig = {
   env: TEnvEntry[];
 };
 
-export type TEditorConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  rootLaunch: string;
-  path: string;
-  fileRange: TFileRange | null;
-  launchArgs: TLaunchArg[];
-  topLevelLaunchArgs: TLaunchArg[];
-};
-
-export type TPublisherConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  topicName: string;
-  topicType: string;
-};
-
-export type TSubscriberConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  topic: string;
-  showOptions: boolean;
-  noData: boolean;
-};
-
-export type TTerminalConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  cmdType: CmdType;
-  node: string;
-  screen: string;
-  cmd: string;
-  env: TEnvEntry[];
-};
-
 export type TParameterConfig = {
   id: string;
   nodes: RosNode[];
   providers: string[];
-};
-
-export type TServiceCallerConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  serviceName: string;
-  serviceType: string;
-};
-
-export type TServiceIntrospectionConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  serviceName: string;
-  serviceType: string;
-};
-
-export type TActionConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  actionName: string;
-  actionType: string;
-};
-
-export type TActionIntrospectionConfig = {
-  id: string;
-  providerId: string;
-  host: string;
-  port: number;
-  actionName: string;
-  actionType: string;
 };
 
 export type TNodeLoggerConfig = {
@@ -145,13 +67,13 @@ export type TLayoutTabConfig = {
 
   parameterConfig?: TParameterConfig;
 
-  serviceCallerConfig?: TServiceCallerConfig;
+  serviceCallerConfig?: TServiceConfig;
 
-  serviceIntrospectionConfig?: TServiceIntrospectionConfig;
+  serviceIntrospectionConfig?: TServiceConfig;
 
-  actionConfig?: TActionConfig;
+  actionConfig?: TServiceConfig;
 
-  actionIntrospectionConfig?: TActionIntrospectionConfig;
+  actionIntrospectionConfig?: TServiceConfig;
 
   nodeLoggerConfig?: TNodeLoggerConfig;
 
