@@ -321,6 +321,13 @@ export default function ProviderPanel(): JSX.Element {
     handleAutostart();
   }, [cliCtx.updatedArgs, window.commandLine, rosCtx.rosInfo]);
 
+  useEffect(() => {
+    // hide hint dialog if join or start argument was provided
+    if (cliCtx.getArgument("join") || cliCtx.getArgument("start")) {
+      setOpenHintDialog(false);
+    }
+  }, [cliCtx.updatedArgs]);
+
   const createReloadButton = useMemo(() => {
     return (
       <Stack direction="row">
