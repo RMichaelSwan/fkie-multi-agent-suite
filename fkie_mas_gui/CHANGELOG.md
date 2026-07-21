@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.9.3 - 21.07.2026
+
+fixed error with duplicate tab id
+improved open popouts in browser mode
+hide hint dialog if join or start argument was provided
+fixed dark mode in headless mode
+updated version of dependecies
+fixed --join cli argument in headless mode
+improved infos in load launch dialog
+
 ## 5.9.2 - 09.07.2026
 
 Switched to google icons for external components
