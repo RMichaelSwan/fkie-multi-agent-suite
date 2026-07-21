@@ -147,7 +147,7 @@ export default function NodeManager(): JSX.Element {
       localStorageKey: "layout",
     },
   });
-  const [model, setModel] = useState<Model>(() => Model.fromJson(layoutJson));
+  const [model, setModel] = useState<Model>(() => Model.fromJson(sanitizeLayout(layoutJson)));
   const layoutRef = useRef<React.ComponentRef<typeof Layout> | null>(null);
 
   // const [layoutComponents] = useState<Record<string, React.ReactNode>>({});
@@ -271,7 +271,7 @@ export default function NodeManager(): JSX.Element {
     const needsReset = resetLayout || !hasTab(layoutJson.layout, LAYOUT_TABS.DETAILS);
 
     if (needsReset) {
-      setLayoutJson(DEFAULT_LAYOUT);
+      setLayoutJson(structuredClone(DEFAULT_LAYOUT));
       setModel(Model.fromJson(DEFAULT_LAYOUT));
       setResetLayout(false);
       logCtx.success("Layout reset!", "", "layout reset");
@@ -323,7 +323,7 @@ export default function NodeManager(): JSX.Element {
         parentNode.getChildren().length === 1 &&
         parentNode.getChildren()[0].getId() !== LAYOUT_TABS.NO_RUNNING_DAEMONS
       ) {
-        model.doAction(Actions.addTab(LAYOUT_NO_RUNNING_DAEMONS, LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0));
+        model.doAction(Actions.addTab(structuredClone(LAYOUT_NO_RUNNING_DAEMONS), LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0));
       }
 
       // inform domain flex layout to re-render the content to avoid a delay before the content becomes visible
@@ -507,7 +507,7 @@ export default function NodeManager(): JSX.Element {
       const nodeBId = modelRef.current.getNodeById(toNodeId);
       if (toNodeId === LAYOUT_TAB_SETS.CENTER && !nodeBId) {
         // no center panel group found, reset layout
-        setLayoutJson(DEFAULT_LAYOUT);
+        setLayoutJson(structuredClone(DEFAULT_LAYOUT));
       }
       if (nodeBId && LAYOUT_TAB_LIST.includes(nodeBId.getId())) {
         result.id = nodeBId.getParent()?.getId() || id;
@@ -1173,7 +1173,7 @@ export default function NodeManager(): JSX.Element {
         if (item.children) {
           removeGenericTabs(item);
           if (item.id === LAYOUT_TAB_SETS.CENTER && (item.children?.length || 0) === 0) {
-            item.children?.push(LAYOUT_NO_RUNNING_DAEMONS);
+            item.children?.push(structuredClone(LAYOUT_NO_RUNNING_DAEMONS));
           }
           return true;
         }
@@ -1184,7 +1184,14 @@ export default function NodeManager(): JSX.Element {
     return parent;
   }
 
-  /** Remove all tabs from layout that are not in LAYOUT_TAB_LIST */
+  /** Recursively checks whether a tabset with the given id exists anywhere in the tree */
+  function hasTabSetWithId(node: { id?: string; type?: string; children?: IJsonRowNode[] }, id: string): boolean {
+    if (node.type === "tabset" && node.id === id) return true;
+    if (!node.children) return false;
+    return node.children.some((child) => hasTabSetWithId(child, id));
+  }
+
+  /** Remove generic tabs */
   const cleanAndSaveLayout = useDebounceCallback(() => {
     const modelJson = modelRef.current.toJson();
 
@@ -1194,18 +1201,46 @@ export default function NodeManager(): JSX.Element {
     }
 
     modelJson.layout = removeGenericTabs(modelJson.layout);
-    let foundDomainSet = false;
-    for (const item of modelJson.layout.children || []) {
-      if (item.type === "tabset" && item.id === LAYOUT_TAB_SETS.CENTER) {
-        foundDomainSet = true;
-        break;
-      }
-    }
+
+    // search recursively instead of only flat
+    const foundDomainSet = hasTabSetWithId(modelJson.layout, LAYOUT_TAB_SETS.CENTER);
+
     if (!foundDomainSet) {
-      modelJson.layout.children?.push(LAYOUT_DOMAIN_TAB_SET);
+      modelJson.layout.children?.push(structuredClone(LAYOUT_DOMAIN_TAB_SET));
     }
+
     setLayoutJson(modelJson);
   }, 500);
+
+  /** Removes/repairs duplicate ids in the layout JSON, keeping the first "main" */
+  function sanitizeLayout(json: IJsonModel): IJsonModel {
+    // deep clone first, so shared object references can no longer collide
+    const cloned: IJsonModel = structuredClone(json);
+    const seen = new Set<string>();
+
+    const walk = (node: { id?: string; type?: string; children?: IJsonRowNode[] }): void => {
+      if (node.id) {
+        if (seen.has(node.id)) {
+          // duplicate: assign a new unique id
+          node.id = `#dup-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+          seen.add(node.id); // register the new id as well, to be safe
+        } else {
+          seen.add(node.id);
+        }
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          walk(child);
+        }
+      }
+    };
+
+    for (const border of cloned.borders || []) {
+      walk(border);
+    }
+    walk(cloned.layout);
+    return cloned;
+  }
 
   const isInstallUpdateRequested = useCallback(() => {
     return auCtx.requestedInstallUpdate;

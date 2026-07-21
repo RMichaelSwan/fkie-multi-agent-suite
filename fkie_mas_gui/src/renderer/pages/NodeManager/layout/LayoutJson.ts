@@ -25,8 +25,8 @@ export const LAYOUT_DOMAIN_TAB_SET = {
   tabLocation: "top",
   enableDeleteWhenEmpty: false,
   enableClose: true,
-  enableDivide: false,
-  children: [LAYOUT_NO_RUNNING_DAEMONS],
+  enableDivide: true,
+  children: [structuredClone(LAYOUT_NO_RUNNING_DAEMONS)],
 };
 
 export const DEFAULT_LAYOUT = {
