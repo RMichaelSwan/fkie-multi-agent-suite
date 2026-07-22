@@ -14,14 +14,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - ubuntu: noble
+            os: ubuntu-latest
             arch: amd64
-            platform: linux/amd64
-          - os: ubuntu-24.04-arm
+
+          - ubuntu: noble
+            os: ubuntu-24.04-arm
             arch: arm64
-            platform: linux/arm64
+
+          - ubuntu: resolute
+            os: ubuntu-latest
+            arch: amd64
+
+          - ubuntu: resolute
+            os: ubuntu-26.04-arm
+            arch: arm64
     container:
-      image: ubuntu:noble
+      image: ubuntu:${{ matrix.ubuntu }}
     steps:
       - uses: ros-tooling/setup-ros@v0.7
         with:

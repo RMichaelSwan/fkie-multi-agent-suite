@@ -8,9 +8,28 @@ on: [push, pull_request]
 
 jobs:
   lyrical:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ubuntu: noble
+            os: ubuntu-latest
+            arch: amd64
+
+          - ubuntu: noble
+            os: ubuntu-24.04-arm
+            arch: arm64
+
+          - ubuntu: resolute
+            os: ubuntu-latest
+            arch: amd64
+
+          - ubuntu: resolute
+            os: ubuntu-26.04-arm
+            arch: arm64
     container:
-      image: ubuntu:resolute
+      image: ubuntu:${{ matrix.ubuntu }}
     steps:
       - uses: ros-tooling/setup-ros@v0.7
         with:
