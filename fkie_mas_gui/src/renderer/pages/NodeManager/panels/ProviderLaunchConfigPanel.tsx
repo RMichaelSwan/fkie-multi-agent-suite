@@ -30,7 +30,6 @@ import { HTMLAttributes, useCallback, useEffect, useMemo, useReducer, useRef, us
 
 import { CopyButton } from "@/renderer/components/UI";
 import { useAppState } from "@/renderer/hooks/useAppState";
-import { useCliArgs } from "@/renderer/hooks/useCliArgs";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { ProviderLaunchConfiguration } from "@/renderer/models";
@@ -97,7 +96,6 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const { config } = props;
 
   const rosCtx = useRosContext();
-  const cliCtx = useCliArgs();
   const launchCfgRef = useRef<ProviderLaunchConfiguration>(config);
   const launchCfg = launchCfgRef.current;
   const [_valuesChanged, forceValuesUpdate] = useReducer((x) => x + 1, 0);
@@ -106,7 +104,6 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
     version: 1,
   });
 
-  const hostArg: string | undefined = cliCtx.getArgument("host") as string | undefined;
   const [backgroundColor] = useSetting<string>("backgroundColor");
 
   const [openTerminalTooltip, setOpenTerminalTooltip] = useState(false);
@@ -119,7 +116,7 @@ export default function ProviderLaunchConfigPanel(props: ProviderLaunchConfigPan
   const [topicList, setTopicList] = useState<string[]>([]);
   // const [forceStart, setForceStart] = useState(false);
 
-  const defaultHost: string = hostArg ? hostArg : config?.params.host || "localhost";
+  const defaultHost: string = config?.params.host || "localhost";
   const [selectedHost, setSelectedHost] = useState<THostIp | null>({ host: defaultHost });
   const [selectedZenohHosts, setSelectedZenohHosts] = useState<THostIp[]>(
     launchCfg?.params.rmw.zenoh?.remoteHosts.map((hostname) => {
