@@ -345,8 +345,8 @@ export const AutoUpdateProvider = ({
   }, [rosCtx.providers]);
 
   useEffect(() => {
-    if (localProviderId && autoCheckAllowed(checkTimestamp)) checkForUpdate(updateChannel);
-  }, [localProviderId, updateChannel, checkTimestamp]);
+    if (autoUpdateManager && localProviderId && autoCheckAllowed(checkTimestamp)) checkForUpdate(updateChannel);
+  }, [autoUpdateManager, localProviderId, updateChannel, checkTimestamp]);
 
   useEffect(() => {
     if (!storedUpdateAvailable || storedUpdateAvailable.version === packageJson.version) {
