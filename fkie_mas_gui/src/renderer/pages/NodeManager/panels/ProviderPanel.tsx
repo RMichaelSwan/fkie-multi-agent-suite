@@ -166,8 +166,9 @@ export default function ProviderPanel(): JSX.Element {
       if (!rmwImplementation || rmwImplementation === "RMW_IMPLEMENTATION") {
         rmwImplementation = rosCtx.rosInfo?.rmwImplementation;
       }
-      const hosts = (cliCtx.getArgument("host") as string)?.split(",") || ["localhost"];
-      if (!rosDomainId && rosDomainId >= 0) {
+      const hostsStr = cliCtx.getArgument("host") as string;
+      const hosts = hostsStr ? hostsStr.split(",") : ["localhost"];
+      if (!rosDomainId || rosDomainId < 0) {
         console.warn(`can't join: unknown ROS_DOMAIN_ID; use ros-domain-id to set domain id`);
         setNoDomainId(true);
         return;
