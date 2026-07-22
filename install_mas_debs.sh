@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SUPPORTED_OS_CODENAMES=(focal jammy noble resolute)
+SUPPORTED_ROS_DISTROS=(noetic galactic humble jazzy kilted lyrical)
+
 if ! command -v jq &> /dev/null; then
     echo -e "\e[31mjq is not installed. Please install jq to run the script.\e[0m"
     echo "sudo apt install jq"
@@ -44,6 +47,23 @@ function exit_with_no() {
     exit $1
 }
 
+# Helper: checks whether $1 is contained in the given list
+# Usage: contains_element "value" "${LIST[@]}"
+contains_element() {
+    local needle="$1"; shift
+    local item
+    for item in "$@"; do
+        [[ "$item" == "$needle" ]] && return 0
+    done
+    return 1
+}
+
+# Builds a readable string from a list, e.g. "focal, jammy, noble"
+join_by_comma() {
+    local IFS=", "
+    echo "$*"
+}
+
 if [[ -z $UNINSTALL ]]; then
     echo -e "🔓 root privileges are required for installation"
     if ! sudo -v; then
@@ -55,14 +75,14 @@ fi
 # check for OS and ROS_DISTRO
 if [[ -z $NO_ROS ]]; then
     OS_CODENAME=$(env -i bash -c '. /etc/os-release; echo $VERSION_CODENAME')
-    if [[ "$OS_CODENAME" == "focal"  || "$OS_CODENAME" == "jammy" || "$OS_CODENAME" == "noble" ]]; then
+    if contains_element "$OS_CODENAME" "${SUPPORTED_OS_CODENAMES[@]}"; then
         echo -e "detected OS_CODENAME=\e[36m$OS_CODENAME\e[0m"
     else
-        echo -e "\e[31mdebian packages are only available for focal, jammy and noble, exit\e[0m"
+        echo -e "\e[31mdebian packages are only available for $(join_by_comma "${SUPPORTED_OS_CODENAMES[@]}"), exit\e[0m"
         exit_with_no 1
     fi
 
-    if [[ "$ROS_DISTRO" == "noetic" || "$ROS_DISTRO" == "galactic" || "$ROS_DISTRO" == "humble" || "$ROS_DISTRO" == "jazzy" || "$ROS_DISTRO" == "kilted" ]]; then
+    if contains_element "$ROS_DISTRO" "${SUPPORTED_ROS_DISTROS[@]}"; then
         echo -e "detected ROS_DISTRO=\e[36m$ROS_DISTRO\e[0m"
     else
         if [ -z "$ROS_DISTRO" ]; then
@@ -269,10 +289,10 @@ if [[ -z $NO_ROS ]]; then
 
     echo "OS_CODENAME" $OS_CODENAME
     OS_CODENAME=$(env -i bash -c '. /etc/os-release; echo $VERSION_CODENAME')
-    if [[ "$OS_CODENAME" == "focal"  || "$OS_CODENAME" == "jammy" || "$OS_CODENAME" == "noble" ]]; then
+    if contains_element "$OS_CODENAME" "${SUPPORTED_OS_CODENAMES[@]}"; then
         echo -e "detected OS_CODENAME=\e[36m$OS_CODENAME\e[0m"
     else
-        echo -e "\e[31mdebian packages are only available for focal, jammy and noble, exit\e[0m"
+        echo -e "\e[31mdebian packages are only available for $(join_by_comma "${SUPPORTED_OS_CODENAMES[@]}"), exit\e[0m"
         exit_with_no 1
     fi
 
