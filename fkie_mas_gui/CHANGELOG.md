@@ -1,14 +1,21 @@
 # Changelog
 
+## 5.9.4 - 22.07.2026
+
+Added join-ws command line argument
+Updated Vite configuration to pass cliArgs to the development server
+Fixed update ros domain id from ros state of the provider
+Do not start the daemon if only the --join argument is specified
+Avoid unnecessary checks for new updates
+
 ## 5.9.3 - 21.07.2026
 
-fixed error with duplicate tab id
-improved open popouts in browser mode
-hide hint dialog if join or start argument was provided
-fixed dark mode in headless mode
-updated version of dependecies
-fixed --join cli argument in headless mode
-improved infos in load launch dialog
+Fixed error with duplicate tab id
+Improved open popouts in browser mode
+Hide hint dialog if join or start argument was provided
+Fixed dark mode in headless mode
+Fixed --join cli argument in headless mode
+Improved infos in load launch dialog
 
 ## 5.9.2 - 09.07.2026
 
