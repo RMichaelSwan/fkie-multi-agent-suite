@@ -396,7 +396,11 @@ export default class Provider implements IProvider {
       name = this.rosState.name ? this.rosState.name : this.connection.host;
     }
     if (this.connection.domainId) {
-      name = `${name} [${this.connection.domainId}]`;
+      let domainInfo = `${this.connection.domainId}`;
+      if (this.connection.domainId === -1 && this.connection.port > 0) {
+        domainInfo = `${domainInfo} -- ${this.connection.port}`;
+      }
+      name = `${name} [${domainInfo}]`;
     }
     return name;
   };
@@ -719,6 +723,12 @@ export default class Provider implements IProvider {
         if (p.origin) {
           // apply remote attributes to new current provider
           this.rosState = p;
+          if (this.connection.domainId < 0) {
+            // update domain id if we connect using port
+            if (this.rosState.ros_domain_id) {
+              this.connection.domainId = Number.parseInt(this.rosState.ros_domain_id);
+            }
+          }
           // TODO: visualize warning if hosts are not equal
           if (
             this.connection.host !== "localhost" &&
