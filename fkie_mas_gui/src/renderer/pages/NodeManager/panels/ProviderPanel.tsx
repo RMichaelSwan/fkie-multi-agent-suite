@@ -190,8 +190,10 @@ export default function ProviderPanel(): JSX.Element {
         }
         if (doStart) {
           config.params.autostart = true;
+          rosCtx.startConfig(config, null);
+        } else if (doJoin) {
+          rosCtx.connect(config.params, false);
         }
-        rosCtx.startConfig(config, null);
       }
       return;
     }
