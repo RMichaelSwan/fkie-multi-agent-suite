@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.9.5 - 22.07.2026
+
+Do not use the CLI argument for host in the new provider configuration
+Fixed validation of the CLI arguments for ros-domain-id and host
+
 ## 5.9.4 - 22.07.2026
 
 Added join-ws command line argument
