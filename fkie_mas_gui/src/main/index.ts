@@ -111,19 +111,7 @@ const startServer = async (): Promise<void> => {
   serverApp.use(async (req, res, next) => {
     const url = req.path;
     if (url.includes("/api/cliArgs")) {
-      res.json({
-        "hide-output-from-background-processes": {
-          default: commandLine.getArg("hide-output-from-background-processes"),
-        },
-        headless: { default: commandLine.getArg("headless") },
-        "headless-server-port": { default: commandLine.getArg("headless-server-port") },
-        "ros-version": { default: commandLine.getArg("ros-version") || "" },
-        "ros-domain-id": { default: commandLine.getArg("ros-domain-id") },
-        host: { default: commandLine.getArg("host") },
-        "rmw-implementation": { default: commandLine.getArg("rmw-implementation") || "" },
-        join: { default: commandLine.getArg("join") },
-        start: { default: commandLine.getArg("start") },
-      });
+      res.json(commandLine.getArgsWithMeta());
       return;
     }
     next();

@@ -158,6 +158,7 @@ export default function ProviderPanel(): JSX.Element {
     if (rosCtx.providers.length !== 0) return;
     const doStart = cliCtx.getArgument("start") || false;
     const doJoin = cliCtx.getArgument("join") || false;
+    const doJoinWs = (cliCtx.getArgument("join-ws") as string).split(",");
     if (doStart || doJoin) {
       const rosDomainId = Number.parseInt(`${cliCtx.getArgument("ros-domain-id") || rosCtx.rosInfo?.domainId}`);
       const rosVersion = (cliCtx.getArgument("ros-version") as string) || rosCtx.rosInfo?.version;
@@ -166,7 +167,7 @@ export default function ProviderPanel(): JSX.Element {
         rmwImplementation = rosCtx.rosInfo?.rmwImplementation;
       }
       const hosts = (cliCtx.getArgument("host") as string)?.split(",") || ["localhost"];
-      if (!rosDomainId) {
+      if (!rosDomainId && rosDomainId >= 0) {
         console.warn(`can't join: unknown ROS_DOMAIN_ID; use ros-domain-id to set domain id`);
         setNoDomainId(true);
         return;
@@ -196,6 +197,17 @@ export default function ProviderPanel(): JSX.Element {
         }
       }
       return;
+    }
+
+    for (const ws of doJoinWs) {
+      const [host, portStr] = ws.split(":");
+      const port = Number.parseInt(portStr)
+      if (host && port) {
+        const config = new ProviderLaunchConfiguration();
+        config.params.host = host;
+        config.params.port = port;
+        rosCtx.connect(config.params, false);
+      }
     }
 
     for (const startCfg of startConfigurations) {
@@ -325,7 +337,7 @@ export default function ProviderPanel(): JSX.Element {
 
   useEffect(() => {
     // hide hint dialog if join or start argument was provided
-    if (cliCtx.getArgument("join") || cliCtx.getArgument("start")) {
+    if (cliCtx.getArgument("join") || cliCtx.getArgument("start") ||  cliCtx.getArgument("join-ws")) {
       setOpenHintDialog(false);
     }
   }, [cliCtx.updatedArgs]);

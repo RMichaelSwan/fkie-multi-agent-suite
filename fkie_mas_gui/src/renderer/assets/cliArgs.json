@@ -67,7 +67,7 @@
     "fromEnv": "",
     "type": "boolean",
     "switch": true,
-    "hint": "Joins on start to current ROS domain id"
+    "hint": "Connects on startup to the current ROS domain ID and localhost, or to specified host(s)"
   },
   "start": {
     "default": false,
@@ -75,5 +75,19 @@
     "type": "boolean",
     "switch": true,
     "hint": "Starts the ROS-MAS nodes"
+  },
+  "join-ws": {
+    "default": "",
+    "fromEnv": "",
+    "type": "string",
+    "switch": false,
+    "hint": "Daemons to connect to on startup. Format: comma-separated list of HOST:PORT. Example: localhost:12345"
+  },
+  "help": {
+    "default": false,
+    "fromEnv": "",
+    "type": "boolean",
+    "switch": true,
+    "hint": "Prints this help and exit"
   }
 }
