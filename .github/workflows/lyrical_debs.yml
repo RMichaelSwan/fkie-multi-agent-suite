@@ -14,13 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - ubuntu: noble
-            os: ubuntu-latest
-            arch: amd64
+          # - ubuntu: noble
+          #   os: ubuntu-latest
+          #   arch: amd64
 
-          - ubuntu: noble
-            os: ubuntu-24.04-arm
-            arch: arm64
+          # - ubuntu: noble
+          #   os: ubuntu-24.04-arm
+          #   arch: arm64
 
           - ubuntu: resolute
             os: ubuntu-latest
@@ -35,7 +35,7 @@ jobs:
       - uses: ros-tooling/setup-ros@v0.7
         with:
           required-ros-distributions: lyrical
-      - run: sudo pip install "websockets>=13.0" --break-system-packages
+      - run: pip install "websockets>=13.0" --break-system-packages
       - uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: lyrical

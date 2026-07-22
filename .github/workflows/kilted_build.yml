@@ -21,20 +21,20 @@ jobs:
             os: ubuntu-24.04-arm
             arch: arm64
 
-          - ubuntu: resolute
-            os: ubuntu-latest
-            arch: amd64
+          # - ubuntu: resolute
+          #   os: ubuntu-latest
+          #   arch: amd64
 
-          - ubuntu: resolute
-            os: ubuntu-26.04-arm
-            arch: arm64
+          # - ubuntu: resolute
+          #   os: ubuntu-26.04-arm
+          #   arch: arm64
     container:
       image: ubuntu:${{ matrix.ubuntu }}
     steps:
       - uses: ros-tooling/setup-ros@v0.7
         with:
           required-ros-distributions: kilted
-      - run: sudo pip install "websockets>=13.0" --break-system-packages
+      - run: pip install "websockets>=13.0" --break-system-packages
       - uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: kilted
