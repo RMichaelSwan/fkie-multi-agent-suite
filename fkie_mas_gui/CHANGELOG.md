@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.9.6 - 23.07.2026
+
+Adds a close button if a single closable tab is hidden in stretched tabset
+Added info to host row showing why/how this host was included
+Added lyrical ubuntu packages
+
 ## 5.9.5 - 22.07.2026
 
 Do not use the CLI argument for host in the new provider configuration
