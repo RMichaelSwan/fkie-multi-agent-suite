@@ -94,6 +94,12 @@ license-report --config=./license-report-config.json > src/renderer/deps-license
 
 ## Known Issues
 
+- mas-gui: error while loading shared libraries: libasound.so.2: cannot open shared object file: No such file or directory
+
+```bash
+sudo apt install libasound2t64
+```
+
 - If you work behind a proxy, you might need to explicitly specify the `URL` and `PORT` before downloading the electron packages. The problem occurs when installing the package (`npm install`).
 
 ```bash
