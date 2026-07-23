@@ -432,6 +432,9 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
                     </Typography>
                     <Typography fontSize="inherit">{provider.connection.port}</Typography>
                   </Stack>
+                  <Stack direction="row" spacing={"0.2em"}>
+                    <Typography fontSize="inherit">{provider.additionInfo}</Typography>
+                  </Stack>
                 </div>
               }
               placement="bottom-start"

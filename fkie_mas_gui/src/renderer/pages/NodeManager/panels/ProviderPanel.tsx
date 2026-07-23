@@ -194,7 +194,8 @@ export default function ProviderPanel(): JSX.Element {
           config.params.autostart = true;
           rosCtx.startConfig(config, null);
         } else if (doJoin) {
-          rosCtx.connect(config.params, false);
+          console.log(`Connect to ${config.params.host}:${config.params.port}`);
+          rosCtx.connect(config.params, false, "added by --join");
         }
       }
       return;
@@ -207,13 +208,13 @@ export default function ProviderPanel(): JSX.Element {
         const config = new ProviderLaunchConfiguration();
         config.params.host = host;
         config.params.port = port;
-        rosCtx.connect(config.params, false);
+        rosCtx.connect(config.params, false, "added by --join-ws");
       }
     }
 
     for (const startCfg of startConfigurations) {
       if (startCfg.autoConnect) {
-        rosCtx.connect(startCfg, true);
+        rosCtx.connect(startCfg, true, "Configuration autostart");
       }
     }
 
@@ -255,6 +256,7 @@ export default function ProviderPanel(): JSX.Element {
                     undefined
                   );
                   newProvider.triggeredByAutoConnect = true;
+                  newProvider.additionInfo = "Discovered from process"
                   rosCtx.connectToProvider(newProvider);
                 }
               }

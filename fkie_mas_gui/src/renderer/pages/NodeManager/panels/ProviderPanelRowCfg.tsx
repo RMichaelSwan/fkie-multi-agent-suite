@@ -29,7 +29,7 @@ export default function ProviderPanelRowCfg(props: ProviderPanelRowCfgProps): JS
   );
 
   const handleConnectToProvider = useCallback(() => {
-    rosCtx.connect(startConfig.params, false);
+    rosCtx.connect(startConfig.params, false, "Connected via configuration");
   }, [startConfig, rosCtx.connect]);
 
   const createTableRow = useMemo(() => {

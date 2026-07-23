@@ -100,7 +100,7 @@ export interface IRosContext {
   addProvider: (provider: Provider) => void;
   setShowSnackbarReloadLaunchNotification: (show: boolean) => void;
   setShowSnackbarBinaryChangedNotification: (show: boolean) => void;
-  connect: (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean) => void;
+  connect: (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean, additionalInfo: string) => void;
   providerColor: (id: string) => string;
 }
 
@@ -586,7 +586,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         });
       });
       for (const config of startConfigurations) {
-        connect(config, true);
+        connect(config, true, "");
       }
     },
     [connectToProvider, logCtx]
@@ -977,7 +977,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
   );
 
   const connect = useCallback(
-    (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean) => {
+    (configParams: TProviderLaunchParams, triggeredByAutoConnect: boolean, additionalInfo: string) => {
       const provider = new Provider(
         logCtxRef,
         settingsCtxRef,
@@ -987,6 +987,7 @@ export function RosProviderReact(props: IRosProviderComponent): ReturnType<React
         configParams.domainId,
         configParams.useSSL
       );
+      provider.additionInfo = additionalInfo;
       providerColors.current.set(provider.id, colorFromHostname(provider.id));
       setProvidersAddQueue((prev) => {
         if (prev.find((p) => p.id === provider.id)) return prev;

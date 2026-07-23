@@ -253,6 +253,8 @@ export default class Provider implements IProvider {
 
   triggeredByAutoConnect: boolean = false;
 
+  additionInfo: string = "";
+
   // started echo topics to receive echo events
   private echoTopics: string[] = [];
 
@@ -760,6 +762,7 @@ export default class Provider implements IProvider {
           np.rosState = p;
           np.discoveredBy = [this.id];
           np.addHosts(p.hostnames);
+          np.additionInfo = `Discovered by ${this.id}`;
           this.remoteProviders.push(np);
         }
       }
