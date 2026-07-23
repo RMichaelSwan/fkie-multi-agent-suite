@@ -1,0 +1,15 @@
+fkie_mas_msgs:
+    ubuntu:
+      resolute: [ros-kilted-fkie-mas-msgs]
+
+fkie_mas_pylib:
+    ubuntu:
+      resolute: [ros-kilted-fkie-mas-pylib]
+
+fkie_mas_daemon:
+    ubuntu:
+      resolute: [ros-kilted-fkie-mas-daemon]
+
+fkie_mas_discovery:
+    ubuntu:
+      resolute: [ros-kilted-fkie-mas-discovery]
