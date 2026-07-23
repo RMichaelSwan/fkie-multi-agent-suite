@@ -1,4 +1,5 @@
 # Multi Agent Suite for ROS
+[![Lyrical Build](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/lyrical_build.yml/badge.svg)](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/lyrical_build.yml)
 [![Kilted](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/kilted_build.yml/badge.svg)](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/kilted_build.yml)
 [![Jazzy](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/jazzy_build.yml/badge.svg)](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/jazzy_build.yml)
 [![Humble](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/humble_build.yml/badge.svg)](https://github.com/fkie/fkie-multi-agent-suite/actions/workflows/humble_build.yml)
