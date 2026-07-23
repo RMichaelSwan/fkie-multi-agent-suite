@@ -1,5 +1,6 @@
 import BorderColorIcon from "@mui/icons-material/BorderColor";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import CloseIcon from "@mui/icons-material/Close";
 import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
 import DesktopWindowsOutlinedIcon from "@mui/icons-material/DesktopWindowsOutlined";
 import DomainIcon from "@mui/icons-material/Domain";
@@ -323,7 +324,9 @@ export default function NodeManager(): JSX.Element {
         parentNode.getChildren().length === 1 &&
         parentNode.getChildren()[0].getId() !== LAYOUT_TABS.NO_RUNNING_DAEMONS
       ) {
-        model.doAction(Actions.addTab(structuredClone(LAYOUT_NO_RUNNING_DAEMONS), LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0));
+        model.doAction(
+          Actions.addTab(structuredClone(LAYOUT_NO_RUNNING_DAEMONS), LAYOUT_TAB_SETS.CENTER, DockLocation.CENTER, 0)
+        );
       }
 
       // inform domain flex layout to re-render the content to avoid a delay before the content becomes visible
@@ -1078,6 +1081,25 @@ export default function NodeManager(): JSX.Element {
             </IconButton>
           </Tooltip>
         );
+    }
+
+    // Workaround: When tabSetEnableSingleTabStretch is enabled, the close button
+    // of a single closable tab is hidden. This manually adds a close button to
+    // the tabset toolbar to restore that functionality.
+    if (node.getId() === LAYOUT_TAB_SETS.CENTER && node.getChildren().length === 1) {
+      const tab = node.getChildren()[0] as TabNode;
+      if (tab.isEnableClose()) {
+        renderValues.buttons.push(
+          <IconButton
+            key="close"
+            size="small"
+            // className="flexlayout__tab_button_trailing"
+            onClick={() => deleteTab(tab.getId())}
+          >
+            <CloseIcon fontSize="inherit" />
+          </IconButton>
+        );
+      }
     }
 
     if (node.getId() === LAYOUT_TAB_SETS.BORDER_BOTTOM) {
