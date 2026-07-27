@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.9.7 - 27.07.2026
+
+Fixed quote values for RMW environment in host launch configurations
+
 ## 5.9.6 - 23.07.2026
 
 Adds a close button if a single closable tab is hidden in stretched tabset
