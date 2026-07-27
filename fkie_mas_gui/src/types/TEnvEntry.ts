@@ -1,18 +1,26 @@
-import { quote } from "shell-quote";
-
 export type TEnvEntry = {
   name: string;
   value: string;
 };
 
 export function envEntryToStr(entry: TEnvEntry): string {
-  if (!entry.name || !entry.value) return "";
-  return `${entry.name}=${quote([entry.value])}`;
+  if (!entry.name || entry.value === undefined || entry.value === null) return "";
+
+  const value = entry.value;
+
+  // Quote the value if it contains shell metacharacters that could break
+  // the environment assignment or be interpreted by the shell
+  if (/[;\s|&()<>]/.test(value)) {
+    return `${entry.name}='${value.replace(/'/g, `'\\''`)}'`;
+  }
+
+  return `${entry.name}=${value}`;
 }
 
 export function envEntryToExportStr(entry: TEnvEntry): string {
-  if (!entry.name || !entry.value) return "";
-  return `export ${entry.name}=${quote([entry.value])};`;
+  const envStr = envEntryToStr(entry);
+  if (!envStr) return "";
+  return `export ${envStr};`;
 }
 
 export function toEnvEntry(input: string): TEnvEntry {

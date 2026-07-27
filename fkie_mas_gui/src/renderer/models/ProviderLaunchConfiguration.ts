@@ -400,7 +400,8 @@ export default class ProviderLaunchConfiguration {
         const [name, ...rest] = kv.split("=");
         // Join the rest back in case the value also contains '='
         const value = rest.join("=");
-        return `${name}=${bashQuote(value)}`;
+        const result = `${name}=${bashQuote(value)}`;
+        return result
       });
     return exportLines;
   }
@@ -490,7 +491,7 @@ export default class ProviderLaunchConfiguration {
     const remoteList = this.params.rmw.zenoh.remoteHosts.map((hostname) => {
       return '"tcp/<REMOTE-IP>:7447"'.replace("<REMOTE-IP>", hostname);
     });
-    return `ZENOH_CONFIG_OVERRIDE=mode="router";connect/endpoints=[${remoteList.join(",")}]`;
+    return `ZENOH_CONFIG_OVERRIDE='mode="router";connect/endpoints=[${remoteList.join(",")}]'`;
   }
 
   public getZenohNodeOverride(): string {
