@@ -2,6 +2,10 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.3 (29.07.2026)
+------------------
+* Fixed update ROS_DOMAIN_ID to wrong value while package reload
+
 5.8.2 (09.07.2026)
 ------------------
 * improved stop / update of composable nodes

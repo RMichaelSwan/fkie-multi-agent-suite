@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.9.8 - 29.07.2026
+
+Fixed update ROS_DOMAIN_ID to wrong value while package reload
+
 ## 5.9.7 - 27.07.2026
 
 Fixed quote values for RMW environment in host launch configurations
