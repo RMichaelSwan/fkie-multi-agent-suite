@@ -307,7 +307,7 @@ def run_ROS1_node(package: str, executable: str, name: str, args: List[str], pre
     cmd_args = [screen_prefix,
                 RESPAWN_SCRIPT if respawn is not None else '', prefix, cmd[0],
                 *arg_name_list, node_params]
-    Log.info('run on remote host:', ' '.join(cmd_args))
+    Log.info('start node:', ' '.join(cmd_args))
 
     if not force:
         running_processes = find_process_by_name(screen_prefix, None, [])
@@ -366,7 +366,7 @@ def run_ROS2_node(package: str, executable: str, name: str, args: List[str], pre
                 f'A process of same package/executable [{package}/{executable}] is already running.',
                 'Skipping command because [force] is disable' if not force else "")
             return 1
-    Log.info('run on remote host:', screen_command)
+    Log.info('start node:', screen_command)
     subprocess.Popen(shlex.split(screen_command), env=dict(os.environ))
 
 

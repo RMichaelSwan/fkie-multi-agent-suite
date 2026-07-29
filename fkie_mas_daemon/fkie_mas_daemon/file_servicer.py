@@ -28,6 +28,10 @@ from fkie_mas_pylib.system.screen import get_ros_logfile
 from fkie_mas_pylib.websocket.server import WebSocketServer
 
 
+IGNORE_ENV_UPDATED_FOR = ["ROS_DOMAIN_ID", "RMW_IMPLEMENTATION",
+                          "CYCLONEDDS_URI", "ZENOH_CONFIG_OVERRIDE", "ZENOH_ROUTER_CHECK_ATTEMPTS"]
+
+
 class FileServicer:
     FILE_CHUNK_SIZE = 1024
 
@@ -46,7 +50,7 @@ class FileServicer:
         """ """
         pass
 
-    def getPackageList(self, clear_cache: bool = False) -> List[RosPackage]:
+    def getPackageList(self, clear_cache: bool = False, ignore_env_updates_for: List[str] = IGNORE_ENV_UPDATED_FOR) -> List[RosPackage]:
         Log.info(
             f"{self.__class__.__name__}: Request to [ros.packages.get_list], force: {clear_cache}")
         if clear_cache:
@@ -72,8 +76,8 @@ class FileServicer:
                             line = line.strip()
                             if "=" in line:
                                 key, value = line.split("=", 1)
-                                # if value.find("/opt/ros") >= 0:
-                                env[key] = value
+                                if key not in ignore_env_updates_for:
+                                    env[key] = value
                         os.environ.update(env)
                         # os.environ.update(saved_environ)
             except Exception as err:
