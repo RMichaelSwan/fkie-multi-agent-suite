@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.9.9 - 30.07.2026
+
+Fixed open content (log, screen) in external terminal
+
 ## 5.9.8 - 29.07.2026
 
 Fixed update ROS_DOMAIN_ID to wrong value while package reload
