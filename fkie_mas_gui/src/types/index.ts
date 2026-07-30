@@ -7,7 +7,7 @@ import {
   AuUpdateErrorCallback,
   TAutoUpdateManager,
 } from "./AutoUpdateManager";
-import { CmdType, cmdTypeFromString } from "./CmdType";
+import { CmdType, cmdTypeFromString, CmdTypes } from "./CmdType";
 import { CommandExecutorEvents, TCommandExecutor } from "./CommandExecutor";
 import { CommandLineEvents, TCommandLine } from "./CommandLine";
 import { DialogManagerEvents, TDialogManager } from "./DialogManager";
@@ -44,8 +44,8 @@ import { TTag } from "./TTag";
 
 export {
   AutoUpdateManagerEvents,
-  CmdType,
   cmdTypeFromString,
+  CmdTypes,
   CommandExecutorEvents,
   CommandLineEvents,
   DialogManagerEvents,
@@ -65,6 +65,7 @@ export type {
   AuUpdateAvailableCallback,
   AuUpdateDownloadedCallback,
   AuUpdateErrorCallback,
+  CmdType,
   EditorCloseCallback,
   FileRangeCallback,
   JSONObject,

@@ -34,7 +34,7 @@ import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "@/renderer/pages/NodeManager/layou
 import { emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import Provider from "@/renderer/providers/Provider";
 import { generateUniqueId } from "@/renderer/utils";
-import { CmdType, TTag } from "@/types";
+import { CmdTypes, TTag } from "@/types";
 import Tag from "../UI/Tag";
 import DateHelpDialog from "./DateHelpDialog";
 import SetNTPDateDialog from "./SetNTPDateDialog";
@@ -78,7 +78,7 @@ export default function HostItem(props: HostItemProps): JSX.Element {
       }
       if (local) {
         navCtx.openTerminal(
-          CmdType.SET_TIME,
+          CmdTypes.SET_TIME,
           localProviders[0].id,
           `set_date_localhost-${Date.now()}`,
           "",
@@ -88,7 +88,7 @@ export default function HostItem(props: HostItemProps): JSX.Element {
         );
       } else {
         navCtx.openTerminal(
-          CmdType.SET_TIME,
+          CmdTypes.SET_TIME,
           provider.id,
           `set_date_remote-${Date.now()}`,
           "",
@@ -307,7 +307,7 @@ export default function HostItem(props: HostItemProps): JSX.Element {
                         config: {
                           terminalConfig: {
                             id,
-                            cmdType: CmdType.CMD,
+                            cmdType: CmdTypes.CMD,
                             providerId: provider.id,
                             host: provider.connection.host,
                             port: provider.connection.port,

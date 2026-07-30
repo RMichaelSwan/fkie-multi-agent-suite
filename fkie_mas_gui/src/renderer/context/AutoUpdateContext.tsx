@@ -6,7 +6,7 @@ import GithubCredentialsDialog from "@/renderer/components/PasswordModal/GithubC
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { CmdType, JSONObject, TAutoUpdateManager } from "@/types";
+import { CmdTypes, JSONObject, TAutoUpdateManager } from "@/types";
 import packageJson from "../../../package.json";
 import { useAppState } from "../hooks/useAppState";
 import { useSetting } from "../hooks/useSetting";
@@ -263,7 +263,7 @@ export const AutoUpdateProvider = ({
 
       setInstalling(true);
       if (providerId) {
-        await navCtx.openTerminal(CmdType.CMD, providerId, "", "", getUpdateCli(gui, ros), false, false);
+        await navCtx.openTerminal(CmdTypes.CMD, providerId, "", "", getUpdateCli(gui, ros), false, false);
       } else {
         const result = await window.commandExecutor?.execTerminal(
           null,

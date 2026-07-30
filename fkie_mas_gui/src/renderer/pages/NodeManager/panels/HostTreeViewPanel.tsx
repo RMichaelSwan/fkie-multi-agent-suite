@@ -47,7 +47,7 @@ import { ConnectionState, EventProviderRestartNodes } from "@/renderer/providers
 import { EVENT_PROVIDER_RESTART_NODES } from "@/renderer/providers/eventTypes";
 import { TResultClearPath } from "@/renderer/providers/ProviderConnection";
 import { findIn } from "@/renderer/utils/index";
-import { CmdType, TFileRange } from "@/types";
+import { CmdType, CmdTypes, TFileRange } from "@/types";
 import { contentToId, TContentId } from "../layout/LayoutTabConfig";
 
 type TProviderNodes = {
@@ -239,7 +239,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
     (data: TEventShowScreens): void => {
       for (const node of data.nodes) {
         for (const screen of node.screens || []) {
-          createSingleTerminalPanel(CmdType.SCREEN, node.providerId, node.name, screen, false, false);
+          createSingleTerminalPanel(CmdTypes.SCREEN, node.providerId, node.name, screen, false, false);
         }
       }
     },
@@ -1266,7 +1266,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
             callback: () => {
               if (node.screens) {
                 createSingleTerminalPanel(
-                  CmdType.SCREEN,
+                  CmdTypes.SCREEN,
                   node.providerId,
                   node.name,
                   node.screens[0],
@@ -1284,7 +1284,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
               screen,
               callback: () => {
                 createSingleTerminalPanel(
-                  CmdType.SCREEN,
+                  CmdTypes.SCREEN,
                   node.providerId,
                   node.name,
                   screen,
@@ -1301,7 +1301,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
             screen: "autodetect",
             callback: () => {
               createSingleTerminalPanel(
-                CmdType.SCREEN,
+                CmdTypes.SCREEN,
                 node.providerId,
                 node.name,
                 "",
@@ -1321,7 +1321,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
             item.callback();
           } else {
             createSingleTerminalPanel(
-              CmdType.SCREEN,
+              CmdTypes.SCREEN,
               item.providerId,
               item.nodeName,
               item.screen,
@@ -1342,7 +1342,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
         node,
         callback: () => {
           createSingleTerminalPanel(
-            CmdType.LOG,
+            CmdTypes.LOG,
             node.providerId,
             node.name,
             "",
@@ -1394,7 +1394,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
 
   const handleOpenTerminalOnHostsClick = (options: { external: boolean; openInTerminal: boolean }): void => {
     for (const providerId of navCtx.selection.selectedProviders) {
-      createSingleTerminalPanel(CmdType.TERMINAL, providerId, "", "", options.external, options.openInTerminal, true);
+      createSingleTerminalPanel(CmdTypes.TERMINAL, providerId, "", "", options.external, options.openInTerminal, true);
     }
   };
 
@@ -1571,7 +1571,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
                   nodeWithOpt.callback();
                 } else {
                   createSingleTerminalPanel(
-                    CmdType.SCREEN,
+                    CmdTypes.SCREEN,
                     nodeWithOpt.providerId,
                     nodeWithOpt.nodeName,
                     nodeWithOpt.screen,

@@ -16,7 +16,7 @@ import { Provider } from "@/renderer/providers";
 import { EVENT_PROVIDER_LAUNCH_LOADED } from "@/renderer/providers/eventTypes";
 import { EventProviderLaunchLoaded } from "@/renderer/providers/events";
 import { generateUniqueId, idFromDDSLocations, nodeNameWithoutNamespace, removeDDSuid } from "@/renderer/utils";
-import { CmdType } from "@/types";
+import { CmdTypes } from "@/types";
 import { alpha, Box, Stack } from "@mui/material";
 import GroupItem, { GroupIcon, MultiScreenIcon, NodesCount } from "./GroupItem";
 import HostItem from "./HostItem";
@@ -386,7 +386,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
             ) {
               for (const screen of node.screens || []) {
                 navCtx.openTerminal(
-                  CmdType.SCREEN,
+                  CmdTypes.SCREEN,
                   node.providerId as string,
                   node.name,
                   screen,
@@ -397,7 +397,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
               }
             } else {
               navCtx.openTerminal(
-                CmdType.LOG,
+                CmdTypes.LOG,
                 node.providerId as string,
                 node.name,
                 "",
@@ -425,7 +425,7 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
         const node = rosCtx.nodeMap.get(nodeId);
         if (node) {
           navCtx.openTerminal(
-            CmdType.SCREEN,
+            CmdTypes.SCREEN,
             node.providerId as string,
             node.name,
             "",

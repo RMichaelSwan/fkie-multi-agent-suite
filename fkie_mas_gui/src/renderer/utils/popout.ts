@@ -1,4 +1,4 @@
-import { CmdType, PopoutParams } from "@/types";
+import { PopoutParams } from "@/types";
 
 export function isElectron(): boolean {
   return !!window.commandExecutor;
@@ -14,7 +14,7 @@ export function openBrowserSite(site: string, id: string, params: PopoutParams, 
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined) continue;
 
-    if (Array.isArray(v) || (typeof v === "object" && v !== null && !(v instanceof CmdType))) {
+    if (Array.isArray(v) || (typeof v === "object" && v !== null)) {
       search.set(k, JSON.stringify(v));
     } else {
       search.set(k, String(v));

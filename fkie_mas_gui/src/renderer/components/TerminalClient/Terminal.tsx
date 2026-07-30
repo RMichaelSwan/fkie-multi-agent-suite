@@ -21,7 +21,7 @@ import React from "react";
 
 import { ISettingsContext } from "@/renderer/context/SettingsContext";
 import Provider from "@/renderer/providers/Provider";
-import { CmdType } from "@/types";
+import { CmdType, CmdTypes } from "@/types";
 import SearchBar from "../UI/SearchBar";
 
 enum Command {
@@ -362,7 +362,7 @@ export class Terminal extends React.Component<Props, XtermState> {
         // this.onTerminalData(command);
       }
     }
-    if (this.type === CmdType.SET_TIME && this.provider) {
+    if (this.type === CmdTypes.SET_TIME && this.provider) {
       this.sendTimeSync();
     }
   }
@@ -424,7 +424,7 @@ export class Terminal extends React.Component<Props, XtermState> {
       this.terminal?.focus();
       this.gotFocus = true;
     }
-    if (this.type === CmdType.SET_TIME && this.provider) {
+    if (this.type === CmdTypes.SET_TIME && this.provider) {
       const decodedData = textDecoder.decode(data);
       if (decodedData.startsWith("sudo ")) {
         this.sudoRequested = true;

@@ -1,36 +1,32 @@
-export class CmdType extends String {
-  static CMD = new CmdType("cmd");
+export const CmdTypes = {
+  CMD: "cmd",
+  SCREEN: "screen",
+  LOG: "log",
+  TERMINAL: "terminal",
+  PUB: "pub",
+  ECHO: "echo",
+  SET_TIME: "set_time",
+} as const;
 
-  static SCREEN = new CmdType("screen");
-
-  static LOG = new CmdType("log");
-
-  static TERMINAL = new CmdType("terminal");
-
-  static PUB = new CmdType("pub");
-
-  static ECHO = new CmdType("echo");
-
-  static SET_TIME = new CmdType("set_time");
-}
+export type CmdType = (typeof CmdTypes)[keyof typeof CmdTypes];
 
 export function cmdTypeFromString(type: string | undefined | null): CmdType {
-  switch (type?.toLocaleLowerCase()) {
+  switch (type?.toLowerCase()) {
     case "cmd":
-      return CmdType.CMD;
+      return "cmd";
     case "screen":
-      return CmdType.SCREEN;
+      return "screen";
     case "log":
-      return CmdType.LOG;
+      return "log";
     case "pub":
-      return CmdType.PUB;
+      return "pub";
     case "echo":
-      return CmdType.ECHO;
+      return "echo";
     case "terminal":
-      return CmdType.TERMINAL;
+      return "terminal";
     case "set_time":
-      return CmdType.SET_TIME;
+      return "set_time";
     default:
-      return CmdType.TERMINAL;
+      return "terminal";
   }
 }

@@ -6,7 +6,7 @@ import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { getBaseName } from "@/renderer/models";
 import { emitEditorSelectRange, emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { xor } from "@/renderer/utils/index";
-import { CmdType, TEditorConfig, TFileRange, TLaunchArg, TPublisherConfig, TSubscriberConfig } from "@/types";
+import { CmdType, CmdTypes, TEditorConfig, TFileRange, TLaunchArg, TPublisherConfig, TSubscriberConfig } from "@/types";
 import { TServiceConfig } from "@/types/ServiceManager";
 import { TTerminalConfig } from "@/types/TerminalManager";
 import { useSetting } from "../hooks/useSetting";
@@ -234,7 +234,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       if (forceOpenTerminal) {
         try {
           const env = provider.createRosEnv();
-          const terminalCmd = await provider.cmdForType(CmdType.PUB, "", topic, "", "", env);
+          const terminalCmd = await provider.cmdForType(CmdTypes.PUB, "", topic, "", "", env);
           const result = await window.commandExecutor?.execTerminal(null, `"pub ${topic}"`, terminalCmd.cmd);
           if (!result?.result) {
             logCtx.error(
@@ -301,7 +301,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       if (forceOpenTerminal) {
         try {
           const env = provider.createRosEnv();
-          const terminalCmd = await provider.cmdForType(CmdType.ECHO, "", topic, "", "", env);
+          const terminalCmd = await provider.cmdForType(CmdTypes.ECHO, "", topic, "", "", env);
           const result = await window.commandExecutor?.execTerminal(null, `"echo ${topic}"`, terminalCmd.cmd);
           if (!result?.result) {
             logCtx.error(
@@ -364,7 +364,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       // if (forceOpenTerminal) {
       //   try {
       //     const env = provider.createRosEnv();
-      //     const terminalCmd = await provider.cmdForType(CmdType.SERVICE_CALL, "", topic, "", "", env);
+      //     const terminalCmd = await provider.cmdForType(CmdTypes.SERVICE_CALL, "", topic, "", "", env);
       //     const result = await window.commandExecutor?.execTerminal(null, `"pub ${topic}"`, terminalCmd.cmd);
       //     if (!result?.result) {
       //       logCtx.error(
@@ -563,7 +563,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
 
       const id = `terminal-${type}-${provider.connection.host}-${provider.connection.port}-${screen || node}`;
       const openExternal =
-        type === CmdType.SCREEN
+        type === CmdTypes.SCREEN
           ? xor(screenOpenExternal, externalKeyModifier)
           : xor(logOpenExternal, externalKeyModifier) && !layoutModel?.getNodeById(id);
 

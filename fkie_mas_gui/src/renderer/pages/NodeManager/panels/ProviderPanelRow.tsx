@@ -42,7 +42,7 @@ import {
   EVENT_PROVIDER_STATE,
   EVENT_PROVIDER_WARNINGS,
 } from "@/renderer/providers/eventTypes";
-import { CmdType } from "@/types";
+import { CmdTypes } from "@/types";
 import { LAYOUT_TABS } from "../layout";
 import { emitSelectTab } from "../layout/events";
 import { EMenuProvider } from "./OverflowMenuProvider";
@@ -502,7 +502,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
                 onClick={(event) => {
                   // open terminal for update
                   navCtx.openTerminal(
-                    CmdType.CMD,
+                    CmdTypes.CMD,
                     provider.id,
                     "",
                     "",
@@ -527,7 +527,7 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
                 onClick={(event) => {
                   // open terminal for update
                   navCtx.openTerminal(
-                    CmdType.TERMINAL,
+                    CmdTypes.TERMINAL,
                     provider.id,
                     "",
                     "",

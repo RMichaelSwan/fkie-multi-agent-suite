@@ -1,5 +1,6 @@
 import {
   CmdType,
+  CmdTypes,
   envEntryToExportStr,
   envEntryToStr,
   JSONObject,
@@ -509,16 +510,16 @@ export default class Provider implements IProvider {
   ) => Promise<TCmdTerminal> = async (type, nodeName = "", topicName = "", screenName = "", cmd = "", env = []) => {
     const result: TCmdTerminal = { success: true, screen: "", cmd: "", log: "", external: true };
     let cmdType = type;
-    if (cmdType === CmdType.SCREEN && screenName === "") {
-      cmdType = CmdType.LOG;
+    if (cmdType === CmdTypes.SCREEN && screenName === "") {
+      cmdType = CmdTypes.LOG;
     }
     switch (cmdType) {
-      case CmdType.CMD: {
+      case CmdTypes.CMD: {
         const prefix = this.createRosEnvExportPrefix(env);
         result.cmd = cmd ? `${prefix} ${cmd}` : `${prefix}`;
         break;
       }
-      case CmdType.SCREEN:
+      case CmdTypes.SCREEN:
         if (screenName && screenName.length > 0) {
           result.cmd = `screen -d -r ${screenName}`;
           result.screen = screenName;
@@ -534,7 +535,7 @@ export default class Provider implements IProvider {
           result.screen = createdScreenName;
         }
         break;
-      case CmdType.LOG: {
+      case CmdTypes.LOG: {
         const replyLogPaths = await this.getLogPaths([nodeName]);
         if (replyLogPaths.success && replyLogPaths.paths.length > 0) {
           const logPath = replyLogPaths.paths[0];
@@ -547,7 +548,7 @@ export default class Provider implements IProvider {
         }
         break;
       }
-      case CmdType.ECHO: {
+      case CmdTypes.ECHO: {
         if (this.rosState.ros_version === "1") {
           result.cmd = `rostopic echo ${topicName}`;
         } else if (this.rosState.ros_version === "2") {
@@ -556,12 +557,12 @@ export default class Provider implements IProvider {
         }
         break;
       }
-      case CmdType.TERMINAL: {
+      case CmdTypes.TERMINAL: {
         const prefix = this.createRosEnvExportPrefix(env);
         result.cmd = cmd ? `${prefix} ${cmd}` : `${prefix}`;
         break;
       }
-      case CmdType.SET_TIME:
+      case CmdTypes.SET_TIME:
         result.cmd = cmd;
         break;
       default:

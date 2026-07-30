@@ -1,4 +1,4 @@
-import { CmdType, PopoutParams } from "@/types";
+import { PopoutParams } from "@/types";
 import { is } from "@electron-toolkit/utils";
 import { BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
@@ -43,7 +43,7 @@ export const openUrl = (window: BrowserWindow, site: string, params: PopoutParam
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined) continue;
 
-    if (Array.isArray(v) || (typeof v === "object" && v !== null && !(v instanceof CmdType))) {
+    if (Array.isArray(v) || (typeof v === "object" && v !== null)) {
       search.set(k, JSON.stringify(v));
     } else {
       search.set(k, String(v));

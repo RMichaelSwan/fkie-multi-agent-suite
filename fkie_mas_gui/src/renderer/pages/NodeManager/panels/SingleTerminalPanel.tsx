@@ -7,7 +7,7 @@ import { useSetting } from "@/renderer/hooks/useSetting";
 import Provider from "@/renderer/providers/Provider";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import { ConnectionState, EventProviderState } from "@/renderer/providers/events";
-import { CmdType, TEnvEntry } from "@/types";
+import { CmdType, CmdTypes, TEnvEntry } from "@/types";
 import { useCustomEventListener } from "react-custom-events";
 import { emitCloseComponent } from "../layout/events";
 
@@ -54,10 +54,10 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
       if (!terminalCmd.success) {
         setError(terminalCmd.error);
       }
-      if (type !== CmdType.SET_TIME && terminalCmd.cmd) {
+      if (type !== CmdTypes.SET_TIME && terminalCmd.cmd) {
         setInitialCommands([`${terminalCmd.cmd}\r`]);
       }
-      if (type === CmdType.SCREEN) {
+      if (type === CmdTypes.SCREEN) {
         setLastScreenUsed(terminalCmd.screen);
       }
     },
@@ -73,7 +73,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
 
   const updateScreenName = useCallback(() => {
     // node changed, update the screen for the current node
-    if (nodeName && type === CmdType.SCREEN) {
+    if (nodeName && type === CmdTypes.SCREEN) {
       const nodes = rosCtx.mapProviderRosNodes.get(provider.id);
       const screens: string[] = [];
       if (nodes) {
@@ -146,7 +146,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
   const createTerminalView = useMemo(() => {
     return (
       <Box key={id} width="100%" height="100%" overflow="auto" alignItems={"center"} sx={getHostStyle()}>
-        {!nodeName && type !== CmdType.CMD && type !== CmdType.TERMINAL && (
+        {!nodeName && type !== CmdTypes.CMD && type !== CmdTypes.TERMINAL && (
           <Alert severity="info">
             <AlertTitle>Please select a node</AlertTitle>
           </Alert>
@@ -159,7 +159,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
 
         {!currentHost && <Alert severity="info">Wait until the provider is initialized: [{provider.id}]</Alert>}
 
-        {currentHost && nodeName && initialCommands.length > 0 && type !== CmdType.CMD && (
+        {currentHost && nodeName && initialCommands.length > 0 && type !== CmdTypes.CMD && (
           <TerminalClient
             key={`term-${id}`}
             tokenUrl={tokenUrl}
@@ -189,7 +189,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
             }}
           />
         )}
-        {currentHost && type === CmdType.TERMINAL && (
+        {currentHost && type === CmdTypes.TERMINAL && (
           <TerminalClient
             key={`term-terminal-${id}`}
             tokenUrl={`${cmd.replaceAll("/", " ")}`}
@@ -204,7 +204,7 @@ export default function SingleTerminalPanel(props: SingleTerminalPanelProps): JS
             }}
           />
         )}
-        {currentHost && type === CmdType.SET_TIME && (
+        {currentHost && type === CmdTypes.SET_TIME && (
           <TerminalClient
             key={`set-time-${id}`}
             type={type}

@@ -73,7 +73,7 @@ import { EventProviderAuthRequest } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_AUTH_REQUEST } from "@/renderer/providers/eventTypes";
 import { basename } from "@/renderer/utils";
 import { isElectron, openBrowserSite } from "@/renderer/utils/popout";
-import { CmdType, InfoStateLevel, TInfoState } from "@/types";
+import { CmdTypes, InfoStateLevel, TInfoState } from "@/types";
 import { DEFAULT_LAYOUT, LAYOUT_TAB_LIST, LAYOUT_TAB_SETS, LAYOUT_TABS } from "./layout";
 import {
   emitSelectTab,
@@ -879,13 +879,13 @@ export default function NodeManager(): JSX.Element {
             break;
           case LAYOUT_TABS.TERMINAL:
             switch (node.getConfig()?.terminalType) {
-              case CmdType.LOG:
+              case CmdTypes.LOG:
                 renderNameValues.leading = <WysiwygIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
                 break;
-              case CmdType.SCREEN:
+              case CmdTypes.SCREEN:
                 renderNameValues.leading = <DvrIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
                 break;
-              case CmdType.TERMINAL:
+              case CmdTypes.TERMINAL:
                 renderNameValues.leading = <TerminalIcon sx={{ fontSize: (theme) => theme.typography.fontSize }} />;
                 break;
             }
