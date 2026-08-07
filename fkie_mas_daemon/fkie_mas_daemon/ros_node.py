@@ -100,7 +100,7 @@ class RosNodeLauncher(object):
             self.success_start = self.server.start(
                 self._port, displayed_name=self._displayed_name)
             if self.success_start:
-                self._load_launches()
+                threading.Thread(target=self._load_launches).start()
                 # self.executor.spin()
                 executor.add_node(self.ros_node)
                 executor.spin()
