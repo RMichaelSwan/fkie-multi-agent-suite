@@ -2,6 +2,13 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.4 (10.08.2026)
+------------------
+* Merge pull request #16 from RMichaelSwan/fix/additional-envs
+* Merge pull request #17 from RMichaelSwan/fix/component-loading
+* fix: restore ExecuteProcess.additional_env reading
+* fix: load launch files in background thread to reduce launch time
+
 5.8.3 (29.07.2026)
 ------------------
 * Fixed update ROS_DOMAIN_ID to wrong value while package reload

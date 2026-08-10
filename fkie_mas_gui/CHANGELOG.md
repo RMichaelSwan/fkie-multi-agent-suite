@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.9.10 - 10.08.2026
+
+Merge pull request #16 from RMichaelSwan/fix/additional-envs
+Merge pull request #17 from RMichaelSwan/fix/component-loading
+fix: restore ExecuteProcess.additional_env reading
+fix: load launch files in background thread to reduce launch time
+
 ## 5.9.9 - 30.07.2026
 
 Fixed open content (log, screen) in external terminal
