@@ -277,6 +277,12 @@ class LaunchNodeWrapper(LaunchNodeInfo):
         # perform_to_tuple_list(self._launch_context, getattr(self._entity, 'additional_env', {}))
         self.additional_env = dict(environment)
         add_env = perform_to_tuple_list(self._launch_context, getattr(self._entity, 'env', {}))
+        add_env_extra = perform_to_tuple_list(self._launch_context, getattr(self._entity, 'additional_env', {}))
+        if add_env_extra:
+            if add_env is None:
+                add_env = add_env_extra
+            else:
+                add_env.extend(add_env_extra)
         if add_env:
             self.additional_env.update(add_env)
         self.launch_prefix = perform_to_string(self._launch_context, self._get_launch_prefix())
