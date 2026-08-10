@@ -15,4 +15,7 @@
     <unset_env name="SCM_CHECK" />
     <executable cmd="env" name="env_inc"/>
   </group>
+   <executable cmd="printenv TEST_DAEMON_ENV" name="test_exe_env">
+    <env name="TEST_DAEMON_ENV" value="propagated"/>
+  </executable>
 </launch>

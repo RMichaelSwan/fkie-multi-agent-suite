@@ -16,6 +16,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
@@ -45,6 +46,12 @@ def generate_launch_description():
                 parameters=[{'capability_group': capability_group}],
                 remappings=remappings + [('topic', 'topic_test')],
             ),
+            ExecuteProcess(
+                cmd=["printenv", "TEST_DAEMON_ENV"],
+                additional_env={"TEST_DAEMON_ENV": "propagated"},
+                name="TEST_DAEMON_ENV",
+            ),
+
         ],
     )
 

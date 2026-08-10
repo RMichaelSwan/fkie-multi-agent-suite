@@ -422,17 +422,21 @@ class LaunchServicer(LoggingEventHandler):
             # get the list with needed launch args
             launch_context = LaunchContext(argv=sys.argv[1:])
             provided_args = [] if request.args is None else request.args
-            req_args = LaunchConfig.get_launch_arguments(
-                launch_context, launchfile,  provided_args=None if request.request_args else provided_args)
-            # req_args_dict = launch_config.argv2dict(req_args)
-            if request.request_args and req_args:
-                for arg in req_args:
-                    if arg.name not in provided_arg_names:
-                        result.args.extend(req_args)
-                        result.status.code = 'PARAMS_REQUIRED'
-                        Log.debug(
-                            f"{self.__class__.__name__}: ..load aborted, PARAMS_REQUIRED {[arg.name for arg in result.args]}; provided args {provided_arg_names}")
-                        return json.dumps(result, cls=SelfEncoder) if return_as_json else result
+            req_args = []
+            if len(provided_args) > 0:
+                req_args = provided_args
+            if len(req_args) == 0:
+                req_args = LaunchConfig.get_launch_arguments(
+                    launch_context, launchfile,  provided_args=None if request.request_args else provided_args)
+                # req_args_dict = launch_config.argv2dict(req_args)
+                if request.request_args and req_args:
+                    for arg in req_args:
+                        if arg.name not in provided_arg_names:
+                            result.args.extend(req_args)
+                            result.status.code = 'PARAMS_REQUIRED'
+                            Log.debug(
+                                f"{self.__class__.__name__}: ..load aborted, PARAMS_REQUIRED {[arg.name for arg in result.args]}; provided args {provided_arg_names}")
+                            return json.dumps(result, cls=SelfEncoder) if return_as_json else result
             launch_arguments = [(arg.name, arg.value) if hasattr(arg, "value")
                                 else (arg.name, arg.default_value) for arg in req_args]
             launch_config = LaunchConfig(
