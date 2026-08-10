@@ -230,7 +230,10 @@ export const AutoUpdateProvider = ({
         if (newRelease) {
           // build changelog for all newer versions
           const changes = data
-            .filter((r) => semver.gt(r.name, pkgVersion))
+            .filter((r) => {
+              if (!r.name) return false;
+              return semver.gt(r.name, pkgVersion);
+            })
             .map((r) => r.body?.replace("Changes", getTitle(r)));
           setStoredUpdateAvailable({
             version: release.name,
