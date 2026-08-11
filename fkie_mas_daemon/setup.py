@@ -56,7 +56,7 @@ else:
     setup(
         name=package_name,
         version=strip_dirty_vers(get_version()[0]),
-        packages=[package_name, f'{package_name}.monitor'],
+        packages=[package_name, f'{package_name}.launch', f'{package_name}.monitor'],
         data_files=[
             ('share/ament_index/resource_index/packages',
              ['resource/' + package_name]),

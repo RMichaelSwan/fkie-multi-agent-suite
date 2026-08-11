@@ -55,6 +55,9 @@ from fkie_mas_pylib.system import exceptions
 from fkie_mas_pylib.system import screen
 from fkie_mas_pylib.system.supervised_popen import SupervisedPopen
 
+from .launch_argument_cache import LaunchArgTemplate
+from .launch_argument_cache import LAUNCH_ARGUMENT_CACHE
+
 import fkie_mas_daemon as nmd
 
 PRINT_DEBUG_LOAD = False
@@ -556,10 +559,18 @@ class LaunchNodeWrapper(LaunchNodeInfo):
         return request
 
 
+_la_cache = {}  # filename -> (mtime, List[LaunchArgument])
+
+
 class LaunchConfig(object):
     '''
     A class to handle the ROS configuration stored in launch file.
     '''
+
+    # os.environ is process global: serialize launch file parsing and every
+    # environment snapshot across all instances. This is the lowest level in
+    # the lock hierarchy, never acquire a servicer lock while holding it.
+    _LOAD_LOCK = threading.RLock()
 
     def __init__(self, launch_file: str, *, context=None, package=None, daemonuri='', launch_arguments: List[Tuple[Text, Text]] = []):
         '''
@@ -615,7 +626,6 @@ class LaunchConfig(object):
         self.changed = True
 
     def __del__(self):
-        Log.info(f"delete Launch config {self.filename}")
         self._nodes.clear()
 
     @property
@@ -704,20 +714,32 @@ class LaunchConfig(object):
                             break
         return line_number, end_position, raw_text
 
+    def _reset_loaded_state(self) -> None:
+        """Drop everything produced by _load(); keeps the provided launch arguments."""
+        self._nodes.clear()
+        self._included_files.clear()
+        self.load_exceptions.clear()
+
     def unload(self):
         Log.info(f"unload launch file: {self.filename}")
+        self._reset_loaded_state()
         self.launch_arguments.clear()
-        self._included_files.clear()
-        self._nodes.clear()
 
     def load(self) -> None:
         Log.info(
             f"load launch file: {self.filename}, arguments: {[f'{v.name}:={v.value}' for v in self.launch_arguments]}")
-        self.environment = os.environ.copy()
-        self._load(current_file=self.filename)
-        # restore environment after file was loaded. To avoid interaction if multiple files are loaded.
-        os.environ.clear()
-        os.environ.update(self.environment)
+        with LaunchConfig._LOAD_LOCK:
+            # reload must not append to the result of a previous load
+            self._reset_loaded_state()
+            self.environment = os.environ.copy()
+            try:
+                self._load(current_file=self.filename)
+            finally:
+                # always restore environment, also on load errors, to avoid
+                # interaction if multiple files are loaded
+                os.environ.clear()
+                os.environ.update(self.environment)
+        self.changed = True
 
     def _load(self, sub_obj: Union[None, List[launch.frontend.Entity]] = None, *, launch_description=None, current_file: str = '', indent: str = '', launch_file_obj: Union[LaunchIncludedFile, None] = None, depth: int = -1, start_position_in_file=0, timer_period=0, env: Dict[str, str] = {}, remove_env: List[str] = []) -> None:
         if PRINT_DEBUG_LOAD:
@@ -962,9 +984,9 @@ class LaunchConfig(object):
                     include_line_number, position_in_file, raw_text = self.find_definition(
                         file_content, 'group', position_in_file, include_close_bracket=False)
                     position_in_file = self._load(entity, launch_description=current_launch_description,
-                                                current_file=current_file, indent=indent+'  ', launch_file_obj=launch_file_obj,
-                                                depth=depth, start_position_in_file=position_in_file, timer_period=timer_period,
-                                                env=additional_environment, remove_env=remove_environment)
+                                                  current_file=current_file, indent=indent+'  ', launch_file_obj=launch_file_obj,
+                                                  depth=depth, start_position_in_file=position_in_file, timer_period=timer_period,
+                                                  env=additional_environment, remove_env=remove_environment)
                 finally:
                     os.environ.clear()                 # restore environment
                     os.environ.update(saved_env)
@@ -1121,7 +1143,7 @@ class LaunchConfig(object):
         return self.__package
 
     @classmethod
-    def get_launch_arguments(cls, context: LaunchContext, filename: str, *, provided_args: Union[List, None]) -> List[LaunchArgument]:
+    def _get_launch_arguments(cls, context: LaunchContext, filename: str, *, provided_args: Union[List, None]) -> List[LaunchArgument]:
         '''
         Returns only top-level launch arguments, but collects all possible default values recursively
         from entire launch tree (includes, groups, nested LaunchDescriptions).
@@ -1233,6 +1255,38 @@ class LaunchConfig(object):
 
         return result
 
+    @classmethod
+    def get_launch_arguments(cls, context: LaunchContext, filename: str, *,
+                             provided_args: Union[List, None]) -> List[LaunchArgument]:
+        key = LAUNCH_ARGUMENT_CACHE.make_key(filename, context)
+
+        def _load() -> Tuple[LaunchArgTemplate, ...]:
+            Log.debug(f"LaunchConfig: parse launch arguments of {filename}")
+            # parse without provided_args: the result must not depend on the request
+            parsed = cls._get_launch_arguments(context, filename=filename, provided_args=None)
+            return tuple(
+                LaunchArgTemplate(name=a.name,
+                             default_value=a.default_value,
+                             description=a.description,
+                             choices=tuple(a.choices or []))
+                for a in parsed
+            )
+
+        templates = LAUNCH_ARGUMENT_CACHE.get_or_load(key, _load)
+
+        # always build fresh objects: the caller mutates and extends the returned list
+        provided = {}
+        if provided_args:
+            provided = {a.name: a.value for a in provided_args if hasattr(a, "value")}
+        return [
+            LaunchArgument(name=t.name,
+                           value=provided.get(t.name, t.default_value),
+                           default_value=t.default_value,
+                           description=t.description,
+                           choices=list(t.choices))
+            for t in templates
+        ]
+
     def get_node(self, name: str) -> Union[LaunchNodeWrapper, None]:
         '''
         Returns a configuration node for a given node name.
@@ -1268,9 +1322,10 @@ class LaunchConfig(object):
 
         # run on local host
         # run get_cmd() before create new_env since get_cmd() extends os.environ
-        screen_prefix = screen.get_cmd(node.unique_name)
-        # set environment
-        new_env = os.environ.copy()
+        with LaunchConfig._LOAD_LOCK:
+            screen_prefix = screen.get_cmd(node.unique_name)
+            # set environment
+            new_env = os.environ.copy()
         # add environment from launch
         if node.additional_env:
             new_env.update(dict(node.additional_env))

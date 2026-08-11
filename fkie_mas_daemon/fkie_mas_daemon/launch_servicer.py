@@ -5,10 +5,44 @@
 # License: MIT
 #
 # ****************************************************************************
+
+from .launch.file_observer import FileObserverRegistry
+from .launch.launch_argument_cache import LAUNCH_ARGUMENT_CACHE
+from .launch.launch_config import LaunchConfig
+from .launch.launch_context import LaunchContext
+from .launch.launch_validator import LaunchValidator
 import fkie_mas_daemon as nmd
-from .launch_validator import LaunchValidator
-from .launch_context import LaunchContext
-from .launch_config import LaunchConfig
+import csv
+import json
+import os
+import re
+import shlex
+import sys
+import time
+import traceback
+from threading import Lock
+from threading import RLock
+from importlib import import_module
+# from launch.launch_context import LaunchContext
+
+from typing import Dict
+from typing import FrozenSet
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
+
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rosidl_runtime_py.utilities import get_message
+from rosidl_runtime_py.utilities import get_service
+from rosidl_runtime_py.utilities import get_action
+from rosidl_runtime_py import get_service_interfaces
+from rosidl_runtime_py import get_message_interfaces
+from rosidl_runtime_py import get_action_interfaces
+from rosidl_runtime_py import set_message_fields
+from rosidl_runtime_py import message_to_ordereddict
+import rosidl_parser.definition
+
 from fkie_mas_pylib.websocket.server import WebSocketServer
 from fkie_mas_pylib.system.supervised_popen import SupervisedPopen
 from fkie_mas_pylib.system.url import equal_uri
@@ -45,37 +79,14 @@ from fkie_mas_pylib.interface.runtime_interface import RosQos
 from fkie_mas_pylib.interface.runtime_interface import SubscriberNode
 from fkie_mas_pylib.interface import SelfEncoder
 from fkie_mas_pylib import ros_pkg
-from rclpy.callback_groups import ReentrantCallbackGroup
-from rosidl_runtime_py.utilities import get_message
-from rosidl_runtime_py.utilities import get_service
-from rosidl_runtime_py.utilities import get_action
-from rosidl_runtime_py import get_service_interfaces
-from rosidl_runtime_py import get_message_interfaces
-from rosidl_runtime_py import get_action_interfaces
-from rosidl_runtime_py import set_message_fields
-from rosidl_runtime_py import message_to_ordereddict
-import rosidl_parser.definition
-from watchdog.events import FileModifiedEvent
-from watchdog.events import LoggingEventHandler
-from watchdog.observers import Observer
-import csv
-import json
-import os
-import re
-import shlex
-import sys
-import time
-import traceback
-from threading import RLock
-from importlib import import_module
-# from launch.launch_context import LaunchContext
 
-from typing import Dict
-from typing import List
-from typing import Tuple
-from typing import Type
 ActionClass = Type
 ActionRequestClass = Type
+
+
+# precompiled: used on every reload for every node
+PARAMS_FILE_RE = re.compile(r'--params-file\s+([^\s]+)')
+ANONYMOUS_NODE_RE = re.compile(r"\d{3,6}_\d{10,}")
 
 
 class CfgId(object):
@@ -128,30 +139,33 @@ class CfgId(object):
         return False
 
 
-class LaunchServicer(LoggingEventHandler):
+class LaunchServicer:
     '''
+    Websocket service methods around loaded ROS2 launch files.
     '''
+
+    # Lock hierarchy, never acquire in reverse order:
+    #   1. self._loaded_files_lock
+    #   2. FileObserverRegistry internal lock
+    #   3. LaunchConfig._LOAD_LOCK  (os.environ, launch file parsing)
+    # self._peers_lock and self._node_exec_lock are leaf locks and are never
+    # nested with any other lock.
 
     def __init__(self, websocket: WebSocketServer, ws_port: int):
         Log.info("Create ROS2 launch servicer")
-        LoggingEventHandler.__init__(self)
-        self._watchdog_observer = Observer()
-        self._lock = RLock()
-        self.ws_port = ws_port
-        self.xml_validator = LaunchValidator()
-        self._observed_dirs = {}  # path: watchdog.observers.api.ObservedWatch
-        self._real_paths = {}  # link <-> real path; real path <-> real path
-        self._node_exec = {}  # node name <-> executable path
-        self._included_files = []
-        self._included_dirs = []
-        self._last_mod_times = {}
+        self._loaded_files_lock = RLock()
+        self._node_exec_lock = Lock()
+        self._peers_lock = Lock()
+        self._loaded_files: Dict[CfgId, LaunchConfig] = {}
+        self._node_exec: Dict[str, str] = {}   # node name -> executable path
+        self._peers: Dict[str, object] = {}
         self._is_running = True
-        self._peers = {}
-        self._loaded_files: Dict[CfgId, LaunchConfig] = dict()
-        self._observed_launch_files: Dict[str, List[str]] = {}
-        self._watchdog_observer.start()
+        self.ws_port = ws_port
         self.websocket = websocket
+        self.xml_validator = LaunchValidator()
         self._callback_service_group = ReentrantCallbackGroup()
+        self._observer = FileObserverRegistry(self._on_file_changed)
+        self._observer.start()
 
         websocket.register("ros.launch.load", self.load_launch)
         websocket.register("ros.launch.reload", self.reload_launch)
@@ -173,509 +187,373 @@ class LaunchServicer(LoggingEventHandler):
         websocket.register("ros.action.introspection.start", self.start_action_introspection)
         websocket.register("ros.service.introspection.start", self.start_service_introspection)
 
+    def stop(self):
+        '''Stop the file observer.'''
+        self._is_running = False
+        self._observer.stop()
+
     def _terminated(self):
         Log.info(f"{self.__class__.__name__}: terminated launch context")
 
     def _register_callback(self, context):
-        if (context.peer() not in self._peers):
-            Log.info(
-                f"{self.__class__.__name__}: Add callback to peer context @{context.peer()}")
-            if context.add_callback(self._terminated):
-                self._peers[context.peer()] = context
-
-    def stop(self):
-        '''
-        Stop watchdog and cancel the autostart of the nodes.
-        '''
-        self._is_running = False
-        self._watchdog_observer.stop()
-
-    def on_modified(self, event: FileModifiedEvent):
-        if event.event_type in ['opened', 'closed']:
-            return
-        path = ''
-        if event.src_path in self._real_paths:
-            path = self._real_paths[event.src_path]
-        # modification events trigger multiple times, see https://github.com/gorakhargosh/watchdog/issues/346
-        current_time = time.time()
-        last_trigger_time = 0
-        try:
-            last_trigger_time = self._last_mod_times[path]
-        except KeyError:
-            pass
-        if (current_time - last_trigger_time) > 1:
-            last_trigger_time = current_time
-            self._last_mod_times[path] = current_time
-        else:
-            return
-
-        if path in self._included_files:
-            affected_launch_files = []
-            for launch_path, path_list in self._observed_launch_files.items():
-                if path in path_list:
-                    affected_launch_files.append(launch_path)
-            change_event = {"eventType": event.event_type,
-                            "srcPath": path,
-                            "affected": affected_launch_files}
-            Log.debug(
-                f"{self.__class__.__name__}: observed change {event.event_type} on {event.src_path}, reported path: {path}")
-            self.websocket.publish('ros.path.changed', change_event)
-
-    def _add_file_to_observe(self, path: str):
-        real_path = os.path.realpath(path)
-        self._real_paths[real_path] = path
-        directory = os.path.dirname(real_path)
-        Log.debug(f"{self.__class__.__name__}:observe path: {path}")
-        if directory not in self._observed_dirs:
-            try:
-                watch = self._watchdog_observer.schedule(self, directory)
-                self._observed_dirs[directory] = watch
-            except OSError as err:
-                Log.warn(
-                    f"{self.__class__.__name__}: cannot observe {directory}: {err}. "
-                    "Consider increasing fs.inotify.max_user_instances")
+        peer = context.peer()
+        with self._peers_lock:
+            if peer in self._peers:
                 return
-        self._included_files.append(path)
-        self._included_dirs.append(directory)
+        Log.info(f"{self.__class__.__name__}: Add callback to peer context @{peer}")
+        if context.add_callback(self._terminated):
+            with self._peers_lock:
+                self._peers[peer] = context
 
-    def _remove_file_from_observe(self, path: str):
-        Log.debug(f"{self.__class__.__name__}: stop observe path: {path}")
-        try:
-            real_path = os.path.realpath(path)
-            directory = os.path.dirname(real_path)
-            self._included_files.remove(path)
-            if path not in self._included_files:
-                del self._real_paths[real_path]
-            self._included_dirs.remove(directory)
-            if directory not in self._included_dirs:
-                if directory in self._observed_dirs:
-                    Log.debug(
-                        f"{self.__class__.__name__}: remove directory from observer: {directory}")
-                    self._watchdog_observer.unschedule(
-                        self._observed_dirs[directory])
-                    del self._observed_dirs[directory]
-        except ValueError:
-            pass
+    # -- access to _loaded_files -------------------------------------------
 
-    def _add_launch_to_observer(self, launch_config: LaunchConfig) -> List[str]:
-        errors = []
-        added = []
+    def _get_config(self, path: str, daemonuri: str = '') -> Optional[LaunchConfig]:
+        with self._loaded_files_lock:
+            return self._loaded_files.get(CfgId(path, daemonuri))
+
+    def _set_config(self, cfgid: CfgId, launch_config: LaunchConfig) -> None:
+        with self._loaded_files_lock:
+            self._loaded_files[cfgid] = launch_config
+
+    def _pop_config(self, cfgid: CfgId) -> Optional[LaunchConfig]:
+        with self._loaded_files_lock:
+            return self._loaded_files.pop(cfgid, None)
+
+    def _snapshot_configs(self) -> List[Tuple[CfgId, LaunchConfig]]:
+        '''Stable snapshot, so iteration never holds the lock.'''
+        with self._loaded_files_lock:
+            return list(self._loaded_files.items())
+
+    # -- observer ----------------------------------------------------------
+
+    def _observe_launch(self, launch_config: LaunchConfig) -> List[str]:
+        '''Observe a launch file and its included files. Returns warnings.'''
+        paths = [launch_config.filename]
         try:
-            self._add_file_to_observe(launch_config.filename)
-            added.append(launch_config.filename)
-            request = LaunchIncludedFilesRequest(launch_config.filename, args=launch_config.launch_arguments)
+            request = LaunchIncludedFilesRequest(
+                launch_config.filename, args=launch_config.launch_arguments)
             for inc_description in self.get_included_files(request, result_as_json=False):
-                try:
-                    self._add_file_to_observe(inc_description.inc_path)
-                    added.append(inc_description.inc_path)
-                except Exception as e:
-                    errors.append(f"{inc_description.inc_path}: {e}")
-                    Log.error(
-                        f"{self.__class__.__name__}: _add_launch_to_observer {inc_description.inc_path}: \n {e}")
-        except Exception as e:
-            errors.append(f"{launch_config.filename}: {e}")
-            Log.error(
-                f"{self.__class__.__name__}: _add_launch_to_observer {launch_config.filename}: \n {e}")
-        self._observed_launch_files[launch_config.filename] = added
-        return errors
+                paths.append(inc_description.inc_path)
+        except Exception as error:
+            Log.error(f"{self.__class__.__name__}: cannot determine included files of "
+                      f"{launch_config.filename}: {error}")
+            return [f"{launch_config.filename}: {error}"]
+        return self._observer.register_launch(launch_config.filename, paths)
 
-    def _remove_launch_from_observer(self, launch_config: LaunchConfig):
-        try:
-            for path in self._observed_launch_files[launch_config.filename]:
-                try:
-                    self._remove_file_from_observe(path)
-                except Exception as e:
-                    Log.error(
-                        f"{self.__class__.__name__}: _remove_file_from_observe {path}:\n{e}")
-            del self._observed_launch_files[launch_config.filename]
-        except Exception as e:
-            Log.error(
-                f"{self.__class__.__name__}: _remove_launch_from_observer {launch_config.filename}:\n{e}")
+    def _unobserve_launch(self, launch_config: LaunchConfig) -> None:
+        self._observer.unregister_launch(launch_config.filename)
 
-    # def start_node(self, node_name):
-    #     global IS_RUNNING
-    #     if not IS_RUNNING:
-    #         return
-    #     for _cfgid, launchcfg in self._loaded_files.items():
-    #         n = launchcfg.get_node(node_name)
-    #         if n is not None:
-    #             startcfg = launcher.create_start_config(
-    #                 node_name, launchcfg, '', daemonuri='', loglevel='')
-    #             launcher.run_node(startcfg)
-    #             return
-    #     raise Exception("Node '%s' not found!" % node_name)
+    def _on_file_changed(self, event_type: str, path: str,
+                         affected_launch_files: FrozenSet[str]) -> None:
+        '''Called by the observer registry without any lock held.'''
+        if not self._is_running:
+            return
+        LAUNCH_ARGUMENT_CACHE.invalidate(path)
+        for launch_path in affected_launch_files:
+            LAUNCH_ARGUMENT_CACHE.invalidate(launch_path)
+        Log.debug(f"{self.__class__.__name__}: observed change {event_type} on {path}, "
+                  f"affected: {sorted(affected_launch_files)}")
+        self.websocket.publish('ros.path.changed',
+                               {"eventType": event_type,
+                                "srcPath": path,
+                                "affected": sorted(affected_launch_files)})
 
-    # def _autostart_nodes_threaded(self, cfg):
-    #     global IS_RUNNING
-    #     for item in cfg.roscfg.nodes:
-    #         if not IS_RUNNING:
-    #             return
-    #         node_fullname = ns_join(item.namespace, item.name)
-    #         try:
-    #             if self._get_start_exclude(cfg, node_fullname):
-    #                 # skip autostart
-    #                 nmd.ros_node.get_logger().debug(
-    #                     "%s is in exclude list, skip autostart" % node_fullname)
-    #                 continue
-    #             self._autostart_node(node_fullname, cfg)
-    #         except Exception as err:
-    #             nmd.ros_node.get_logger().warn("Error while start %s: %s" % (node_fullname, err))
+    # -- environment -------------------------------------------------------
 
-    # def _autostart_node(self, node_name, cfg):
-    #     global IS_RUNNING
-    #     if not IS_RUNNING:
-    #         return
-    #     start_required = self._get_start_required(cfg, node_name)
-    #     start_now = False
-    #     if start_required:
-    #         import rosgraph
-    #         # get published topics from ROS master
-    #         master = rosgraph.masterapi.Master(cfg.masteruri)
-    #         for topic, _datatype in master.getPublishedTopics(''):
-    #             if start_required == topic:
-    #                 start_now = True
-    #                 break
-    #         if not start_now:
-    #             # Start the timer for waiting for the topic
-    #             start_timer = threading.Timer(
-    #                 3.0, self._autostart_node, args=(node_name, cfg))
-    #             start_timer.start()
-    #     else:
-    #         start_now = True
-    #     if start_now:
-    #         startcfg = launcher.create_start_config(
-    #             node_name, cfg, '', daemonuri='', loglevel='')
-    #         start_delay = self._get_start_delay(cfg, node_name)
-    #         if start_delay > 0:
-    #             # start timer for delayed start
-    #             start_timer = threading.Timer(
-    #                 start_delay, launcher.run_node, args=(startcfg,))
-    #             start_timer.setDaemon(True)
-    #             start_timer.start()
-    #         else:
-    #             launcher.run_node(startcfg)
+    @staticmethod
+    def _env_snapshot() -> Dict[str, str]:
+        '''Consistent copy of os.environ, serialized against launch parsing.'''
+        with LaunchConfig._LOAD_LOCK:
+            return dict(os.environ)
 
-    def load_launch(self, request_json: LaunchLoadRequest, *, requester: str = "", return_as_json: bool = True) -> LaunchLoadReply:
-        '''
-        Loads launch file by interface request
-        '''
+    @classmethod
+    def _local_env(cls) -> Dict[str, str]:
+        '''Environment for locally started nodes with normalized DISPLAY.'''
+        new_env = cls._env_snapshot()
+        if 'DISPLAY' in new_env:
+            if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
+                del new_env['DISPLAY']
+        else:
+            new_env['DISPLAY'] = ':0'
+        return new_env
+
+    def load_launch(self, request_json: LaunchLoadRequest, *, requester: str = "",
+                    return_as_json: bool = True) -> LaunchLoadReply:
+        '''Loads launch file by interface request'''
         Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.load]")
-        result = LaunchLoadReply()
-
-        # Covert input dictionary into a proper python object
         request = request_json
-
+        result = LaunchLoadReply()
+        # request scoped state, never stored on self
         launchfile = request.path
-        daemonuri = ''
-        if hasattr(request, 'masteruri'):
-            daemonuri = request.masteruri
-        Log.debug(f"{self.__class__.__name__}: Loading launch file: {launchfile} (package: {request.ros_package}, launch: {request.launch}), daemonuri: {daemonuri}, host: {request.host}, args: {request.args}")
+        daemonuri = getattr(request, 'masteruri', '') or ''
+        Log.debug(f"{self.__class__.__name__}: Loading launch file: {launchfile} "
+                  f"(package: {request.ros_package}, launch: {request.launch}), "
+                  f"daemonuri: {daemonuri}, host: {request.host}, args: {request.args}")
 
         if not launchfile:
-            # determine path from package name and launch name
-            try:
-                paths = ros_pkg.get_share_files_path_from_package(
-                    request.ros_package, request.launch)
-                if not paths:
-                    result.status.code = 'FILE_NOT_FOUND'
-                    result.status.message = "Launch files %s in package %s not found!" % (
-                        request.launch, request.ros_package)
-                    return json.dumps(result, cls=SelfEncoder) if return_as_json else result
-                elif len(paths) > 1:
-                    if request.force_first_file:
-                        launchfile = paths[0]
-                    else:
-                        result.status.code = 'MULTIPLE_LAUNCHES'
-                        result.status.msg = "Multiple launch files with name %s in package %s found!" % (
-                            request.launch, request.ros_package)
-                        for mp in paths:
-                            result.paths.append(mp)
-                        Log.debug(
-                            f"{self.__class__.__name__}: ..load aborted, MULTIPLE_LAUNCHES")
-                        return json.dumps(result, cls=SelfEncoder) if return_as_json else result
-                else:
-                    launchfile = paths[0]
-            except LookupError as rnf:
-                result.status.code = 'FILE_NOT_FOUND'
-                result.status.msg = "Package %s not found: %s" % (
-                    request.ros_package, rnf)
-                Log.debug(
-                    f"{self.__class__.__name__}: ..load aborted, FILE_NOT_FOUND")
+            resolved = self._resolve_package_launch(request, result)
+            if resolved is None:
                 return json.dumps(result, cls=SelfEncoder) if return_as_json else result
+            launchfile = resolved
         result.paths.append(launchfile)
-        # it is already loaded?
-        if (launchfile, daemonuri) in list(self._loaded_files.keys()):
+
+        cfgid = CfgId(launchfile, daemonuri)
+        if self._get_config(launchfile, daemonuri) is not None:
             result.status.code = 'ALREADY_OPEN'
-            result.status.msg = "Launch file %s already loaded!" % (
-                launchfile)
-            Log.debug(
-                f"{self.__class__.__name__}: ..load aborted, ALREADY_OPEN")
+            result.status.msg = f"Launch file {launchfile} already loaded!"
+            Log.debug(f"{self.__class__.__name__}: ..load aborted, ALREADY_OPEN")
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
 
-        # load launch configuration
         try:
-            # validate xml
-            # TODO: create a valid and complete Schema for ROS2 launch files
-            self.xml_validator.validate(launchfile)
-            # test for required args
             provided_arg_names = [arg.name for arg in request.args]
-            # get the list with needed launch args
             launch_context = LaunchContext(argv=sys.argv[1:])
             provided_args = [] if request.args is None else request.args
-            req_args = []
-            if len(provided_args) > 0:
-                req_args = provided_args
-            if len(req_args) == 0:
+            req_args = list(provided_args)
+            if not req_args:
                 req_args = LaunchConfig.get_launch_arguments(
-                    launch_context, launchfile,  provided_args=None if request.request_args else provided_args)
-                # req_args_dict = launch_config.argv2dict(req_args)
+                    launch_context, launchfile,
+                    provided_args=None if request.request_args else provided_args)
                 if request.request_args and req_args:
-                    for arg in req_args:
-                        if arg.name not in provided_arg_names:
-                            result.args.extend(req_args)
-                            result.status.code = 'PARAMS_REQUIRED'
-                            Log.debug(
-                                f"{self.__class__.__name__}: ..load aborted, PARAMS_REQUIRED {[arg.name for arg in result.args]}; provided args {provided_arg_names}")
-                            return json.dumps(result, cls=SelfEncoder) if return_as_json else result
+                    missing = [arg for arg in req_args if arg.name not in provided_arg_names]
+                    if missing:
+                        result.args.extend(req_args)
+                        result.status.code = 'PARAMS_REQUIRED'
+                        Log.debug(f"{self.__class__.__name__}: ..load aborted, PARAMS_REQUIRED "
+                                  f"{[arg.name for arg in result.args]}; "
+                                  f"provided args {provided_arg_names}")
+                        return json.dumps(result, cls=SelfEncoder) if return_as_json else result
             launch_arguments = [(arg.name, arg.value) if hasattr(arg, "value")
                                 else (arg.name, arg.default_value) for arg in req_args]
-            launch_config = LaunchConfig(
-                launchfile, context=launch_context, daemonuri=daemonuri, launch_arguments=launch_arguments)
-            Log.debug(f"{self.__class__.__name__}: daemonuri: {daemonuri}")
-            self._loaded_files[CfgId(launchfile, daemonuri)] = launch_config
-            observer_warnings = list(set(self._add_launch_to_observer(launch_config)))
-            result.status.msg = '\n'.join(observer_warnings)
-            if len(launch_config.load_exceptions) > 0:
-                if result.status.msg:
-                    result.status.msg += "\n"
-                result.status.msg += launch_config.load_exceptions[0]
-            launch_config.load_exceptions.extend(observer_warnings)
-            Log.debug(f"{self.__class__.__name__}: ..load complete!")
-        except Exception as e:
-            import traceback
+            # heavy work: no servicer lock is held, LaunchConfig serializes the
+            # os.environ access on its own class lock
+            launch_config = LaunchConfig(launchfile, context=launch_context,
+                                         daemonuri=daemonuri,
+                                         launch_arguments=launch_arguments)
+        except Exception as error:
             print(traceback.format_exc())
-            err_text = "%s loading failed!" % launchfile
-            err_details = "%s: %s" % (err_text, e)
-            Log.warn(
-                f"{self.__class__.__name__}: Loading launch file: {err_details}")
+            err_details = f"{launchfile} loading failed!: {error}"
+            Log.warn(f"{self.__class__.__name__}: Loading launch file: {err_details}")
             result.status.code = 'ERROR'
             result.status.msg = err_details
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
-        result.env = dict(os.environ)
+
+        # insert only if no concurrent request won the race meanwhile
+        with self._loaded_files_lock:
+            if cfgid in self._loaded_files:
+                result.status.code = 'ALREADY_OPEN'
+                result.status.msg = f"Launch file {launchfile} already loaded!"
+                return json.dumps(result, cls=SelfEncoder) if return_as_json else result
+            self._loaded_files[cfgid] = launch_config
+
+        # observer and publish strictly after the lock is released
+        observer_warnings = sorted(set(self._observe_launch(launch_config)))
+        messages = list(observer_warnings)
+        if launch_config.load_exceptions:
+            messages.insert(0, launch_config.load_exceptions[0])
+        result.status.msg = '\n'.join(messages)
+        launch_config.load_exceptions.extend(observer_warnings)
+        result.env = self._env_snapshot()
         result.status.code = 'OK'
+        Log.debug(f"{self.__class__.__name__}: ..load complete!")
         try:
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
         finally:
-            # inform other subscribers about reloaded launch file
-            self.websocket.publish('ros.launch.changed', {'path': launchfile,
-                                   'action': 'loaded', 'requester': requester})
+            self.websocket.publish('ros.launch.changed',
+                                   {'path': launchfile, 'action': 'loaded',
+                                    'requester': requester})
 
-    def reload_launch(self, request_json: LaunchLoadRequest, *, requester: str = "") -> LaunchLoadReply:
-        '''
-        Reloads launch file by interface request
-        '''
+    def _resolve_package_launch(self, request: LaunchLoadRequest,
+                                result: LaunchLoadReply) -> Optional[str]:
+        '''Determine the launch file path from package and launch name.
+        Returns None and fills result.status on error.'''
+        try:
+            paths = ros_pkg.get_share_files_path_from_package(
+                request.ros_package, request.launch)
+        except LookupError as rnf:
+            result.status.code = 'FILE_NOT_FOUND'
+            result.status.msg = f"Package {request.ros_package} not found: {rnf}"
+            Log.debug(f"{self.__class__.__name__}: ..load aborted, FILE_NOT_FOUND")
+            return None
+        if not paths:
+            result.status.code = 'FILE_NOT_FOUND'
+            result.status.message = (f"Launch files {request.launch} in package "
+                                     f"{request.ros_package} not found!")
+            return None
+        if len(paths) > 1 and not request.force_first_file:
+            result.status.code = 'MULTIPLE_LAUNCHES'
+            result.status.msg = (f"Multiple launch files with name {request.launch} "
+                                 f"in package {request.ros_package} found!")
+            result.paths.extend(paths)
+            Log.debug(f"{self.__class__.__name__}: ..load aborted, MULTIPLE_LAUNCHES")
+            return None
+        return paths[0]
+
+    def reload_launch(self, request_json: LaunchLoadRequest, *,
+                      requester: str = "") -> LaunchLoadReply:
+        '''Reloads launch file by interface request'''
         Log.info(f"{self.__class__.__name__}: Request to [ros.launch.reload]")
-        result = LaunchLoadReply()
-        # Covert input dictionary into a proper python object
         request = request_json
-
-        daemonuri = ''
-        if hasattr(request, 'masteruri'):
-            daemonuri = request.masteruri
-        Log.debug(f"{self.__class__.__name__}: Loading launch file: {request.path} (package: {request.ros_package}, launch: {request.launch}), daemonuri: {daemonuri}, host: {request.host}, args: {request.args}")
-
+        result = LaunchLoadReply()
+        daemonuri = getattr(request, 'masteruri', '') or ''
         result.paths.append(request.path)
         cfgid = CfgId(request.path, daemonuri)
-        Log.debug(
-            f"{self.__class__.__name__}: reload launch file: {request.path}, daemonuri: {daemonuri}")
-        if cfgid in self._loaded_files:
-            old_launch = self._loaded_files[cfgid]
-            try:
-                self._remove_launch_from_observer(old_launch)
-                # use argv from already open file
-                launch_context = LaunchContext(argv=sys.argv[1:])
-                # get current arguments in case new are defined in changed file
-                pla: List[LaunchArgument] = []
-                for (a_name, a_value) in old_launch.provided_launch_arguments:
-                    pla.append(LaunchArgument(a_name, a_value))
-                launch_arguments = []
-                req_args: List[LaunchArgument] = LaunchConfig.get_launch_arguments(
-                    launch_context, old_launch.filename, provided_args=[])
-                for arg in req_args:
-                    found = False
-                    for pa in pla:
-                        if arg.name == pa.name:
-                            launch_arguments.append((arg.name, pa.value))
-                            found = True
-                            break
-                    if not found:
-                        launch_arguments.append((arg.name, arg.value))
-                launch_config = LaunchConfig(
-                    old_launch.filename, context=launch_context, daemonuri=daemonuri, launch_arguments=launch_arguments)
-                self._loaded_files[cfgid] = launch_config
-                result.status.code = 'OK'
-                # change detection for nodes parameters
-                old_nodes = old_launch.nodes()
-                new_nodes = launch_config.nodes()
-                nodes2start = []
-                for new_node in new_nodes:
-                    found = False
-                    for old_node in old_nodes:
-                        if new_node.node_name == old_node.node_name:
-                            found = True
-                            if new_node.additional_env and old_node.additional_env:
-                                if len(set(new_node.additional_env.values()) - set(old_node.additional_env.values())) > 0:
-                                    nodes2start.append(new_node.node_name)
-                                    break
-                            if new_node.launch_prefix != old_node.launch_prefix:
-                                nodes2start.append(new_node.node_name)
-                                break
-                            if new_node.cmd != old_node.cmd:
-                                new_matches = re.findall(r'--params-file\s+([^\s]+)', new_node.cmd)
-                                old_matches = re.findall(r'--params-file\s+([^\s]+)', old_node.cmd)
-                                if len(new_matches) != len(old_matches):
-                                    nodes2start.append(new_node.node_name)
-                                    break
-                                else:
-                                    normalized_new_cmd = new_node.cmd
-                                    normalized_old_cmd = old_node.cmd
-                                    added = False
-                                    # we need to compare the content of the parameter files
-                                    for a, b in zip(new_matches, old_matches):
-                                        content1 = ""
-                                        try:
-                                            content1 = new_node.param_file_content[a]
-                                        except Exception:
-                                            pass
-                                        try:
-                                            content2 = old_node.param_file_content[b]
-                                        except Exception:
-                                            pass
-                                        if content1 != content2:
-                                            nodes2start.append(new_node.node_name)
-                                            added = True
-                                            break
-                                        else:
-                                            normalized_new_cmd = normalized_new_cmd.replace(a, '')
-                                            normalized_old_cmd = normalized_old_cmd.replace(b, '')
-                                    if not added and normalized_new_cmd != normalized_old_cmd:
-                                        nodes2start.append(new_node.node_name)
-                                        break
-                            if new_node.additional_env and old_node.additional_env:
-                                if len(set(new_node.additional_env) - set(old_node.additional_env)) > 0:
-                                    nodes2start.append(new_node.node_name)
-                                    break
-                    if not found:
-                        nodes2start.append(new_node.node_name)
-                # filter out anonymous nodes
-                for n in nodes2start:
-                    if not re.search(r"\d{3,6}_\d{10,}", n):
-                        result.changed_nodes.append(n)                # notify GUI about changes
-                old_launch.unload()
-                self._add_launch_to_observer(launch_config)
-                if len(launch_config.load_exceptions) > 0:
-                    result.status.msg = launch_config.load_exceptions[0]
-            except Exception as e:
-                old_launch.load()
-                self._add_launch_to_observer(old_launch)
-                print(traceback.format_exc())
-                err_text = f"{request.path} loading failed!"
-                err_details = f"{err_text}: {e}"
-                Log.warn(
-                    f"{self.__class__.__name__}: Loading launch file: {err_details}")
-                result.status.code = 'ERROR'
-                result.status.msg = err_details
-                return json.dumps(result, cls=SelfEncoder)
-        else:
+        Log.debug(f"{self.__class__.__name__}: reload launch file: {request.path}, "
+                  f"daemonuri: {daemonuri}")
+
+        old_launch = self._get_config(request.path, daemonuri)
+        if old_launch is None:
             result.status.code = 'FILE_NOT_FOUND'
+            return json.dumps(result, cls=SelfEncoder)
+
+        try:
+            self._unobserve_launch(old_launch)
+            launch_context = LaunchContext(argv=sys.argv[1:])
+            # keep the values of the currently provided arguments, new arguments
+            # of the changed file get their default value
+            provided = {name: value for name, value in old_launch.provided_launch_arguments}
+            req_args: List[LaunchArgument] = LaunchConfig.get_launch_arguments(
+                launch_context, old_launch.filename, provided_args=[])
+            launch_arguments = [(arg.name, provided.get(arg.name, arg.value))
+                                for arg in req_args]
+            launch_config = LaunchConfig(old_launch.filename, context=launch_context,
+                                         daemonuri=daemonuri,
+                                         launch_arguments=launch_arguments)
+            self._set_config(cfgid, launch_config)
+            result.status.code = 'OK'
+            result.changed_nodes.extend(
+                self._changed_nodes(old_launch.nodes(), launch_config.nodes()))
+            old_launch.unload()
+            self._observe_launch(launch_config)
+            if launch_config.load_exceptions:
+                result.status.msg = launch_config.load_exceptions[0]
+        except Exception as error:
+            # restore the previous configuration
+            self._set_config(cfgid, old_launch)
+            old_launch.load()
+            self._observe_launch(old_launch)
+            print(traceback.format_exc())
+            err_details = f"{request.path} loading failed!: {error}"
+            Log.warn(f"{self.__class__.__name__}: Loading launch file: {err_details}")
+            result.status.code = 'ERROR'
+            result.status.msg = err_details
             return json.dumps(result, cls=SelfEncoder)
         try:
             return json.dumps(result, cls=SelfEncoder)
         finally:
-            # inform other subscribers about reloaded launch file
-            self.websocket.publish('ros.launch.changed', {
-                                   'path': request.path, 'action': 'reloaded', 'requester': requester})
+            self.websocket.publish('ros.launch.changed',
+                                   {'path': request.path, 'action': 'reloaded',
+                                    'requester': requester})
+
+    @classmethod
+    def _changed_nodes(cls, old_nodes: List, new_nodes: List) -> List[str]:
+        '''Node names that have to be restarted after a reload.
+        Anonymous nodes are filtered out, their name changes on every load.'''
+        old_by_name = {node.node_name: node for node in old_nodes}
+        changed = []
+        for new_node in new_nodes:
+            old_node = old_by_name.get(new_node.node_name)
+            if old_node is None or cls._node_needs_restart(new_node, old_node):
+                changed.append(new_node.node_name)
+        return [name for name in changed if not ANONYMOUS_NODE_RE.search(name)]
+
+    @staticmethod
+    def _node_needs_restart(new_node, old_node) -> bool:
+        if new_node.additional_env and old_node.additional_env:
+            if set(new_node.additional_env.values()) - set(old_node.additional_env.values()):
+                return True
+            if set(new_node.additional_env) - set(old_node.additional_env):
+                return True
+        if new_node.launch_prefix != old_node.launch_prefix:
+            return True
+        if new_node.cmd == old_node.cmd:
+            return False
+        new_matches = PARAMS_FILE_RE.findall(new_node.cmd)
+        old_matches = PARAMS_FILE_RE.findall(old_node.cmd)
+        if len(new_matches) != len(old_matches):
+            return True
+        # the command differs: compare the content of the parameter files, the
+        # file names contain a random part on every launch
+        new_content = getattr(new_node, 'param_file_content', {}) or {}
+        old_content = getattr(old_node, 'param_file_content', {}) or {}
+        normalized_new = new_node.cmd
+        normalized_old = old_node.cmd
+        for new_file, old_file in zip(new_matches, old_matches):
+            if new_content.get(new_file, "") != old_content.get(old_file, ""):
+                return True
+            normalized_new = normalized_new.replace(new_file, '')
+            normalized_old = normalized_old.replace(old_file, '')
+        return normalized_new != normalized_old
 
     def unload_launch(self, request_json: LaunchFile, *, requester: str = "") -> LaunchLoadReply:
         Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.unload]")
-
-        # Covert input dictionary into a proper python object
         request = request_json
-
-        Log.debug(
-            f"{self.__class__.__name__}: Unload Launch request:\n {request}")
+        Log.debug(f"{self.__class__.__name__}: Unload Launch request:\n {request}")
         result = LaunchLoadReply()
-
         result.paths.append(request.path)
-        # cfgid = CfgId(request.path, request.masteruri)
         # TODO: check if we need daemonuri as identification
         cfgid = CfgId(request.path, '')
         try:
-            if cfgid in list(self._loaded_files.keys()):
-                self._remove_launch_from_observer(self._loaded_files[cfgid])
-                del self._loaded_files[cfgid]
-                result.status.code = 'OK'
-            else:
+            launch_config = self._pop_config(cfgid)
+            if launch_config is None:
                 result.status.code = 'FILE_NOT_FOUND'
                 result.status.msg = f"{request.path} not found"
-        except Exception as e:
-            err_text = "%s unloading failed!" % request.path
-            err_details = "%s: %s" % (err_text, e)
-            Log.warn("Unloading launch file: %s", err_details)
+            else:
+                # observer calls outside of the lock
+                self._unobserve_launch(launch_config)
+                result.status.code = 'OK'
+        except Exception as error:
+            err_details = f"{request.path} unloading failed!: {error}"
+            Log.warn(f"{self.__class__.__name__}: Unloading launch file: {err_details}")
             result.status.code = 'ERROR'
             result.status.msg = err_details
         try:
             return json.dumps(result, cls=SelfEncoder)
         finally:
-            # inform other subscribers about reloaded launch file
-            self.websocket.publish('ros.launch.changed', {
-                'path': request.path, 'action': 'unloaded', 'requester': requester})
+            self.websocket.publish('ros.launch.changed',
+                                   {'path': request.path, 'action': 'unloaded',
+                                    'requester': requester})
 
     def get_list(self) -> List[LaunchContent]:
-        Log.debug(
-            f"{self.__class__.__name__}: Request to [ros.launch.get_list]")
-        requested_files = list(self._loaded_files.keys())
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.get_list]")
         reply = []
-        for cfgid in requested_files:
-            lc = self._loaded_files[cfgid]
-            reply_lc = LaunchContent(path=cfgid.path, args=[], masteruri=lc.daemonuri, host='',  # lc.host,
-                                     nodes=[], parameters=[], associations=[])
-            # Add launch arguments
+        for cfgid, lc in self._snapshot_configs():
+            reply_lc = LaunchContent(path=cfgid.path, args=[], masteruri=lc.daemonuri,
+                                     host='', nodes=[], parameters=[], associations=[])
             for name, p in lc.provided_launch_arguments:
-                reply_lc.args.append(LaunchArgument(
-                    name, p.value if hasattr(p, 'value') else p))
-
-            nodes = lc.nodes()
-            for item in nodes:
-                try:
-                    json.dumps(item, cls=SelfEncoder)
-                except:
-                    import traceback
-                    print(traceback.format_exc())
+                reply_lc.args.append(
+                    LaunchArgument(name, p.value if hasattr(p, 'value') else p))
+            for item in lc.nodes():
                 reply_lc.nodes.append(item)
-                # search for associations
-                for p in item.parameters:
-                    associations = None
-                    if p.name == "mas/associations":
-                        associations = p.value
-                    elif isinstance(p.value, dict):
-                        associations = (
-                            p.value.get("/**", {})
-                            .get("ros__parameters", {})
-                            .get("mas/associations")
-                        )
-                        if associations is None:
-                            associations = (
-                                p.value.get(item.node_name, {})
-                                .get("ros__parameters", {})
-                                .get("mas/associations")
-                            )
-                    if associations is not None:
-                        reply_lc.associations.append(LaunchAssociations(item.node_name, associations))
+                for association in self._node_associations(item):
+                    reply_lc.associations.append(association)
             reply_lc.warnings = lc.load_exceptions
             reply_lc.env = lc.environment
             reply.append(reply_lc)
         return json.dumps(reply, cls=SelfEncoder)
+
+    @staticmethod
+    def _node_associations(item) -> List[LaunchAssociations]:
+        result = []
+        for p in item.parameters:
+            associations = None
+            if p.name == "mas/associations":
+                associations = p.value
+            elif isinstance(p.value, dict):
+                associations = (p.value.get("/**", {})
+                                .get("ros__parameters", {})
+                                .get("mas/associations"))
+                if associations is None:
+                    associations = (p.value.get(item.node_name, {})
+                                    .get("ros__parameters", {})
+                                    .get("mas/associations"))
+            if associations is not None:
+                result.append(LaunchAssociations(item.node_name, associations))
+        return result
+
+    def list_nodes(self) -> List[str]:
+        return [item.node_name
+                for _cfgid, lc in self._snapshot_configs()
+                for item in lc.nodes()]
 
     def ros_run(self, request_json: RosRun, return_as_json: bool = True) -> RosRunReply:
         Log.info(f"{self.__class__.__name__}: Request to [ros.launch.ros_run]: {request_json}")
@@ -691,7 +569,7 @@ class LaunchServicer(LoggingEventHandler):
             ns_name = ns_join(ns, name)
             screen_prefix = screen.get_cmd(ns_name)
             # set environment
-            new_env = os.environ.copy()
+            new_env = self._local_env()
             # set display variable to local display
             if 'DISPLAY' in new_env:
                 if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
@@ -741,27 +619,19 @@ class LaunchServicer(LoggingEventHandler):
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
 
     def start_node(self, request_json: LaunchNode, return_as_json: bool = True) -> LaunchNodeReply:
-        Log.info(
-            f"{self.__class__.__name__}: Request to [ros.launch.start_node]")
-
-        # Covert input dictionary into a proper python object
+        Log.info(f"{self.__class__.__name__}: Request to [ros.launch.start_node]")
         request = request_json
         result = LaunchNodeReply(name=request.name)
-        daemonuri = ""
-        if hasattr(request, 'masteruri'):
-            daemonuri = request.masteruri
+        daemonuri = getattr(request, 'masteruri', '') or ''
         try:
             launch_configs = []
             if request.opt_launch:
-                cfgid = CfgId(request.opt_launch, daemonuri)
-                if cfgid in list(self._loaded_files.keys()):
-                    launch_configs.append(self._loaded_files[cfgid])
+                launch_config = self._get_config(request.opt_launch, daemonuri)
+                if launch_config is not None:
+                    launch_configs.append(launch_config)
             if not launch_configs:
-                # get launch configurations with given node
-                launch_configs = []
-                for cfgid, launchcfg in self._loaded_files.items():
-                    n = launchcfg.get_node(request.name)
-                    if n is not None:
+                for _cfgid, launchcfg in self._snapshot_configs():
+                    if launchcfg.get_node(request.name) is not None:
                         Log.debug(f"Found launch file={launchcfg.filename};")
                         launch_configs.append(launchcfg)
             if not launch_configs:
@@ -771,63 +641,73 @@ class LaunchServicer(LoggingEventHandler):
             if len(launch_configs) > 1:
                 result.status.code = 'MULTIPLE_LAUNCHES'
                 result.status.msg = f"Node '{request.name}' found in multiple launch files"
-                result.launch_files.extend(
-                    [lcfg.filename for lcfg in launch_configs])
+                result.launch_files.extend([lcfg.filename for lcfg in launch_configs])
                 return json.dumps(result, cls=SelfEncoder) if return_as_json else result
             try:
                 result.launch_files.append(launch_configs[0].filename)
                 executable_path = launch_configs[0].run_node(
-                    request.name, request.ignore_timer if hasattr(request, "ignore_timer") else False)
+                    request.name, getattr(request, "ignore_timer", False))
                 if executable_path:
                     if os.path.exists(executable_path):
-                        if request.name not in self._node_exec:
-                            self._node_exec[request.name] = executable_path
-                            self._add_file_to_observe(executable_path)
+                        self._track_node_executable(request.name, executable_path)
                     else:
                         result.status.msg = executable_path
                 Log.debug(f'Node={request.name}; start finished')
                 result.status.code = 'OK'
             except exceptions.BinarySelectionRequest as bsr:
                 result.status.code = 'MULTIPLE_BINARIES'
-                result.status.msg = f"multiple binaries found for node '{request.name}': {bsr.choices}"
+                result.status.msg = (f"multiple binaries found for node "
+                                     f"'{request.name}': {bsr.choices}")
                 result.paths.extend(bsr.choices)
                 return json.dumps(result, cls=SelfEncoder) if return_as_json else result
         except exceptions.ResourceNotFound as err_nf:
             result.status.code = 'ERROR'
             result.status.msg = f"Error while start node '{request.name}': {err_nf}"
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
-        except Exception as _errr:
+        except Exception:
             result.status.code = 'ERROR'
-            result.status.msg = f"Error while start node '{request.name}': {traceback.format_exc()}"
+            result.status.msg = (f"Error while start node '{request.name}': "
+                                 f"{traceback.format_exc()}")
             Log.warn(f"{self.__class__.__name__}: {result.status.msg}")
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
         finally:
             nmd.launcher.server.screen_servicer.system_change()
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
 
-    def node_stopped(self, node_name: str) -> None:
-        with self._lock:
-            exec_path = self._node_exec.pop(node_name, None)
-        if exec_path is None:
-            return  # bereits aufgeräumt -> idempotent
-        # Watch nur entfernen, wenn kein anderer Node dieselbe Binary nutzt
-        still_used = exec_path in self._node_exec.values()
-        if not still_used:
-            self._remove_file_from_observe(exec_path)
+    def _track_node_executable(self, node_name: str, executable_path: str) -> None:
+        '''Observe the binary of a started node.'''
+        with self._node_exec_lock:
+            if node_name in self._node_exec:
+                return
+            self._node_exec[node_name] = executable_path
+        try:
+            self._observer.add_file(executable_path)
+        except Exception:
+            with self._node_exec_lock:
+                self._node_exec.pop(node_name, None)
 
-    def reconcile_running_nodes(self, alive_node_names: set[str]) -> None:
-        """Gibt Watches von Nodes frei, die nicht mehr laufen (Crash/extern gekillt)."""
-        with self._lock:  # vorhandenen Mutex verwenden
+    def node_stopped(self, node_name: str) -> None:
+        '''Release the watch of a stopped node. Idempotent.'''
+        with self._node_exec_lock:
+            exec_path = self._node_exec.pop(node_name, None)
+            if exec_path is None:
+                return
+            # keep the watch if another node uses the same binary; the check
+            # has to happen under the same lock as the pop
+            still_used = exec_path in self._node_exec.values()
+        if not still_used:
+            self._observer.remove_file(exec_path)
+
+    def reconcile_running_nodes(self, alive_node_names: set) -> None:
+        '''Release watches of nodes that are gone (crashed or killed externally).'''
+        with self._node_exec_lock:
             tracked = set(self._node_exec.keys())
-        disappeared = tracked - alive_node_names
-        for node_name in disappeared:
+        for node_name in tracked - alive_node_names:
             try:
                 self.node_stopped(node_name)
             except Exception:
-                import traceback
-                nmd.launcher.rosnode.get_logger().warn(
-                    f"reconcile: cleanup for '{node_name}' failed:\n{traceback.format_exc()}"
-                )
+                Log.warn(f"{self.__class__.__name__}: reconcile: cleanup for "
+                         f"'{node_name}' failed:\n{traceback.format_exc()}")
 
     def start_nodes(self, request_json: List[LaunchNode], continue_on_error: bool = True) -> List[LaunchNodeReply]:
         Log.info(
@@ -838,7 +718,7 @@ class LaunchServicer(LoggingEventHandler):
             node_result = self.start_node(request, return_as_json=False)
             result.append(node_result)
             if not continue_on_error:
-                if result.status.code != 'OK':
+                if node_result.status.code != 'OK':
                     break
 
         return json.dumps(result, cls=SelfEncoder)
@@ -855,13 +735,12 @@ class LaunchServicer(LoggingEventHandler):
 
         result = []
         cfg_included_files = []
-        try:
-            cfg = self._loaded_files[CfgId(request.path, '')]
+        cfg = self._get_config(request.path, '')
+        if cfg is not None:
             if cfg.launch_type == 'python':
                 return cfg._included_files
             cfg_included_files.extend(cfg._included_files)
-        except:
-            pass
+
         # This part is executed if the launch file is not loaded or is of type XML
         # TODO add parser for python launch files
         try:
@@ -871,7 +750,7 @@ class LaunchServicer(LoggingEventHandler):
             # search for loaded file and get the arguments
             resolve_args = {arg.name: arg.value for arg in request.args if hasattr(arg, "value")}
             if not resolve_args:
-                for cfgid, lcfg in self._loaded_files.items():
+                for cfgid, lcfg in self._snapshot_configs():
                     if cfgid.path == request.path:
                         resolve_args.update(lcfg.resolve_dict)
                         break
@@ -1124,7 +1003,7 @@ class LaunchServicer(LoggingEventHandler):
                     if hasattr(request.qos.liveliness_lease_duration, "sec") and request.qos.liveliness_lease_duration.sec != default_qos.liveliness_lease_duration.sec:
                         qos_params += f"--qos-liveliness-lease-duration-seconds {request.qos.liveliness_lease_duration} "
             pub_cmd = f"pub {opt_str} {qos_params} {request.topic_name} {request.msg_type} \"{topic_params}\""
-            screen_prefix = ' '.join([screen.get_cmd(fullname)])
+            screen_prefix = screen.get_cmd(fullname)
             cmd = ' '.join([screen_prefix, 'ros2', 'topic', pub_cmd])
             Log.info(
                 f"{self.__class__.__name__}: run ros2 publisher with: {cmd}")
@@ -1198,36 +1077,53 @@ class LaunchServicer(LoggingEventHandler):
             result.valid = False
         return json.dumps(result, cls=SelfEncoder)
 
+    def _destroy_service_clients(self, service_name: str) -> None:
+        """Destroy all clients created for this service name."""
+        try:
+            for client in list(nmd.ros_node.clients):
+                if client.srv_name == service_name:
+                    nmd.ros_node.destroy_client(client)
+        except Exception:
+            Log.debug(
+                f"{self.__class__.__name__}: cleanup of clients for '{service_name}' failed:\n{traceback.format_exc()}")
+
     def call_service(self, request_json: LaunchCallService) -> None:
         # Convert input dictionary into a proper python object
         Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.call_service]: {request_json}")
         request = request_json
         result = LaunchMessageStruct(request.srv_type)
         result.valid = False
+        is_action = self._is_action_type(request.srv_type) or "/_action/" in request.service_name
         try:
-            # action looks like a service, but need a special handling
-            if self._is_action_type(request.srv_type) or request.service_name.find("/_action/") != -1:
+            data = json.loads(request.data) if getattr(request, "data", "") else {}
+            fields = self._str_from_dict(data) if data else {}
+            if is_action:
+                # an action looks like a service, but needs a special handling
                 action_class, request_class = self._get_action_types(request.srv_type)
                 service_request = request_class()
-                data = json.loads(request.data)
+                if fields:
+                    set_message_fields(service_request, fields)
                 response = nmd.launcher.call_action(request.service_name, action_class, service_request, 10)
             else:
-                # call service
                 request_class = get_service(request.srv_type)
                 service_request = request_class.Request()
-                data = json.loads(request.data)
-                set_message_fields(service_request, self._str_from_dict(data))
+                if fields:
+                    set_message_fields(service_request, fields)
                 response = nmd.launcher.call_service(
-                    request.service_name, request_class, service_request, timeout_sec=10, callback_group=self._callback_service_group)
+                    request.service_name, request_class, service_request,
+                    timeout_sec=10, callback_group=self._callback_service_group)
             if response is not None:
                 result.data = message_to_ordereddict(response)
                 result.valid = True
             else:
                 result.message = 'did not receive a reply'
         except Exception as e:
-            result.message = 'Exception while calling service: %r' % e
+            result.message = f"Exception while calling service: {e!r}"
+            Log.warn(f"{self.__class__.__name__}: {result.message}\n{traceback.format_exc()}")
         finally:
-            nmd.ros_node.destroy_client(request.service_name)
+            if not is_action:
+                # action clients are owned and cleaned up by nmd.launcher.call_action
+                self._destroy_service_clients(request.service_name)
         return json.dumps(result, cls=SelfEncoder)
 
     def get_message_types(self, mode: str = "message") -> str:
@@ -1318,114 +1214,85 @@ class LaunchServicer(LoggingEventHandler):
                 result.append(item.node_name)
         return result
 
-    def start_action(self, request_json) -> str:
-        """Start an action client node to send a goal to a ROS action server."""
-        request = request_json
-        action_name = request.action_name
-        action_type = request.action_type
-        goal = request.goal
-        Log.debug(f"{self.__class__.__name__}: Request to [ros.action.send_goal]: {request}")
-
+    def _start_mas_node(self, executable: str, fullname: str, args: List[str]) -> str:
+        '''Start one of the mas helper nodes inside a screen session.
+        All state is local, the method is safe for concurrent requests.'''
         package_name = 'fkie_mas_daemon'
-        executable = 'mas-action-client'
         cmd = f"ros2 run {package_name} {executable}"
-
-        self.namespace, self.name = ros2_action_nodename_tuple(action_name)
-        fullname = os.path.join(self.namespace, self.name)
-
-        args = []
-        args.append(f'--ws_port={self.ws_port}')
-        args.append(f'--action_name={action_name}')
-        args.append(f'--action_type={action_type}')
-        if goal:
-            goal_json = goal
-            args.append(f"--goal_json='{goal_json}'")
-
-        screen_prefix = ' '.join([screen.get_cmd(fullname)])
-        new_env = dict(os.environ)
-        if 'DISPLAY' in new_env:
-            if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
-                del new_env['DISPLAY']
-        else:
-            new_env['DISPLAY'] = ':0'
-
+        screen_prefix = screen.get_cmd(fullname)
+        new_env = self._local_env()
         Log.info(f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
-        SupervisedPopen(
-            shlex.split(' '.join([screen_prefix, cmd] + args)),
-            env=new_env,
-            object_id=f"run_node_{fullname}",
-            description=f"Run [{package_name}]{executable}"
-        )
+        SupervisedPopen(shlex.split(' '.join([screen_prefix, cmd] + args)),
+                        env=new_env,
+                        object_id=f"run_node_{fullname}",
+                        description=f"Run [{package_name}]{executable}")
         return json.dumps({"result": True, "message": ""}, cls=SelfEncoder)
+
+    def start_subscriber(self, request_json: SubscriberNode) -> str:
+        request = request_json
+        topic = request.topic
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.subscriber.start]: {topic}")
+        namespace, name = ros2_subscriber_nodename_tuple(topic)
+        fullname = os.path.join(namespace, name)
+        args = [f'--ws_port={self.ws_port}',
+                f'--topic={topic}',
+                f'--message_type={request.message_type}']
+        if request.filter.no_data:
+            args.append('--no_data')
+        if request.filter.no_arr:
+            args.append('--no_arr')
+        if request.filter.no_str:
+            args.append('--no_str')
+        args.append(f'--hz={request.filter.hz}')
+        args.append(f'--window={request.filter.window}')
+        if hasattr(request.filter, "arrayItemsCount"):
+            args.append(f'--array_items_count={request.filter.arrayItemsCount}')
+        if request.tcp_no_delay:
+            args.append('--tcp_no_delay')
+        if getattr(request, "qos", None):
+            if request.qos.durability:
+                args.append(f'--qos-durability={RosQos.durabilityToString(request.qos.durability)}')
+            if request.qos.reliability:
+                args.append(f'--qos-reliability={RosQos.reliabilityToString(request.qos.reliability)}')
+            if request.qos.liveliness:
+                args.append(f'--qos-liveliness={RosQos.livelinessToString(request.qos.liveliness)}')
+        else:
+            # TODO wait for publisher and detect qos
+            pass
+        return self._start_mas_node('mas-subscriber', fullname, args)
+
+    def start_action(self, request_json) -> str:
+        '''Start an action client node to send a goal to a ROS action server.'''
+        request = request_json
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.action.send_goal]: {request}")
+        namespace, name = ros2_action_nodename_tuple(request.action_name)
+        fullname = os.path.join(namespace, name)
+        args = [f'--ws_port={self.ws_port}',
+                f'--action_name={request.action_name}',
+                f'--action_type={request.action_type}']
+        if request.goal:
+            args.append(f"--goal_json='{request.goal}'")
+        return self._start_mas_node('mas-action-client', fullname, args)
 
     def start_action_introspection(self, request_json) -> str:
-        """Start a node that subscribes to the *_service_event introspection
-        topics of a ROS action and forwards events via websocket."""
+        '''Start a node that subscribes to the *_service_event introspection
+        topics of a ROS action and forwards events via websocket.'''
         request = request_json
-        action_name = request.action_name
-        action_type = request.action_type
-        Log.debug(
-            f"{self.__class__.__name__}: Request to [ros.action.introspection.start]: {request}"
-        )
-
-        package_name = 'fkie_mas_daemon'
-        executable = 'mas-action-introspection'
-        cmd = f"ros2 run {package_name} {executable}"
-
-        # eigener Node-Name, damit er nicht mit dem Action-Client kollidiert
-        self.namespace, self.name = ros2_action_introspection_nodename_tuple(
-            f"{action_name}"
-        )
-        fullname = os.path.join(self.namespace, self.name)
-
-        args = []
-        args.append(f'--ws_port={self.ws_port}')
-        args.append(f'--action_name={action_name}')
-        args.append(f'--action_type={action_type}')
-
-        screen_prefix = ' '.join([screen.get_cmd(fullname)])
-        new_env = dict(os.environ)
-        if 'DISPLAY' in new_env:
-            if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
-                del new_env['DISPLAY']
-        else:
-            new_env['DISPLAY'] = ':0'
-
-        Log.info(f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
-        SupervisedPopen(
-            shlex.split(' '.join([screen_prefix, cmd] + args)),
-            env=new_env,
-            object_id=f"run_node_{fullname}",
-            description=f"Run [{package_name}]{executable}"
-        )
-        return json.dumps({"result": True, "message": ""}, cls=SelfEncoder)
+        Log.debug(f"{self.__class__.__name__}: Request to "
+                  f"[ros.action.introspection.start]: {request}")
+        # own node name, so it does not collide with the action client
+        namespace, name = ros2_action_introspection_nodename_tuple(request.action_name)
+        fullname = os.path.join(namespace, name)
+        args = [f'--ws_port={self.ws_port}',
+                f'--action_name={request.action_name}',
+                f'--action_type={request.action_type}']
+        return self._start_mas_node('mas-action-introspection', fullname, args)
 
     def start_service_introspection(self, request_json) -> str:
         request = request_json
-        service_name = request.service_name
-        service_type = request.service_type
-
-        package_name = 'fkie_mas_daemon'
-        executable = 'mas-service-introspection'
-        cmd = f"ros2 run {package_name} {executable}"
-
-        namespace, name = ros2_service_introspection_nodename_tuple(service_name)
+        namespace, name = ros2_service_introspection_nodename_tuple(request.service_name)
         fullname = os.path.join(namespace, name)
-
-        args = [
-            f'--ws_port={self.ws_port}',
-            f'--service_name={service_name}',
-            f'--service_type={service_type}',
-        ]
-
-        screen_prefix = ' '.join([screen.get_cmd(fullname)])
-        new_env = dict(os.environ)
-
-        Log.info(f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
-        SupervisedPopen(
-            shlex.split(' '.join([screen_prefix, cmd] + args)),
-            env=new_env,
-            object_id=f"run_node_{fullname}",
-            description=f"Run [{package_name}]{executable}"
-        )
-        return json.dumps({"result": True, "message": ""}, cls=SelfEncoder)
+        args = [f'--ws_port={self.ws_port}',
+                f'--service_name={request.service_name}',
+                f'--service_type={request.service_type}']
+        return self._start_mas_node('mas-service-introspection', fullname, args)
