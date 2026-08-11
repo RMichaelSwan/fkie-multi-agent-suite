@@ -11,6 +11,11 @@ from .launch.launch_argument_cache import LAUNCH_ARGUMENT_CACHE
 from .launch.launch_config import LaunchConfig
 from .launch.launch_context import LaunchContext
 from .launch.launch_validator import LaunchValidator
+from functools import lru_cache
+from .launch.caches import FILE_CONTENT_CACHE
+from .launch.caches import MESSAGE_STRUCT_CACHE
+from .launch.caches import normalize_path
+from .launch.caches import cache_statistics
 import fkie_mas_daemon as nmd
 import csv
 import json
@@ -18,12 +23,10 @@ import os
 import re
 import shlex
 import sys
-import time
 import traceback
 from threading import Lock
 from threading import RLock
 from importlib import import_module
-# from launch.launch_context import LaunchContext
 
 from typing import Dict
 from typing import FrozenSet
@@ -83,10 +86,19 @@ from fkie_mas_pylib import ros_pkg
 ActionClass = Type
 ActionRequestClass = Type
 
-
-# precompiled: used on every reload for every node
+# precompiled patterns: used per node on every reload / per field on every struct
 PARAMS_FILE_RE = re.compile(r'--params-file\s+([^\s]+)')
 ANONYMOUS_NODE_RE = re.compile(r"\d{3,6}_\d{10,}")
+SEQUENCE_TYPE_RE = re.compile(r'<(\w[^,]*),?\s*(\S*)>')
+ARRAY_TYPE_RE = re.compile(r'(.*)\[(\d*)\]')
+
+# simple type conversion dispatch, checked in this order
+_TYPE_CONVERTERS = (
+    ('int', int),
+    ('octet', int),
+    ('float', float),
+    ('double', float),
+)
 
 
 class CfgId(object):
@@ -148,8 +160,9 @@ class LaunchServicer:
     #   1. self._loaded_files_lock
     #   2. FileObserverRegistry internal lock
     #   3. LaunchConfig._LOAD_LOCK  (os.environ, launch file parsing)
-    # self._peers_lock and self._node_exec_lock are leaf locks and are never
-    # nested with any other lock.
+    # self._peers_lock, self._node_exec_lock and self._observer_launch_lock are
+    # leaf locks: they are never held while any other lock is acquired and in
+    # particular never while calling into the observer.
 
     def __init__(self, websocket: WebSocketServer, ws_port: int):
         Log.info("Create ROS2 launch servicer")
@@ -165,6 +178,9 @@ class LaunchServicer:
         self.xml_validator = LaunchValidator()
         self._callback_service_group = ReentrantCallbackGroup()
         self._observer = FileObserverRegistry(self._on_file_changed)
+        # Observer registration IDs are unique for a launch path and daemon URI.
+        self._observer_launch_lock = Lock()
+        self._observer_launch_paths: Dict[str, str] = {}
         self._observer.start()
 
         websocket.register("ros.launch.load", self.load_launch)
@@ -186,14 +202,34 @@ class LaunchServicer:
         websocket.register("ros.action.send_goal", self.start_action)
         websocket.register("ros.action.introspection.start", self.start_action_introspection)
         websocket.register("ros.service.introspection.start", self.start_service_introspection)
+        websocket.register("ros.daemon.get_cache_statistics", self.get_cache_statistics)
 
     def stop(self):
         '''Stop the file observer.'''
         self._is_running = False
+        with self._observer_launch_lock:
+            self._observer_launch_paths.clear()
         self._observer.stop()
 
     def _terminated(self):
         Log.info(f"{self.__class__.__name__}: terminated launch context")
+
+    @staticmethod
+    def _observer_launch_id(launch_config: LaunchConfig) -> str:
+        """
+        Return a unique observer registration ID.
+
+        The same launch file may be loaded for different daemon URIs. The observer
+        therefore needs a unique registration key for every loaded configuration.
+        """
+        return (
+            f"{launch_config.daemonuri}\x1f"
+            f"{normalize_path(launch_config.filename)}"
+        )
+
+    def get_cache_statistics(self) -> str:
+        '''Hit rates and sizes of all launch related caches.'''
+        return json.dumps(cache_statistics(), cls=SelfEncoder)
 
     def _register_callback(self, context):
         peer = context.peer()
@@ -227,36 +263,103 @@ class LaunchServicer:
     # -- observer ----------------------------------------------------------
 
     def _observe_launch(self, launch_config: LaunchConfig) -> List[str]:
-        '''Observe a launch file and its included files. Returns warnings.'''
+        '''Observe a launch file and all its included files.'''
         paths = [launch_config.filename]
+
         try:
-            request = LaunchIncludedFilesRequest(
-                launch_config.filename, args=launch_config.launch_arguments)
-            for inc_description in self.get_included_files(request, result_as_json=False):
-                paths.append(inc_description.inc_path)
+            request = LaunchIncludedFilesRequest(launch_config.filename,
+                                                 args=launch_config.launch_arguments
+                                                 )
+
+            # Pass the daemon URI, otherwise the resolved include list of a
+            # configuration loaded for a remote daemon would not be found.
+            for inc_description in self.get_included_files(
+                    request, result_as_json=False,
+                    daemonuri=launch_config.daemonuri):
+                if inc_description.inc_path:
+                    paths.append(inc_description.inc_path)
+
         except Exception as error:
-            Log.error(f"{self.__class__.__name__}: cannot determine included files of "
-                      f"{launch_config.filename}: {error}")
+            Log.error(
+                f"{self.__class__.__name__}: cannot determine included files "
+                f"of {launch_config.filename}: {error}"
+            )
             return [f"{launch_config.filename}: {error}"]
-        return self._observer.register_launch(launch_config.filename, paths)
+
+        # Remove duplicates while preserving the original order.
+        normalized_paths = list(
+            dict.fromkeys(
+                normalize_path(path)
+                for path in paths
+                if path
+            )
+        )
+
+        observer_id = self._observer_launch_id(launch_config)
+
+        with self._observer_launch_lock:
+            self._observer_launch_paths[observer_id] = normalize_path(launch_config.filename)
+
+        try:
+            # register_launch() replaces the whole path set of this ID atomically,
+            # so it can also be used to update an already registered launch file.
+            return self._observer.register_launch(observer_id, normalized_paths)
+        except Exception:
+            with self._observer_launch_lock:
+                self._observer_launch_paths.pop(observer_id, None)
+            raise
 
     def _unobserve_launch(self, launch_config: LaunchConfig) -> None:
-        self._observer.unregister_launch(launch_config.filename)
+        """
+        Remove exactly the observer registration belonging to this configuration.
+        """
+        observer_id = self._observer_launch_id(launch_config)
+
+        try:
+            self._observer.unregister_launch(observer_id)
+        finally:
+            with self._observer_launch_lock:
+                self._observer_launch_paths.pop(observer_id, None)
 
     def _on_file_changed(self, event_type: str, path: str,
                          affected_launch_files: FrozenSet[str]) -> None:
-        '''Called by the observer registry without any lock held.'''
+        '''
+        Handle a file-system event.
+
+        The observer returns internal registration IDs. They are translated back
+        to launch file paths before cache invalidation and websocket publishing.
+        '''
         if not self._is_running:
             return
+
+        with self._observer_launch_lock:
+            affected_paths = frozenset(
+                self._observer_launch_paths[observer_id]
+                for observer_id in affected_launch_files
+                if observer_id in self._observer_launch_paths
+            )
+
+        # Invalidate content derived directly from the changed file.
+        FILE_CONTENT_CACHE.invalidate(path)
         LAUNCH_ARGUMENT_CACHE.invalidate(path)
-        for launch_path in affected_launch_files:
+
+        # Invalidate argument templates of affected root launch files.
+        for launch_path in affected_paths:
             LAUNCH_ARGUMENT_CACHE.invalidate(launch_path)
-        Log.debug(f"{self.__class__.__name__}: observed change {event_type} on {path}, "
-                  f"affected: {sorted(affected_launch_files)}")
+
+        Log.debug(
+            f"{self.__class__.__name__}: observed change "
+            f"{event_type} on {path}, affected: "
+            f"{sorted(affected_paths)}"
+        )
+
         self.websocket.publish('ros.path.changed',
-                               {"eventType": event_type,
-                                "srcPath": path,
-                                "affected": sorted(affected_launch_files)})
+                               {
+                                   "eventType": event_type,
+                                   "srcPath": path,
+                                   "affected": sorted(affected_paths),
+                               }
+                               )
 
     # -- environment -------------------------------------------------------
 
@@ -346,7 +449,14 @@ class LaunchServicer:
             self._loaded_files[cfgid] = launch_config
 
         # observer and publish strictly after the lock is released
-        observer_warnings = sorted(set(self._observe_launch(launch_config)))
+        try:
+            observer_warnings = sorted(set(self._observe_launch(launch_config)))
+        except Exception as error:
+            # A failing observer must not abort an otherwise successful load.
+            observer_warnings = [f"{launchfile}: cannot observe files: {error}"]
+            Log.warn(f"{self.__class__.__name__}: observing {launchfile} failed:\n"
+                     f"{traceback.format_exc()}")
+
         messages = list(observer_warnings)
         if launch_config.load_exceptions:
             messages.insert(0, launch_config.load_exceptions[0])
@@ -376,8 +486,8 @@ class LaunchServicer:
             return None
         if not paths:
             result.status.code = 'FILE_NOT_FOUND'
-            result.status.message = (f"Launch files {request.launch} in package "
-                                     f"{request.ros_package} not found!")
+            result.status.msg = (f"Launch files {request.launch} in package "
+                                 f"{request.ros_package} not found!")
             return None
         if len(paths) > 1 and not request.force_first_file:
             result.status.code = 'MULTIPLE_LAUNCHES'
@@ -406,7 +516,10 @@ class LaunchServicer:
             return json.dumps(result, cls=SelfEncoder)
 
         try:
-            self._unobserve_launch(old_launch)
+            # The old registration is intentionally kept while parsing: the
+            # observer ID of the old and the new configuration is identical, so
+            # _observe_launch() below replaces the observed path set atomically
+            # and no change is missed during the reload.
             launch_context = LaunchContext(argv=sys.argv[1:])
             # keep the values of the currently provided arguments, new arguments
             # of the changed file get their default value
@@ -430,7 +543,11 @@ class LaunchServicer:
             # restore the previous configuration
             self._set_config(cfgid, old_launch)
             old_launch.load()
-            self._observe_launch(old_launch)
+            try:
+                self._observe_launch(old_launch)
+            except Exception:
+                Log.warn(f"{self.__class__.__name__}: cannot restore observation of "
+                         f"{old_launch.filename}:\n{traceback.format_exc()}")
             print(traceback.format_exc())
             err_details = f"{request.path} loading failed!: {error}"
             Log.warn(f"{self.__class__.__name__}: Loading launch file: {err_details}")
@@ -491,7 +608,9 @@ class LaunchServicer:
         result = LaunchLoadReply()
         result.paths.append(request.path)
         # TODO: check if we need daemonuri as identification
-        cfgid = CfgId(request.path, '')
+        daemonuri = getattr(request, 'masteruri', '') or ''
+        cfgid = CfgId(request.path, daemonuri)
+
         try:
             launch_config = self._pop_config(cfgid)
             if launch_config is None:
@@ -506,12 +625,15 @@ class LaunchServicer:
             Log.warn(f"{self.__class__.__name__}: Unloading launch file: {err_details}")
             result.status.code = 'ERROR'
             result.status.msg = err_details
+
         try:
             return json.dumps(result, cls=SelfEncoder)
         finally:
             self.websocket.publish('ros.launch.changed',
-                                   {'path': request.path, 'action': 'unloaded',
-                                    'requester': requester})
+                                   {'path': request.path,
+                                    'action': 'unloaded',
+                                    'requester': requester}
+                                   )
 
     def get_list(self) -> List[LaunchContent]:
         Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.get_list]")
@@ -551,6 +673,7 @@ class LaunchServicer:
         return result
 
     def list_nodes(self) -> List[str]:
+        '''Node names of all loaded configurations.'''
         return [item.node_name
                 for _cfgid, lc in self._snapshot_configs()
                 for item in lc.nodes()]
@@ -568,14 +691,8 @@ class LaunchServicer:
             name = getattr(request, "name", binary)
             ns_name = ns_join(ns, name)
             screen_prefix = screen.get_cmd(ns_name)
-            # set environment
+            # environment with already normalized DISPLAY
             new_env = self._local_env()
-            # set display variable to local display
-            if 'DISPLAY' in new_env:
-                if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
-                    del new_env['DISPLAY']
-            else:
-                new_env['DISPLAY'] = ':0'
 
             launch_prefix = getattr(request, "prefix", "")
 
@@ -609,7 +726,7 @@ class LaunchServicer:
             result.result = False
             result.message = f"Error while start binary '{binary}' from '{package}': {err_nf}"
             return json.dumps(result, cls=SelfEncoder) if return_as_json else result
-        except Exception as _errr:
+        except Exception:
             result.result = False
             result.message = f"Error while start binary '{binary}' from '{package}' {traceback.format_exc()}"
             Log.warn(f"{self.__class__.__name__}: {result.message}")
@@ -637,21 +754,23 @@ class LaunchServicer:
             if not launch_configs:
                 result.status.code = 'NODE_NOT_FOUND'
                 result.status.msg = f"Node '{request.name}' not found"
-                return json.dumps(result, cls=SelfEncoder) if return_as_json else result
+                return self._reply(result, return_as_json)
             if len(launch_configs) > 1:
                 result.status.code = 'MULTIPLE_LAUNCHES'
                 result.status.msg = f"Node '{request.name}' found in multiple launch files"
                 result.launch_files.extend([lcfg.filename for lcfg in launch_configs])
-                return json.dumps(result, cls=SelfEncoder) if return_as_json else result
+                return self._reply(result, return_as_json)
             try:
                 result.launch_files.append(launch_configs[0].filename)
-                executable_path = launch_configs[0].run_node(
-                    request.name, getattr(request, "ignore_timer", False))
-                if executable_path:
-                    if os.path.exists(executable_path):
-                        self._track_node_executable(request.name, executable_path)
-                    else:
-                        result.status.msg = executable_path
+                # the callback also reports executables of delayed (TimerAction) nodes,
+                # the return value is only used for the immediate start
+                start_info = launch_configs[0].run_node(
+                    request.name,
+                    ignore_timer=getattr(request, "ignore_timer", False),
+                    executable_callback=self._track_node_executable)
+                if start_info and not os.path.exists(start_info):
+                    # delayed start: run_node() returned an informational message
+                    result.status.msg = start_info
                 Log.debug(f'Node={request.name}; start finished')
                 result.status.code = 'OK'
             except exceptions.BinarySelectionRequest as bsr:
@@ -659,44 +778,60 @@ class LaunchServicer:
                 result.status.msg = (f"multiple binaries found for node "
                                      f"'{request.name}': {bsr.choices}")
                 result.paths.extend(bsr.choices)
-                return json.dumps(result, cls=SelfEncoder) if return_as_json else result
         except exceptions.ResourceNotFound as err_nf:
             result.status.code = 'ERROR'
             result.status.msg = f"Error while start node '{request.name}': {err_nf}"
-            return json.dumps(result, cls=SelfEncoder) if return_as_json else result
         except Exception:
             result.status.code = 'ERROR'
             result.status.msg = (f"Error while start node '{request.name}': "
                                  f"{traceback.format_exc()}")
             Log.warn(f"{self.__class__.__name__}: {result.status.msg}")
-            return json.dumps(result, cls=SelfEncoder) if return_as_json else result
         finally:
+            # no return here: it would swallow exceptions of the except blocks
             nmd.launcher.server.screen_servicer.system_change()
-            return json.dumps(result, cls=SelfEncoder) if return_as_json else result
+        return self._reply(result, return_as_json)
+
+    def _reply(self, result, return_as_json: bool):
+        """Serialize a reply object if the caller requested JSON."""
+        return json.dumps(result, cls=SelfEncoder) if return_as_json else result
 
     def _track_node_executable(self, node_name: str, executable_path: str) -> None:
-        '''Observe the binary of a started node.'''
+        '''
+        Observe the binary of a started node.
+
+        add_file() is called at most once per node name, so node_stopped() can
+        release exactly one observer reference.
+        '''
         with self._node_exec_lock:
             if node_name in self._node_exec:
                 return
             self._node_exec[node_name] = executable_path
+
         try:
             self._observer.add_file(executable_path)
-        except Exception:
+        except Exception as error:
+            # Without a watch the entry must not stay, otherwise node_stopped()
+            # would release a reference that was never acquired.
             with self._node_exec_lock:
                 self._node_exec.pop(node_name, None)
+            Log.debug(f"{self.__class__.__name__}: cannot observe executable "
+                      f"{executable_path} of node {node_name}: {error}")
 
     def node_stopped(self, node_name: str) -> None:
-        '''Release the watch of a stopped node. Idempotent.'''
+        '''
+        Release the watch of a stopped node. Idempotent.
+
+        The observer keeps a reference count per path, so remove_file() has to be
+        called once for every add_file() call. Skipping the call while another
+        node uses the same binary would leak the watch forever.
+        '''
         with self._node_exec_lock:
             exec_path = self._node_exec.pop(node_name, None)
-            if exec_path is None:
-                return
-            # keep the watch if another node uses the same binary; the check
-            # has to happen under the same lock as the pop
-            still_used = exec_path in self._node_exec.values()
-        if not still_used:
-            self._observer.remove_file(exec_path)
+
+        if exec_path is None:
+            return
+
+        self._observer.remove_file(exec_path)
 
     def reconcile_running_nodes(self, alive_node_names: set) -> None:
         '''Release watches of nodes that are gone (crashed or killed externally).'''
@@ -723,19 +858,23 @@ class LaunchServicer:
 
         return json.dumps(result, cls=SelfEncoder)
 
-    def get_included_files(self, request_json: LaunchIncludedFilesRequest, *, result_as_json=True) -> List[LaunchIncludedFile]:
+    def get_included_files(self, request_json: LaunchIncludedFilesRequest, *,
+                           result_as_json=True,
+                           daemonuri: str = '') -> List[LaunchIncludedFile]:
         # Convert input dictionary into a proper python object
         request = request_json
         try:
             Log.info(
                 f"{self.__class__.__name__}: Request to [ros.launch.get_included_files]: Path [{request.path}], args: {', '.join(f'{a.name}: {a.value}' for a in request.args)}")
-        except:
+        except Exception:
             Log.info(
                 f"{self.__class__.__name__}: Request to [ros.launch.get_included_files]: Path [{request.path}], args: {request.args}")
 
         result = []
         cfg_included_files = []
-        cfg = self._get_config(request.path, '')
+        # The same launch file can be loaded for different daemon URIs, so the
+        # configuration has to be looked up with the requested URI.
+        cfg = self._get_config(request.path, daemonuri)
         if cfg is not None:
             if cfg.launch_type == 'python':
                 return cfg._included_files
@@ -809,7 +948,7 @@ class LaunchServicer:
                         args_in_name = xml.get_arg_names(search_for)
                         request_args = False
                         for arg_name in args_in_name:
-                            if not arg_name in args:
+                            if arg_name not in args:
                                 request_args = True
                                 break
                         if request_args:
@@ -842,64 +981,81 @@ class LaunchServicer:
         return json.dumps(result, cls=SelfEncoder)
 
     def get_msg_struct(self, msg_type: str) -> LaunchMessageStruct:
-        Log.debug(
-            f"{self.__class__.__name__}: Request to [ros.launch.get_msg_struct]: msg [{msg_type}]")
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.get_msg_struct]: "
+                  f"msg [{msg_type}]")
         result = LaunchMessageStruct(msg_type)
         try:
             if self._is_action_type(msg_type):
-                action_class, msg_class = self._get_action_types(msg_type)
+                _action_class, msg_class = self._get_action_types(msg_type)
             else:
-                msg_class = get_message(msg_type)
+                msg_class = self._message_class(msg_type)
             if not hasattr(msg_class, 'get_fields_and_field_types'):
-                result.message = f"unexpected message class: '{msg_class}', no 'get_fields_and_field_types' attribute found!"
+                result.message = (f"unexpected message class: '{msg_class}', no "
+                                  f"'get_fields_and_field_types' attribute found!")
                 return json.dumps(result, cls=SelfEncoder)
-            field_and_types = msg_class.get_fields_and_field_types()
-            msg_dict = {'type': msg_type,
-                        'name': '',
-                        'def': self._expand_fields(field_and_types)}
-            result.data = msg_dict
+            # the expansion is deterministic for a type: cache it
+            definition = MESSAGE_STRUCT_CACHE.get_or_create(
+                'msg', msg_type,
+                lambda: self._expand_fields(msg_class.get_fields_and_field_types()))
+            result.data = {'type': msg_type, 'name': '', 'def': definition}
             result.valid = True
         except Exception as err:
-            import traceback
             print(traceback.format_exc())
             result.message = repr(err)
             result.valid = False
         return json.dumps(result, cls=SelfEncoder)
 
+    @staticmethod
+    def _parse_field_type(field_type: str) -> Tuple[str, bool, Optional[str]]:
+        '''Split a field type into base type, array flag and sequence length.'''
+        if field_type.startswith('sequence'):
+            # sequences defined with sequence<>
+            match = SEQUENCE_TYPE_RE.search(field_type)
+            if match is not None:
+                return match.group(1), True, match.group(2)
+            return field_type, True, None
+        if '[' in field_type:
+            # arrays defined with []
+            match = ARRAY_TYPE_RE.search(field_type)
+            if match is not None:
+                return match.group(1), True, match.group(2)
+            return field_type, True, None
+        return field_type, False, None
+
+    def _struct_for_type(self, base_type: str) -> List[Dict]:
+        '''Expanded definition of a nested message type, cached per type.'''
+        def factory() -> List[Dict]:
+            # Field types are reported as 'pkg/Type' or 'pkg/msg/Type'.
+            parts = base_type.split('/')
+            package_name = parts[0]
+            type_name = parts[-1]
+            module = import_module('.msg', package_name)
+            msg_class = getattr(module, type_name, None)
+            if msg_class is None:
+                raise LookupError(f"unknown nested type: {base_type}")
+            return self._expand_fields(msg_class.get_fields_and_field_types())
+
+        try:
+            return MESSAGE_STRUCT_CACHE.get_or_create('nested', base_type, factory)
+        except (ImportError, LookupError) as error:
+            # Report the field as a leaf instead of failing and do not cache the
+            # negative result: the type may become importable later.
+            Log.debug(f"{self.__class__.__name__}: cannot expand nested type "
+                      f"{base_type}: {error}")
+            return []
+
     # create recursive dictionary for 'ros.launch.get_msg_struct'
-    def _expand_fields(self, field_and_types):
+    def _expand_fields(self, field_and_types: Dict[str, str]) -> List[Dict]:
         defs = []
         for field_name, field_type in field_and_types.items():
+            base_type, is_array, seq_length = self._parse_field_type(field_type)
             field_struct = {'name': field_name, 'def': []}
-            is_array = False
-            base_type = field_type
-            seq_length = None
-            if field_type.startswith('sequence'):
-                # handle sequences defined with sequence<>
-                is_array = True
-                type_re = re.search('<(\\w[^,]*),?\\s*(\\S*)>', field_type)
-                if type_re is not None:
-                    base_type = type_re.group(1)
-                    seq_length = type_re.group(2)
-            elif '[' in field_type:
-                # handle arrays defined with []
-                is_array = True
-                type_re = re.search(r'(.*)\[(\d*)\]', field_type)
-                if type_re is not None:
-                    base_type = type_re.group(1)
-                    seq_length = type_re.group(2)
-            if base_type not in [*rosidl_parser.definition.BASIC_TYPES, 'string', 'str', 'wstring']:
-                # type is not a simple type
-                # try to import message definition
-                splitted_type = base_type.split('/')
-                module = import_module('.msg', splitted_type[0])
-                msg_class = getattr(module, splitted_type[1])
-                if msg_class is not None:
-                    sub_def = self._expand_fields(
-                        msg_class.get_fields_and_field_types())
-                field_struct['def'] = sub_def
+            if base_type not in [*rosidl_parser.definition.BASIC_TYPES,
+                                 'string', 'str', 'wstring']:
+                # complex type: expansion is cached per type name
+                field_struct['def'] = self._struct_for_type(base_type)
             reported_type = base_type
-            if (is_array):
+            if is_array:
                 reported_type += f'[{seq_length}]' if seq_length else '[]'
             field_struct['type'] = reported_type
             field_struct['is_array'] = is_array
@@ -908,20 +1064,20 @@ class LaunchServicer:
             defs.append(field_struct)
         return defs
 
-    def str2typedValue(self, value, value_type):
-        result = value
-        if 'int' in value_type:
-            result = int(value)
-        elif 'octet' in value_type:
-            result = int(value)
-        elif 'float' in value_type or 'double' in value_type:
-            result = float(value)
-        elif value_type.startswith('bool'):
+    @staticmethod
+    def str2typedValue(value, value_type):
+        if value_type.startswith('bool'):
             try:
-                result = value.lower() in ("yes", "true", "t", "y", "1")
-            except:
-                pass
-        return result
+                return value.lower() in ("yes", "true", "t", "y", "1")
+            except AttributeError:
+                return value
+        for marker, converter in _TYPE_CONVERTERS:
+            if marker in value_type:
+                try:
+                    return converter(value)
+                except (TypeError, ValueError):
+                    return value
+        return value
 
     def _str_from_dict(self, param_dict):
         result = dict()
@@ -967,7 +1123,6 @@ class LaunchServicer:
             Log.debug(
                 f"{self.__class__.__name__}: Request to [ros.launch.publish_message]: msg [{request.msg_type}]")
             opt_str = ''
-            opt_name_suf = '__latch_'
             if request.once:
                 opt_str = '-1'
             elif request.latched:
@@ -1011,16 +1166,37 @@ class LaunchServicer:
                             object_id=f"ros_topic_pub_{request.topic_name}", description=f"publish to topic {request.topic_name}")
             result = {"result": True, "message": ""}
         except Exception:
-            import traceback
             error_msg = traceback.format_exc()
             print(error_msg)
             result = {"result": False, "message": error_msg}
         return json.dumps(result, cls=SelfEncoder)
 
-    def _is_action_type(self, identifier: str) -> bool:
+    @staticmethod
+    def _is_action_type(identifier: str) -> bool:
+        '''Whether the identifier belongs to an action interface.'''
         return identifier.find("/action/") != -1
 
-    def _get_action_types(self, identifier: str) -> Tuple[ActionClass, ActionRequestClass]:
+    @staticmethod
+    @lru_cache(maxsize=256)
+    def _message_class(type_name: str):
+        '''Cached interface lookup, the import is expensive.'''
+        return get_message(type_name)
+
+    @staticmethod
+    @lru_cache(maxsize=256)
+    def _service_class(type_name: str):
+        '''Cached service interface lookup.'''
+        return get_service(type_name)
+
+    @staticmethod
+    @lru_cache(maxsize=256)
+    def _get_action_types(identifier: str) -> Tuple[ActionClass, ActionRequestClass]:
+        '''
+        Cached lookup of the action class and the class of the requested part.
+
+        Must not be an instance method: lru_cache would keep a strong reference
+        to the servicer instance in a class wide cache.
+        '''
         is_action_result = False
         is_action_goal = False
         is_action_feedback = False
@@ -1054,31 +1230,31 @@ class LaunchServicer:
         return action_class, request_class
 
     def get_srv_struct(self, srv_type: str) -> LaunchMessageStruct:
-        Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.get_srv_struct]: srv [{srv_type}]")
+        Log.debug(f"{self.__class__.__name__}: Request to [ros.launch.get_srv_struct]: "
+                  f"srv [{srv_type}]")
         result = LaunchMessageStruct(srv_type)
         try:
             if self._is_action_type(srv_type):
-                action_class, request_class = self._get_action_types(srv_type)
+                _action_class, request_class = self._get_action_types(srv_type)
             else:
-                request_class = get_service(srv_type).Request
+                request_class = self._service_class(srv_type).Request
             if not hasattr(request_class, 'get_fields_and_field_types'):
-                result.message = f"unexpected service class: '{request_class}', no 'get_fields_and_field_types' attribute found!"
+                result.message = (f"unexpected service class: '{request_class}', no "
+                                  f"'get_fields_and_field_types' attribute found!")
                 return json.dumps(result, cls=SelfEncoder)
-            field_and_types = request_class.get_fields_and_field_types()
-            msg_dict = {'type': srv_type,
-                        'name': '',
-                        'def': self._expand_fields(field_and_types)}
-            result.data = msg_dict
+            definition = MESSAGE_STRUCT_CACHE.get_or_create(
+                'srv', srv_type,
+                lambda: self._expand_fields(request_class.get_fields_and_field_types()))
+            result.data = {'type': srv_type, 'name': '', 'def': definition}
             result.valid = True
         except Exception as err:
-            import traceback
             print(traceback.format_exc())
             result.message = repr(err)
             result.valid = False
         return json.dumps(result, cls=SelfEncoder)
 
     def _destroy_service_clients(self, service_name: str) -> None:
-        """Destroy all clients created for this service name."""
+        '''Destroy all clients created for this service name.'''
         try:
             for client in list(nmd.ros_node.clients):
                 if client.srv_name == service_name:
@@ -1105,7 +1281,8 @@ class LaunchServicer:
                     set_message_fields(service_request, fields)
                 response = nmd.launcher.call_action(request.service_name, action_class, service_request, 10)
             else:
-                request_class = get_service(request.srv_type)
+                # cached lookup, the interface import is expensive
+                request_class = self._service_class(request.srv_type)
                 service_request = request_class.Request()
                 if fields:
                     set_message_fields(service_request, fields)
@@ -1127,12 +1304,12 @@ class LaunchServicer:
         return json.dumps(result, cls=SelfEncoder)
 
     def get_message_types(self, mode: str = "message") -> str:
-        Log.debug(f"Request to [ros.launch.get_message_types]")
+        Log.debug("Request to [ros.launch.get_message_types]")
         result = []
         interfaces = {}
-        if (mode == "service"):
+        if mode == "service":
             interfaces = get_service_interfaces()
-        elif (mode == "action"):
+        elif mode == "action":
             interfaces = get_action_interfaces()
         else:
             interfaces = get_message_interfaces()
@@ -1141,78 +1318,6 @@ class LaunchServicer:
             for message in messages:
                 result.append(f"{pkg}/{message}")
         return json.dumps(result, cls=SelfEncoder)
-
-    def start_subscriber(self, request_json: SubscriberNode) -> str:
-        # Covert input dictionary into a proper python object
-        request = request_json
-        topic = request.topic
-        Log.debug(
-            f"{self.__class__.__name__}: Request to [ros.subscriber.start]: {topic}")
-        package_name = 'fkie_mas_daemon'
-        executable = 'mas-subscriber'
-        cmd = f"ros2 run {package_name} {executable}"
-        # fullname = f"/_mas_subscriber/{topic.replace('.', '/').strip('/')}"
-        self.namespace, self.name = ros2_subscriber_nodename_tuple(topic)
-        fullname = os.path.join(self.namespace, self.name)
-        # args = [f"__name:={fullname}"]
-        # args.append(f'--name={fullname}')
-        args = []
-        args.append(f'--ws_port={self.ws_port}')
-        args.append(f'--topic={topic}')
-        args.append(f'--message_type={request.message_type}')
-        if request.filter.no_data:
-            args.append('--no_data')
-        if request.filter.no_arr:
-            args.append('--no_arr')
-        if request.filter.no_str:
-            args.append('--no_str')
-        args.append(f'--hz={request.filter.hz}')
-        args.append(f'--window={request.filter.window}')
-        if hasattr(request.filter, "arrayItemsCount"):
-            args.append(f'--array_items_count={request.filter.arrayItemsCount}')
-        if request.tcp_no_delay:
-            args.append('--tcp_no_delay')
-        if hasattr(request, "qos") and request.qos:
-            if request.qos.durability:
-                args.append(f'--qos-durability={RosQos.durabilityToString(request.qos.durability)}')
-            if request.qos.reliability:
-                args.append(f'--qos-reliability={RosQos.reliabilityToString(request.qos.reliability)}')
-            if request.qos.liveliness:
-                args.append(f'--qos-liveliness={RosQos.livelinessToString(request.qos.liveliness)}')
-        else:
-            # TODO wait for publisher and detect qos
-            pass
-
-        # run on local host
-        screen_prefix = ' '.join([screen.get_cmd(fullname)])
-        # set environment
-        new_env = dict(os.environ)
-
-        # set display variable to local display
-        if 'DISPLAY' in new_env:
-            if not new_env['DISPLAY'] or new_env['DISPLAY'] == 'remote':
-                del new_env['DISPLAY']
-        else:
-            new_env['DISPLAY'] = ':0'
-
-        # start
-        Log.info(
-            f"{self.__class__.__name__}: {screen_prefix} {cmd} {' '.join(args)}")
-        # Log.debug(
-        #     f"environment while run node '{fullname}': '{new_env}'")
-        # Log.debug(
-        #     f"args while run node '{fullname}': '{args}', JOINED: {' '.join([screen_prefix, cmd] + args)}")
-        SupervisedPopen(shlex.split(' '.join([screen_prefix, cmd] + args)), env=new_env,
-                        object_id=f"run_node_{fullname}", description=f"Run [{package_name}]{executable}")
-        return json.dumps({"result": True, "message": ""}, cls=SelfEncoder)
-
-    def list_nodes(self):
-        result = []
-        for cfgid in list(self._loaded_files.keys()):
-            lc = self._loaded_files[cfgid]
-            for item in lc.nodes():
-                result.append(item.node_name)
-        return result
 
     def _start_mas_node(self, executable: str, fullname: str, args: List[str]) -> str:
         '''Start one of the mas helper nodes inside a screen session.

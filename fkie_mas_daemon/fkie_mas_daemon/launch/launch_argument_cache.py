@@ -7,14 +7,50 @@
 # ****************************************************************************
 
 import os
-import threading
-import time
-from collections import OrderedDict
-from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
+import re
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import NamedTuple
+from typing import Optional
+from typing import Tuple
+
+
+from fkie_mas_pylib.logging.logging import Log
+
+from .caches import LruTtlCache
+from .caches import MISSING
+from .caches import normalize_path
+from .caches import stat_fingerprint
+
+
+class _Uncacheable:
+    """
+    Sentinel marking a cache key that must never be used for caching.
+
+    A key becomes uncacheable when the launch file cannot be stat'ed or when
+    the launch context cannot be described in a stable, reproducible way. In
+    both cases a cache hit could return results that belong to a different
+    file state or a different context.
+    """
+
+    def __repr__(self) -> str:
+        return "<UNCACHEABLE>"
+
+
+UNCACHEABLE = _Uncacheable()
+
+
+# Default repr of objects without __repr__ contains the memory address and is
+# therefore not stable between equal objects.
+_OBJECT_ADDRESS_PATTERN = re.compile(r" at 0x[0-9a-fA-F]+")
 
 
 class LaunchArgTemplate(NamedTuple):
-    """Immutable, request independent description of a top level launch argument."""
+    """
+    Immutable, request-independent description of a top-level launch argument.
+    """
+
     name: str
     default_value: Optional[str]
     description: Optional[str]
@@ -22,118 +58,282 @@ class LaunchArgTemplate(NamedTuple):
 
 
 class LaunchArgumentCache:
-    """Thread safe TTL/LRU cache for parsed top level launch arguments.
+    """
+    Shared TTL/LRU cache for parsed top-level launch arguments.
 
-    The cached value contains only request independent data (LaunchArgTemplate).
-    The concrete 'value' of an argument is always derived from the request,
-    so the cache can never leak values between callers.
+    Cached values contain only request-independent LaunchArgTemplate objects.
+    The concrete argument value is always derived from the current request.
+    Therefore values cannot leak between callers.
 
-    The TTL is a safety net: included launch files are not necessarily watched
-    by the file observer, so an entry must expire on its own as well.
+    The cache key consists of:
+
+    * the physical launch file path
+    * the file fingerprint
+    * the launch context fingerprint
+
+    Because the file fingerprint is part of the key, a modification of the
+    top-level launch file always produces a new key and cannot deliver a stale
+    result. Included launch files are not covered by that fingerprint and rely
+    on invalidation through the file observer. A positive TTL can be used as
+    an additional safety net if included files are not observed reliably.
     """
 
-    def __init__(self, ttl: float = 5.0, max_size: int = 64) -> None:
-        self._ttl = ttl
-        self._max_size = max_size
-        self._lock = threading.Lock()
-        # key -> (insertion time, templates); OrderedDict is used as LRU
-        self._entries: "OrderedDict[Tuple, Tuple[float, Tuple[LaunchArgTemplate, ...]]]" = OrderedDict()
-        self._hits = 0
-        self._misses = 0
-
-    # -- key helpers ------------------------------------------------------
-
-    @staticmethod
-    def _stat_fingerprint(path: str) -> Tuple:
-        try:
-            st = os.stat(path)
-            return (st.st_mtime_ns, st.st_size)
-        except OSError:
-            return (0, -1)
+    def __init__(
+        self,
+        ttl: float = 0.0,
+        max_size: int = 64
+    ) -> None:
+        """
+        :param ttl:
+            Entry lifetime in seconds. Zero disables expiration.
+        :param max_size:
+            Maximum number of cached launch files and context variants.
+        """
+        self._cache = LruTtlCache(
+            maxsize=max_size,
+            ttl=ttl,
+            name="LaunchArgumentCache",
+        )
 
     @staticmethod
-    def _context_fingerprint(context) -> Tuple:
-        """Default values may reference LaunchConfiguration, so the launch
-        context is part of the cache key."""
+    def _stat_fingerprint(path: str):
+        """
+        Return the shared file fingerprint used by all file-based caches.
+        """
+        return stat_fingerprint(path)
+
+    @classmethod
+    def _stable_text(cls, value: Any) -> Optional[str]:
+        """
+        Return a stable textual representation of a launch configuration value.
+
+        Launch configuration values may be plain strings, lists of strings or
+        launch Substitution objects. Substitutions without a custom __repr__
+        would be rendered including their memory address, which changes on
+        every parse run and would make the cache key useless.
+
+        :return:
+            Stable text or None if no stable representation is available.
+        """
+        if value is None or isinstance(value, (bool, int, float)):
+            return repr(value)
+
+        if isinstance(value, str):
+            return value
+
+        if isinstance(value, bytes):
+            return repr(value)
+
+        if isinstance(value, (list, tuple)):
+            parts = []
+
+            for item in value:
+                text = cls._stable_text(item)
+
+                if text is None:
+                    return None
+
+                parts.append(text)
+
+            return "\x00".join(parts)
+
+        # launch.Substitution implementations provide describe().
+        describe = getattr(value, "describe", None)
+
+        if callable(describe):
+            try:
+                return str(describe())
+            except Exception:
+                return None
+
+        text = repr(value)
+
+        if _OBJECT_ADDRESS_PATTERN.search(text):
+            # The representation contains a memory address and is not stable.
+            return None
+
+        return text
+
+    @classmethod
+    def _context_fingerprint(cls, context) -> Optional[
+            Tuple[Tuple[str, str], ...]]:
+        """
+        Return a stable fingerprint for launch configuration values.
+
+        Launch argument defaults may refer to LaunchConfiguration values, so
+        the current launch context must be part of the cache key.
+
+        :return:
+            Sorted tuple of key/value pairs or None if the context cannot be
+            described in a stable way. None must be treated as "do not cache",
+            because falling back to an empty fingerprint would merge different
+            contexts onto the same cache key.
+        """
         try:
-            return tuple(sorted((str(k), str(v)) for k, v in context.launch_configurations.items()))
-        except Exception:
-            return ()
+            configurations = context.launch_configurations.items()
+        except Exception as error:
+            Log.debug(
+                f"LaunchArgumentCache: cannot read launch configurations: "
+                f"{error}")
+            return None
 
-    def make_key(self, path: str, context) -> Tuple:
-        real_path = os.path.realpath(path)
-        return (real_path, self._stat_fingerprint(real_path), self._context_fingerprint(context))
+        entries = []
 
-    # -- access -----------------------------------------------------------
+        try:
+            for key, value in configurations:
+                key_text = cls._stable_text(key)
+                value_text = cls._stable_text(value)
 
-    def get(self, key: Tuple) -> Optional[Tuple[LaunchArgTemplate, ...]]:
-        now = time.time()
-        with self._lock:
-            entry = self._entries.get(key)
-            if entry is None:
-                self._misses += 1
-                return None
-            if now - entry[0] > self._ttl:
-                del self._entries[key]
-                self._misses += 1
-                return None
-            self._entries.move_to_end(key)  # mark as recently used
-            self._hits += 1
-            return entry[1]
+                if key_text is None or value_text is None:
+                    Log.debug(
+                        f"LaunchArgumentCache: launch configuration {key!r} "
+                        f"has no stable representation, caching is disabled "
+                        f"for this request")
+                    return None
 
-    def put(self, key: Tuple, templates: Tuple[LaunchArgTemplate, ...]) -> None:
-        with self._lock:
-            self._entries[key] = (time.time(), templates)
-            self._entries.move_to_end(key)
-            while len(self._entries) > self._max_size:
-                self._entries.popitem(last=False)  # drop least recently used
+                entries.append((key_text, value_text))
+        except Exception as error:
+            Log.debug(
+                f"LaunchArgumentCache: cannot build context fingerprint: "
+                f"{error}")
+            return None
 
-    def get_or_load(self, key: Tuple,
-                    loader: Callable[[], Tuple[LaunchArgTemplate, ...]]) -> Tuple[LaunchArgTemplate, ...]:
-        """Return cached templates or call loader(). The loader runs outside of
-        the lock: parsing a launch file is slow and must not block other paths.
-        A concurrent double parse is accepted, it is idempotent."""
-        templates = self.get(key)
-        if templates is None:
-            templates = loader()
-            self.put(key, templates)
-        return templates
+        return tuple(sorted(entries))
 
-    # -- invalidation -----------------------------------------------------
+    def make_key(
+        self,
+        path: str,
+        context
+    ) -> Tuple:
+        """
+        Build a cache key for a launch file and launch context.
+
+        If the launch file cannot be stat'ed or the context cannot be described
+        stably, the returned key contains the UNCACHEABLE sentinel. Such keys
+        are never stored and never produce a hit.
+        """
+        normalized_path = normalize_path(path)
+        real_path = os.path.realpath(normalized_path)
+
+        file_fingerprint = self._stat_fingerprint(real_path)
+        context_fingerprint = self._context_fingerprint(context)
+
+        if file_fingerprint is None or context_fingerprint is None:
+            return (real_path, UNCACHEABLE, UNCACHEABLE)
+
+        return (
+            real_path,
+            file_fingerprint,
+            context_fingerprint,
+        )
+
+    @staticmethod
+    def is_cacheable(key: Tuple) -> bool:
+        """
+        Return whether a key created by make_key() may be cached.
+        """
+        return UNCACHEABLE not in key
+
+    def get(
+        self,
+        key: Tuple
+    ) -> Optional[Tuple[LaunchArgTemplate, ...]]:
+        """
+        Return cached templates or None on a cache miss.
+
+        An empty tuple is a valid cached result and is not considered a miss.
+        """
+        if not self.is_cacheable(key):
+            return None
+
+        value = self._cache.get(key)
+
+        if value is MISSING:
+            return None
+
+        return value
+
+    def put(
+        self,
+        key: Tuple,
+        templates: Tuple[LaunchArgTemplate, ...]
+    ) -> None:
+        """
+        Store parsed launch argument templates.
+
+        Uncacheable keys are silently ignored.
+        """
+        if not self.is_cacheable(key):
+            Log.debug(
+                "LaunchArgumentCache: key is not cacheable, "
+                "result is not stored")
+            return
+
+        self._cache.put(key, templates)
+
+    def get_or_load(
+        self,
+        key: Tuple,
+        loader: Callable[[], Tuple[LaunchArgTemplate, ...]]
+    ) -> Tuple[LaunchArgTemplate, ...]:
+        """
+        Return cached templates or load them using loader.
+
+        The loader runs outside the cache lock. Concurrent duplicate parsing is
+        allowed and the last completed result is stored. Uncacheable keys always
+        invoke the loader.
+        """
+        if not self.is_cacheable(key):
+            return loader()
+
+        return self._cache.get_or_create(key, loader)
 
     def invalidate(self, path: str) -> int:
-        """Drop all entries of one launch file, regardless of stat/context."""
-        real_path = os.path.realpath(path)
-        with self._lock:
-            keys = [k for k in self._entries if k[0] == real_path]
-            for k in keys:
-                del self._entries[k]
-            return len(keys)
+        """
+        Invalidate all cache entries belonging to one launch file.
+
+        All context variants and all older file fingerprints are removed.
+        """
+        normalized_path = normalize_path(path)
+        real_path = os.path.realpath(normalized_path)
+
+        return self._cache.invalidate_if(
+            lambda key: (
+                isinstance(key, tuple)
+                and len(key) >= 1
+                and key[0] == real_path
+            ))
 
     def clear(self) -> None:
-        with self._lock:
-            self._entries.clear()
+        """
+        Remove all cached launch argument templates.
+        """
+        self._cache.clear()
 
-    def statistics(self) -> Dict[str, Union[int, float]]:
-        with self._lock:
-            total = self._hits + self._misses
-            return {
-                'size': len(self._entries),
-                'max_size': self._max_size,
-                'ttl': self._ttl,
-                'hits': self._hits,
-                'misses': self._misses,
-                'hit_rate': (self._hits / total) if total else 0.0,
-            }
+    def statistics(self) -> Dict[str, object]:
+        """
+        Return cache statistics using the common cache schema.
+        """
+        return self._cache.statistics()
 
 
-# process wide instance: the cache must be shared between all LaunchConfig
-# instances and requests, otherwise it never produces a hit
-LAUNCH_ARGUMENT_CACHE = LaunchArgumentCache(ttl=5.0, max_size=64)
+# The cache must be shared between all LaunchConfig instances and requests.
+# No TTL is used because the file fingerprint of the top-level launch file is
+# part of the cache key and included files are invalidated by the observer.
+LAUNCH_ARGUMENT_CACHE = LaunchArgumentCache(
+    ttl=0.0,
+    max_size=64,
+)
 
 
-def invalidate_launch_argument_cache(path: str = None) -> None:
-    """Compatibility wrapper used by the launch file observer."""
+def invalidate_launch_argument_cache(
+    path: Optional[str] = None
+) -> None:
+    """
+    Invalidate launch argument cache entries.
+
+    If path is None, the complete cache is cleared.
+    """
     if path is None:
         LAUNCH_ARGUMENT_CACHE.clear()
     else:
