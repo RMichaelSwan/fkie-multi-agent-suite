@@ -6,15 +6,12 @@
 #
 # ****************************************************************************
 
-from pathlib import Path
-
 from typing import Dict
 from typing import List
 from typing import Text
 from typing import Tuple
 from typing import Union
 
-import ruamel.yaml
 import os
 import re
 import sys
@@ -29,537 +26,30 @@ from launch.launch_description_sources import get_launch_description_from_any_la
 from launch.substitutions.substitution_failure import SubstitutionFailure
 import launch.utilities
 from launch.utilities import normalize_to_list_of_substitutions
-from launch_ros.utilities.evaluate_parameters import evaluate_parameters
-from launch_ros.utilities import to_parameters_list
 from launch.utilities import perform_substitutions
 import launch_ros
 import composition_interfaces.srv
-from launch_ros.parameter_descriptions import ParameterFile
-from launch_ros.parameter_descriptions import ParameterFile
 
 from launch_ros.utilities import make_namespace_absolute
-from launch_ros.utilities import prefix_namespace
-from launch_ros.utilities.normalize_parameters import normalize_parameter_dict
-from launch_ros.substitutions.executable_in_package import ExecutableInPackage
 
-from fkie_mas_pylib.interface.runtime_interface import RosParameter
 from fkie_mas_pylib.interface.launch_interface import LaunchArgument
 from fkie_mas_pylib.interface.launch_interface import LaunchIncludedFile
-from fkie_mas_pylib.interface.launch_interface import LaunchNodeInfo
 from fkie_mas_pylib.logging.logging import Log
-from fkie_mas_pylib import names
 from fkie_mas_pylib import ros_pkg
 from fkie_mas_pylib.defines import RESPAWN_SCRIPT
-from fkie_mas_pylib.defines import SEP
 from fkie_mas_pylib.system import exceptions
 from fkie_mas_pylib.system import screen
 from fkie_mas_pylib.system.supervised_popen import SupervisedPopen
 
 from .launch_argument_cache import LaunchArgTemplate
 from .launch_argument_cache import LAUNCH_ARGUMENT_CACHE
+from .launch_node_wrapper import LaunchNodeWrapper
+from .utils import LaunchConfigException
+from .utils import perform_to_string
 
 import fkie_mas_daemon as nmd
 
 PRINT_DEBUG_LOAD = False
-
-
-class LaunchConfigException(Exception):
-    pass
-
-
-def perform_to_string(context: launch.LaunchContext, value: Union[List[List], List[launch.Substitution], str, None], *, verbose: bool = True) -> Union[str, None]:
-    result = ''
-    if isinstance(value, str):
-        result = value
-    elif isinstance(value, List) and len(value) > 0:
-        for val in value:
-            sep = ' '
-            if isinstance(val, List):
-                item = ""
-                try:
-                    item = perform_substitutions(context, val)
-                except (SubstitutionFailure, LookupError) as err:
-                    # if executable is not found we replace it by "ros2 run" command to visualize the error in the MAS gui
-                    if isinstance(val[0], ExecutableInPackage):
-                        executable = perform_substitutions(context, val[0].executable)
-                        package = perform_substitutions(context, val[0].package)
-                        item = f"ros2 run {package} {executable}"
-                    else:
-                        raise err
-                except Exception as err:
-                    if verbose:
-                        import traceback
-                        print(traceback.format_exc())
-                    raise LaunchConfigException(err)
-                # we fix command lines with {data: xyz}
-                if ' ' in item and '{' in item:
-                    item = f"'{item}'"
-                result += item + sep
-            else:
-                result += perform_to_string(context, val)
-    elif value is not None:
-        try:
-            if isinstance(value, tuple):
-                for tuple_item in value:
-                    if isinstance(tuple_item, List):
-                        result += perform_substitutions(context, tuple_item)
-                    else:
-                        result += perform_substitutions(context, [tuple_item])
-            elif hasattr(value, "perform"):
-                result = perform_substitutions(context, [value])
-            else:
-                result = f"{value}"
-        except (SubstitutionFailure, LookupError) as err:
-            if verbose:
-                import traceback
-                print(traceback.format_exc())
-            # if executable is not found we replace it by "ros2 run" command to visualize the error in the MAS gui
-            if isinstance(value, ExecutableInPackage):
-                executable = perform_substitutions(context, value.executable)
-                package = perform_substitutions(context, value.package)
-                result = f"ros2 run {package} {executable}"
-            else:
-                raise err
-        except Exception as err:
-            if verbose:
-                import traceback
-                print(traceback.format_exc())
-            raise LaunchConfigException(err)
-    else:
-        result = None
-    return result
-
-
-def perform_to_tuple_list(context: launch.LaunchContext, value: Union[List[Tuple[List[launch.Substitution], List[launch.Substitution]]], None]) -> Union[List[Tuple[str, str]], None]:
-    result = []
-    if value is not None:
-        for val1, val2 in value:
-            result.append((perform_substitutions(context, val1),
-                          perform_substitutions(context, val2)))
-    else:
-        result = None
-    return result
-
-
-class LaunchNodeWrapper(LaunchNodeInfo):
-
-    # _unique_names: Set[str] = set()
-    # _remapped_names: Dict[str, Set[str]] = {}
-
-    def __init__(self, entity: launch.actions.ExecuteProcess, *, launch_description: Union[launch.LaunchDescription, launch.actions.IncludeLaunchDescription], launch_context: launch.LaunchContext, composable_container: str = None, environment: Dict = {}, remove_environment: List[str] = None, position_in_file=0) -> None:
-        self._entity = entity
-        self._launch_description = launch_description
-        self._launch_context = launch_context
-        self.timer_period = 0
-        if isinstance(self._entity, launch_ros.actions.Node):
-            # Prepare the ros_specific_arguments list and add it to the context so that the
-            # LocalSubstitution placeholders added to the the cmd can be expanded using the contents.
-            ros_specific_arguments: Dict[str, Union[str, List[str]]] = {}
-            if self._entity._Node__node_name is not None:
-                ros_specific_arguments['name'] = f'__node:={self._entity._Node__expanded_node_name}'
-            if self._entity._Node__expanded_node_namespace != '':
-                ros_specific_arguments['ns'] = f'__ns:={self._entity._Node__expanded_node_namespace}'
-
-            # Give extensions a chance to prepare for execution
-            for extension in self._entity._Node__extensions.values():
-                cmd_extension, ros_specific_arguments = extension.prepare_for_execute(
-                    self._launch_context,
-                    ros_specific_arguments,
-                    self
-                )
-                self._entity._Node.cmd.extend(cmd_extension)
-
-            self._launch_context.extend_locals(
-                {'ros_specific_arguments': ros_specific_arguments})
-
-        node_name, unique_name, name_configured = self._get_name()
-        LaunchNodeInfo.__init__(
-            self, unique_name=unique_name, node_name=node_name, name_configured=name_configured)
-        if PRINT_DEBUG_LOAD:
-            print("  ***debug LaunchNodeWrapper: name_configured", name_configured)
-        self.node_namespace = self._get_namespace()
-        self.package_name = self._get_node_package()
-        self.executable = self._get_node_executable()
-        self.respawn = self._get_respawn()
-        self.respawn_delay = self._get_respawn_delay()
-        if isinstance(self._launch_description, launch.actions.IncludeLaunchDescription):
-            # we use only real path paths!
-            self.file_name = self._launch_description._get_launch_file()
-            self.file_name_realpath = os.path.realpath(self.file_name)
-            self.launch_name = getattr(self._launch_context.locals, 'launch_file_path', None)
-            # add launch arguments used to load the included file
-            if self._launch_description.launch_arguments:
-                self.launch_context_arg = []
-            for arg_name, arg_value in self._launch_description.launch_arguments:
-                self.launch_context_arg.append(LaunchArgument(perform_to_string(self._launch_context, arg_name),
-                                                              perform_to_string(self._launch_context, arg_value)))
-        else:
-            self.launch_name = getattr(self._launch_description, 'launch_name', '')
-            self.launch_context_arg = getattr(self._launch_context.locals, 'launch_arguments', None)
-            self.file_name = self.launch_name
-        self.composable_container: str = composable_container
-        self._parameters_tmp = self._get_parameter_arguments()
-        self.param_file_content = {}  # used to detect changes in referenced yaml files
-        self.parameters = []
-        for p in self._parameters_tmp:
-            if isinstance(p, tuple) and p[0].startswith("/"):
-                if os.path.exists(p[0]):
-                    with open(p[0]) as tmp_param_file:
-                        try:
-                            yaml = ruamel.yaml.YAML(typ='base')
-                            self.parameters.append(RosParameter(node_name, p[0], yaml.load(tmp_param_file)))
-                            tmp_param_file.seek(0)
-                            self.param_file_content[p[0]] = tmp_param_file.read()
-                            continue
-                        except ruamel.yaml.YAMLError as exc:
-                            pass
-                self.parameters.append(RosParameter(node_name, p[0], p[1]))
-                continue
-            elif isinstance(p, dict):
-                for key, val in p.items():
-                    p_name = None
-                    p_val = None
-                    if isinstance(key, tuple):
-                        p_name = perform_to_string(self._launch_context, key)
-                    if isinstance(val, tuple):
-                        p_val = perform_to_string(self._launch_context, val)
-                    elif hasattr(val, "value"):
-                        try:
-                            p_val = perform_to_string(self._launch_context, val.value, verbose=False)
-                        except:
-                            p_val = val.value
-                    if p_name is not None and p_val is not None:
-                        self.parameters.append(RosParameter(node_name, p_name, p_val))
-                continue
-            elif isinstance(p, ParameterFile):
-                try:
-                    p_file = perform_to_string(self._launch_context, p.param_file)
-                    content = ""
-                    try:
-                        with open(p_file) as tmp_param_file:
-                            try:
-                                yaml = ruamel.yaml.YAML(typ='base')
-                                self.parameters.append(RosParameter(node_name, p_file, yaml.load(tmp_param_file)))
-                                tmp_param_file.seek(0)
-                                self.param_file_content[p_file] = tmp_param_file.read()
-                                continue
-                            except ruamel.yaml.YAMLError as exc:
-                                content = f"{exc}"
-                                pass
-                    except Exception as err:
-                        content = f"{err}"
-                    self.parameters.append(RosParameter(node_name, p_file, content))
-                except:
-                    pass
-                continue
-            print(f"ignored new parameter type: {type(p)}: {p}")
-            # self.parameters.append(p)
-
-        self.args = [perform_to_string(self._launch_context, arg) for arg in self._get_arguments() or []]
-        self.cmd = perform_to_string(self._launch_context, getattr(self._entity, 'cmd', None))
-        if self.cmd:
-            # store the content of file to detect changes on reload
-            for param_file in re.findall(r'--params-file\s+([^\s]+)', self.cmd):
-                if os.path.exists(param_file) and param_file not in self.param_file_content:
-                    try:
-                        with open(param_file) as tmp_param_file:
-                            try:
-                                yaml = ruamel.yaml.YAML(typ='base')
-                                self.parameters.append(RosParameter(node_name, param_file, yaml.load(tmp_param_file)))
-                                tmp_param_file.seek(0)
-                                self.param_file_content[param_file] = tmp_param_file.read()
-                                continue
-                            except ruamel.yaml.YAMLError as exc:
-                                content = f"{exc}"
-                                pass
-                    except Exception as err:
-                        content = f"{err}"
-                    self.parameters.append(RosParameter(node_name, param_file, content))
-        self.cwd = perform_to_string(self._launch_context, getattr(self._entity, 'cwd', None))
-        self.remove_environment = [] if remove_environment is None else remove_environment
-        # perform_to_tuple_list(self._launch_context, getattr(self._entity, 'additional_env', {}))
-        self.additional_env = dict(environment)
-        add_env = perform_to_tuple_list(self._launch_context, getattr(self._entity, 'env', {}))
-        add_env_extra = perform_to_tuple_list(self._launch_context, getattr(self._entity, 'additional_env', {}))
-        if add_env_extra:
-            if add_env is None:
-                add_env = add_env_extra
-            else:
-                add_env.extend(add_env_extra)
-        if add_env:
-            self.additional_env.update(add_env)
-        self.launch_prefix = perform_to_string(self._launch_context, self._get_launch_prefix())
-        self._load_node_request = None
-        if self.composable_container:
-            self._load_node_request = self._create_composed_load_request(self._launch_context)
-        if isinstance(entity, launch_ros.actions.ComposableNodeContainer):
-            self.composable_container = self.node_name
-
-        #  remap_args: List[Tuple[str, str]] = None,
-        #  output: str = '',
-        #  output_format: str = '',
-        #  sigterm_timeout: str = '',
-        #  sigkill_timeout: str = '',
-        #  on_exit: List[Any] = [],
-        #  required: bool = False,
-        #  file_name: str = '',
-        #  file_range: Dict[str, Number] = {"startLineNumber": 0,
-        #                                   "endLineNumber": 0,
-        #                                   "startColumn": 0,
-        #                                   "endColumn": 0},
-        #  launch_context_arg: str = '',
-        #  launch_name: str = ''
-        #  composable_container: str = ''
-        #  Search the line number of a given node in launch file
-        if (self.file_name):
-            node_base_name = os.path.basename(node_name)
-            name_select_len = len(node_base_name) + 7
-            lines_with_node_name = []
-            with open(self.file_name, "r") as launch_file:
-                current_position = 0
-                for line_number, line_text in enumerate(launch_file):
-                    # search only after given position
-                    if current_position >= position_in_file:
-                        start_column = line_text.find(f'name="{node_base_name}"')
-                        if start_column < 0:
-                            start_column = line_text.find(
-                                f"name='{node_base_name}'")
-                        if start_column > -1:
-                            start_column += 1
-                            lines_with_node_name.append(
-                                [line_number + 1, line_text, start_column, start_column + name_select_len])
-                    current_position += len(line_text) + 1
-            line_number = -1
-            start_column = 0
-            end_column = 0
-            line_text = ""
-            if len(lines_with_node_name) == 0:
-                # no line found. TODO: Report error?
-                line_number = 0
-            elif len(lines_with_node_name) >= 1:
-                line_number = lines_with_node_name[0][0]
-                line_text = lines_with_node_name[0][1]
-                start_column = lines_with_node_name[0][2]
-                end_column = lines_with_node_name[0][3]
-            # elif len(lines_with_node_name) > node_occurrence[item.launch_name]:
-            #     # More than one occurrence, but Node are loaded from top to bottom
-            #     # try to find the correct match
-            #     line_number = lines_with_node_name[
-            #         node_occurrence[item.launch_name]
-            #     ][0]
-            #     line_text = lines_with_node_name[node_occurrence[item.launch_name]][
-            #         1
-            #     ]
-
-            # range in text where the node appears
-            self.file_range = {
-                "startLineNumber": line_number,
-                "endLineNumber": line_number,
-                "startColumn": start_column,
-                "endColumn": end_column,
-            }
-
-    # def __del__(self):
-    #     try:
-    #         LaunchNodeWrapper._unique_names.remove(self.unique_name)
-    #         Log.debug(f"removed from unique {self.unique_name}")
-    #     except (ValueError, KeyError):
-    #         # remove index
-    #         LaunchNodeWrapper._remapped_names[self.node_name].remove(
-    #             self.unique_name)
-    #         Log.debug(f"removed from remapped {self.unique_name}")
-
-    def _get_node_executable(self):
-        if getattr(self, 'executable', ''):
-            return self.executable
-        result = ''
-        # no name was set for Node or ExecuteProcess => use executable
-        if not result:
-            result = getattr(self._entity, '_Node__executable', '')
-        # no name was set for Node or ExecuteProcess => use node_executable; before foxy
-        if not result:
-            result = getattr(self._entity, '_Node__node_executable', '')
-        if result:
-            if not isinstance(result, str):
-                result = launch.utilities.perform_substitutions(
-                    self._launch_context, result)
-        self.executable = result
-        return result
-
-    def _get_launch_prefix(self) -> Union[str, None]:
-        prefix = getattr(self._entity, 'prefix', None)
-        if not prefix:
-            prefix = getattr(self._entity, 'launch-prefix', None)
-        if prefix:
-            prefix = launch.utilities.perform_substitutions(
-                self._launch_context, self._entity.prefix)
-        return prefix
-
-    def _get_respawn(self) -> bool:
-        return getattr(self._entity, '_ExecuteProcess__respawn', False)
-
-    def _get_respawn_delay(self) -> Union[float, None]:
-        return getattr(self._entity, '_ExecuteProcess__respawn_delay', None)
-
-    def _get_parameter_arguments(self):
-        pp = getattr(self._entity, '_Node__expanded_parameter_arguments', [])
-        if len(pp) == 0 and hasattr(self._entity, "parameters"):
-            # returns the parameter of the composable node that is different from the rest!
-            if self._entity.parameters is not None:
-                return self._entity.parameters
-        return pp
-
-    def _get_arguments(self):
-        return getattr(self._entity, '_Node__arguments', [])
-
-    def _get_node_package(self) -> str:
-        """Getter for node_package."""
-        result = getattr(self._entity, '_Node__package', '')
-        return perform_to_string(self._launch_context, result)
-
-    def _get_namespace(self) -> str:
-        result = getattr(self._entity, 'expanded_node_namespace', None)
-        if result is None and hasattr(self._entity, 'node_namespace'):
-            result = perform_to_string(self._launch_context, getattr(self._entity, 'node_namespace'))
-        if result is None or result == launch_ros.actions.node.Node.UNSPECIFIED_NODE_NAMESPACE:
-            result = ''
-        base_ns = self._launch_context.launch_configurations.get('ros_namespace', None)
-        result = make_namespace_absolute(prefix_namespace(base_ns, result))
-        return result
-
-    def _get_name(self) -> Tuple[str, str]:
-        name_configured = None
-        result = ''
-        # first get name from launch.ExecuteProcess
-        result = getattr(self._entity, 'name', '')
-        # get name from launch_ros.actions.Node
-        if not result:
-            result = getattr(self._entity, 'node_name', '')
-        if result:
-            if not isinstance(result, str):
-                result = launch.utilities.perform_substitutions(
-                    self._launch_context, result)
-            if result.endswith(launch_ros.actions.node.Node.UNSPECIFIED_NODE_NAME):
-                result = ''
-        if result:
-            name_configured = result
-        if not result:
-            # use executable as name
-            result = self._get_node_executable()
-        # try to create the name from command line
-        if not result:
-            result = self._get_name_from_cmd()
-            if result:
-                Log.info(f"Nodename '{result}' from cmd")
-        # check for valid namespace
-        if result and not result.startswith(SEP):
-            ns = self._get_namespace()
-            result = names.ns_join(ns, result)
-            if name_configured:
-                name_configured = result
-        # if only the name is set in the launch file. 'node_name' returns name with unspecified namespace
-        result = result.replace(
-            f"{launch_ros.actions.node.Node.UNSPECIFIED_NODE_NAMESPACE}/", '')
-        if name_configured:
-            name_configured = result
-        if not result:
-            Log.warn("No name for node found: %s %s" %
-                     (type(self._entity), dir(self._entity)))
-        # check for unique name
-        unique_name = result
-        # remove unique name generation... it cause problems while reload launch file
-        # since we need the node to detect changes, the nodes from new launch file increase the index
-
-        # if result in LaunchNodeWrapper._unique_names:
-        #     # the name already exists! create a unique one
-        #     name_set = set()
-        #     if result in LaunchNodeWrapper._remapped_names:
-        #         name_set = LaunchNodeWrapper._remapped_names[result]
-        #     else:
-        #         LaunchNodeWrapper._remapped_names[result] = name_set
-        #     index = 2
-        #     unique_name = f"{result}_{index}"
-        #     while unique_name in name_set:
-        #         index += 1
-        #         unique_name = f"{result}_{index}"
-        #     name_set.add(unique_name)
-        # else:
-        #     LaunchNodeWrapper._unique_names.add(result)
-        Log.debug(f"create node wrapper with name '{result}'")
-        return (result, unique_name, name_configured)
-
-    def _get_name_from_cmd(self):
-        result = ''
-        cmd_list = getattr(self._entity, 'cmd', [])
-        if cmd_list:
-            result = launch.utilities.perform_substitutions(
-                self._launch_context, cmd_list[0])
-        result = os.path.basename(result.replace(' ', '_'))
-        return result
-
-    def get_composed_load_request(self):
-        return self._load_node_request
-
-    def _create_composed_load_request(self, context):
-        composable_node_description: launch_ros.descriptions.ComposableNode = self._entity
-        request = composition_interfaces.srv.LoadNode.Request()
-        request.package_name = perform_substitutions(context, composable_node_description.package)
-        request.plugin_name = perform_substitutions(context, composable_node_description.node_plugin)
-        if composable_node_description.node_name is not None:
-            request.node_name = perform_substitutions(context, composable_node_description.node_name)
-        expanded_ns = composable_node_description.node_namespace
-        if expanded_ns is not None:
-            expanded_ns = perform_substitutions(context, expanded_ns)
-        base_ns = context.launch_configurations.get('ros_namespace', None)
-        combined_ns = make_namespace_absolute(prefix_namespace(base_ns, expanded_ns))
-        if combined_ns is not None:
-            request.node_namespace = combined_ns
-        # request.log_level = perform_substitutions(context, node_description.log_level)
-        remappings = []
-        global_remaps = context.launch_configurations.get('ros_remaps', None)
-        if global_remaps:
-            remappings.extend([f'{src}:={dst}' for src, dst in global_remaps])
-        if composable_node_description.remappings:
-            remappings.extend([
-                f'{perform_substitutions(context, src)}:={perform_substitutions(context, dst)}'
-                for src, dst in composable_node_description.remappings
-            ])
-        if remappings:
-            request.remap_rules = remappings
-        params_container = context.launch_configurations.get('global_params', None)
-        parameters = []
-        if params_container is not None:
-            for param in params_container:
-                if isinstance(param, tuple):
-                    subs = normalize_parameter_dict({param[0]: param[1]})
-                    parameters.append(subs)
-                else:
-                    param_file_path = Path(param).resolve()
-                    assert param_file_path.is_file()
-                    subs = ParameterFile(param_file_path)
-                    parameters.append(subs)
-        if composable_node_description.parameters is not None:
-            parameters.extend(list(composable_node_description.parameters))
-        if parameters:
-            request.parameters = [
-                param.to_parameter_msg() for param in to_parameters_list(
-                    context, request.node_name, request.node_namespace,
-                    evaluate_parameters(context, parameters)
-                )
-            ]
-        if composable_node_description.extra_arguments is not None:
-            request.extra_arguments = [
-                param.to_parameter_msg() for param in to_parameters_list(
-                    context, request.node_name, request.node_namespace,
-                    evaluate_parameters(
-                        context, composable_node_description.extra_arguments
-                    )
-                )
-            ]
-        return request
-
-
-_la_cache = {}  # filename -> (mtime, List[LaunchArgument])
 
 
 class LaunchConfig(object):
@@ -1120,12 +610,6 @@ class LaunchConfig(object):
         '''
         if os.path.isfile(self.__launch_file):
             return self.__launch_file
-        elif self.package_name:
-            try:
-                return roslib.packages.find_resource(self.package_name, self.launch_name).pop()
-            except Exception:
-                return self.__launch_file
-                # raise LaunchConfigException(f'launch file {self.launch_name} not found!')
         raise LaunchConfigException(f'launch file {self.__launch_file} not found!')
 
     @property
@@ -1266,9 +750,9 @@ class LaunchConfig(object):
             parsed = cls._get_launch_arguments(context, filename=filename, provided_args=None)
             return tuple(
                 LaunchArgTemplate(name=a.name,
-                             default_value=a.default_value,
-                             description=a.description,
-                             choices=tuple(a.choices or []))
+                                  default_value=a.default_value,
+                                  description=a.description,
+                                  choices=tuple(a.choices or []))
                 for a in parsed
             )
 
