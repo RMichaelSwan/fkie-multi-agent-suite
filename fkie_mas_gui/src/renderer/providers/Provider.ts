@@ -1354,6 +1354,7 @@ export default class Provider implements IProvider {
         launchNode.topLevelArgs = launchFile.args || [];
         const uniqueNodeName = launchNode.node_name ? launchNode.node_name : launchNode.unique_name;
         if (uniqueNodeName) {
+          console.log(`uniqueNodeName: ${uniqueNodeName}`);
           if (nodesCount[uniqueNodeName]) {
             nodesCount[uniqueNodeName] += 1;
           } else {
@@ -1383,7 +1384,7 @@ export default class Provider implements IProvider {
                   // update capability group
                   groupParameterFound = true;
                   if (p.value) {
-                    nodeGroup = this.toNodeGroup(`${p.value}`);
+                    nodeGroup = this.toNodeGroup(`${p.value}`, uniqueNodeName);
                   }
                 }
               } else if (nodeParameters.length > 0) {
@@ -1394,14 +1395,14 @@ export default class Provider implements IProvider {
                 // use capability group parameter in the higher level namespace until we found one in the node namespace
                 const { namespace } = this.toNamespace(p.name);
                 if (uniqueNodeName.startsWith(namespace) && p.value) {
-                  nodeGroup = this.toNodeGroup(`${p.value}`);
+                  nodeGroup = this.toNodeGroup(`${p.value}`, uniqueNodeName);
                 }
               }
             }
           } else {
             const env_capability_group = launchNode.additional_env?.MAS_CAPABILITY_GROUP;
             if (env_capability_group) {
-              nodeGroup = this.toNodeGroup(`${env_capability_group}`);
+              nodeGroup = this.toNodeGroup(`${env_capability_group}`, uniqueNodeName);
             }
             const parameters: RosParameter[] = launchNode.parameters || [];
             // in ros2 we have a lot of temporary files with one parameter.
@@ -1425,7 +1426,7 @@ export default class Provider implements IProvider {
                     }
                     const capabilityGroup = rosParameters["capability_group"];
                     if (capabilityGroup) {
-                      nodeGroup = this.toNodeGroup(`${capabilityGroup}`);
+                      nodeGroup = this.toNodeGroup(`${capabilityGroup}`, uniqueNodeName);
                     }
                     allJoinedParams = { ...allJoinedParams, ...rosParameters };
                     joinedParam = true;
@@ -1434,7 +1435,7 @@ export default class Provider implements IProvider {
                   console.error(`ERROR: ${error}: ${JSON.stringify(p)}`);
                 }
               } else if (p.name === "capability_group") {
-                nodeGroup = this.toNodeGroup(`${p.value}`);
+                nodeGroup = this.toNodeGroup(`${p.value}`, uniqueNodeName);
               }
               if (!joinedParam) {
                 nodeParameters.push(new RosParameter(launchNode.node_name || "", p.name, p.value, "dict", this.id));
@@ -1649,13 +1650,39 @@ export default class Provider implements IProvider {
     return { namespace: rest.join("/"), level: rest.length - 1 };
   };
 
-  public toNodeGroup: (name: string) => { namespace: string; name: string } = (name) => {
-    const splits = name.split("/");
-    let ns = splits.slice(0, -1).join("/");
-    if (ns && !ns.startsWith("/")) {
-      ns = `/${ns}`;
+  /**
+   * Determines the capability group of a node.
+   * The leading segments matching the namespace of the node are returned as namespace,
+   * all remaining segments form the capability path (separated by "/").
+   *   "/ns/cap"       + node "/ns/name" -> { namespace: "/ns", name: "cap" }
+   *   "/ns/cap1/cap2" + node "/ns/name" -> { namespace: "/ns", name: "cap1/cap2" }
+   *   "cap"           + node "/ns/name" -> { namespace: "",    name: "cap" }
+   *   "cap1/cap2"     + node "/ns/name" -> { namespace: "",    name: "cap1/cap2" }
+   */
+  public toNodeGroup: (name: string, nodeName?: string) => { namespace: string; name: string } = (name, nodeName) => {
+    const value = `${name}`.trim();
+    const segments = value.split("/").filter((s) => s.length > 0);
+    if (segments.length === 0) return { namespace: "", name: "" };
+
+    // count leading segments which belong to the namespace of the node
+    // (works with and without a leading "/", at least one segment remains as group name)
+    let nsCount = 0;
+    if (nodeName) {
+      const nsSegments = nodeName
+        .split("/")
+        .filter((s) => s.length > 0)
+        .slice(0, -1);
+      while (
+        nsCount < segments.length - 1 &&
+        nsCount < nsSegments.length &&
+        segments[nsCount] === nsSegments[nsCount]
+      ) {
+        nsCount += 1;
+      }
     }
-    return { namespace: ns, name: `{${splits.slice(splits.length - 1)}}` };
+
+    const ns = nsCount > 0 ? `/${segments.slice(0, nsCount).join("/")}` : "";
+    return { namespace: ns, name: segments.slice(nsCount).join("/") };
   };
 
   public getAssociatedNodes(startNode: RosNode, depth = 0, visited = new Set<string>()): RosNode[] {

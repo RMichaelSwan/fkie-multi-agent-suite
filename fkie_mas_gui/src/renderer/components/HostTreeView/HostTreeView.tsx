@@ -149,16 +149,23 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
             nodePath += node.namespace;
           }
         } else {
-          // for nodes, e.g.: /robot_ns/{CAP_GROUP}/sub_ns
+          // for nodes, e.g.: /robot_ns/{CAP_GROUP}/sub_ns or /robot_ns/{CAP1}/{CAP2}/sub_ns
           let groupNamespace = "";
           let groupName = "";
           let nodeRestNamespace = node.namespace !== "/" ? node.namespace : "";
-          if (node.capabilityGroup.namespace && node.namespace.startsWith(node.capabilityGroup.namespace)) {
-            groupNamespace = `${node.capabilityGroup.namespace}`;
-            nodeRestNamespace = node.namespace.replace(groupNamespace, "");
+          const capNamespace = node.capabilityGroup.namespace;
+          if (capNamespace && (node.namespace === capNamespace || node.namespace.startsWith(`${capNamespace}/`))) {
+            groupNamespace = capNamespace;
+            // remove the prefix only (not any occurrence)
+            nodeRestNamespace = node.namespace.slice(groupNamespace.length);
           }
           if (node.capabilityGroup.name) {
-            groupName = `/${node.capabilityGroup.name}`;
+            // create one tree level per capability segment
+            groupName = node.capabilityGroup.name
+              .split("/")
+              .filter((s) => s.length > 0)
+              .map((s) => `/{${s}}`)
+              .join("");
           }
           if (isSpamNode) {
             groupName = "/{SPAM}";
@@ -808,9 +815,18 @@ export default function HostTreeView(props: HostTreeViewProps): JSX.Element {
         console.error("Invalid item ", providerId, treeItem);
         return <div key={`${providerId}#${generateUniqueId()}`} />;
       }
+      /** Capability groups are marked with braces and must stay an own tree level. */
+      const isCapabilityGroup = (groupName: string): boolean => groupName.startsWith("{") && groupName.endsWith("}");
       let { children, treePath, node, name } = treeItem;
       let namespacePart = "";
-      while (avoidGroupWithOneItem && children && children.length === 1) {
+      // merge namespace levels with only one child, but never merge capability groups
+      while (
+        avoidGroupWithOneItem &&
+        children &&
+        children.length === 1 &&
+        !isCapabilityGroup(name) &&
+        !isCapabilityGroup(children[0].name)
+      ) {
         const child = children[0];
         children = child.children;
         treePath = child.treePath;
