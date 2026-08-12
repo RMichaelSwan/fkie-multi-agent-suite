@@ -13,14 +13,7 @@ import threading
 import time
 from collections import OrderedDict
 from functools import lru_cache
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import Hashable
-from typing import List
-from typing import Optional
-from typing import Tuple
-
+from typing import Any, Callable, Dict, Hashable, List, Optional, Tuple
 
 from fkie_mas_pylib.logging.logging import Log
 
@@ -33,7 +26,6 @@ class _Missing:
 
 
 MISSING = _Missing()
-
 
 FileFingerprint = Optional[Tuple[int, int, int, int]]
 
@@ -89,12 +81,7 @@ class LruTtlCache:
       * no external lock must be acquired while holding this lock
     """
 
-    def __init__(
-        self,
-        maxsize: int = 128,
-        ttl: float = 0.0,
-        name: str = ""
-    ) -> None:
+    def __init__(self, maxsize: int = 128, ttl: float = 0.0, name: str = "") -> None:
         """
         :param maxsize:
             Maximum number of entries. The least recently used entries are
@@ -116,8 +103,7 @@ class LruTtlCache:
         self._lock = threading.Lock()
 
         # key -> (value, fingerprint, insertion timestamp)
-        self._entries: "OrderedDict[Hashable, Tuple[Any, Any, float]]" = (
-            OrderedDict())
+        self._entries: "OrderedDict[Hashable, Tuple[Any, Any, float]]" = OrderedDict()
 
         self._hits = 0
         self._misses = 0
@@ -146,11 +132,7 @@ class LruTtlCache:
             if self._entries.pop(key, None) is not None:
                 self._expirations += 1
 
-    def get(
-        self,
-        key: Hashable,
-        fingerprint: Any = None
-    ) -> Any:
+    def get(self, key: Hashable, fingerprint: Any = None) -> Any:
         """
         Return the cached value or MISSING.
 
@@ -174,10 +156,7 @@ class LruTtlCache:
                 self._misses += 1
                 return MISSING
 
-            if (
-                fingerprint is not None
-                and entry_fingerprint != fingerprint
-            ):
+            if fingerprint is not None and entry_fingerprint != fingerprint:
                 # The external source changed, so the cached value is stale.
                 self._entries.pop(key, None)
                 self._invalidations += 1
@@ -188,12 +167,7 @@ class LruTtlCache:
             self._hits += 1
             return value
 
-    def put(
-        self,
-        key: Hashable,
-        value: Any,
-        fingerprint: Any = None
-    ) -> None:
+    def put(self, key: Hashable, value: Any, fingerprint: Any = None) -> None:
         """
         Store a value and enforce the maximum cache size.
         """
@@ -212,10 +186,7 @@ class LruTtlCache:
                 self._evictions += 1
 
     def get_or_create(
-        self,
-        key: Hashable,
-        factory: Callable[[], Any],
-        fingerprint: Any = None
+        self, key: Hashable, factory: Callable[[], Any], fingerprint: Any = None
     ) -> Any:
         """
         Return a cached value or create it using factory.
@@ -237,7 +208,8 @@ class LruTtlCache:
             # stored, otherwise it could not be distinguished from a miss.
             Log.debug(
                 f"{self._name}: factory for {key!r} returned MISSING, "
-                f"result is not cached")
+                f"result is not cached"
+            )
             return value
 
         self.put(key, value, fingerprint)
@@ -258,10 +230,7 @@ class LruTtlCache:
             self._invalidations += 1
             return True
 
-    def invalidate_if(
-        self,
-        predicate: Callable[[Hashable], bool]
-    ) -> int:
+    def invalidate_if(self, predicate: Callable[[Hashable], bool]) -> int:
         """
         Remove all entries whose keys match predicate.
 
@@ -269,11 +238,7 @@ class LruTtlCache:
         therefore not acquire another lock or perform blocking operations.
         """
         with self._lock:
-            keys = [
-                key
-                for key in self._entries
-                if predicate(key)
-            ]
+            keys = [key for key in self._entries if predicate(key)]
 
             for key in keys:
                 del self._entries[key]
@@ -320,11 +285,7 @@ class LruTtlCache:
                 "evictions": self._evictions,
                 "expirations": self._expirations,
                 "invalidations": self._invalidations,
-                "hit_rate": (
-                    self._hits / total
-                    if total
-                    else 0.0
-                ),
+                "hit_rate": self._hits / total if total else 0.0,
             }
 
 
@@ -343,7 +304,7 @@ class FileContentCache:
         self,
         maxsize: int = 256,
         ttl: float = 0.0,
-        max_file_size: int = 5 * 1024 * 1024
+        max_file_size: int = 5 * 1024 * 1024,
     ) -> None:
         """
         :param maxsize:
@@ -358,11 +319,7 @@ class FileContentCache:
             raise ValueError("max_file_size must not be negative")
 
         self._max_file_size = max_file_size
-        self._cache = LruTtlCache(
-            maxsize=maxsize,
-            ttl=ttl,
-            name="FileContentCache",
-        )
+        self._cache = LruTtlCache(maxsize=maxsize, ttl=ttl, name="FileContentCache")
 
     @staticmethod
     def fingerprint(path: str) -> FileFingerprint:
@@ -381,10 +338,7 @@ class FileContentCache:
         return os.path.realpath(normalize_path(path))
 
     def get_content(
-        self,
-        path: str,
-        encoding: str = "utf-8",
-        default: Any = MISSING
+        self, path: str, encoding: str = "utf-8", default: Any = MISSING
     ) -> Any:
         """
         Return the text content of a file.
@@ -404,53 +358,34 @@ class FileContentCache:
         if file_size > self._max_file_size:
             Log.debug(
                 f"FileContentCache: skip caching of {normalized_path}, "
-                f"size {file_size} exceeds limit {self._max_file_size}")
-
-            return self._read(
-                normalized_path,
-                encoding,
-                default,
+                f"size {file_size} exceeds limit {self._max_file_size}"
             )
+            return self._read(normalized_path, encoding, default)
 
         cache_key = (cache_path, encoding)
-
-        cached = self._cache.get(
-            cache_key,
-            fingerprint,
-        )
+        cached = self._cache.get(cache_key, fingerprint)
 
         if cached is not MISSING:
             return cached
 
-        content = self._read(
-            normalized_path,
-            encoding,
-            MISSING,
-        )
+        content = self._read(normalized_path, encoding, MISSING)
 
         if content is MISSING:
             return default
 
         # Avoid caching content that was read while the file was changing.
         if self.fingerprint(normalized_path) == fingerprint:
-            self._cache.put(
-                cache_key,
-                content,
-                fingerprint,
-            )
+            self._cache.put(cache_key, content, fingerprint)
         else:
             Log.debug(
                 f"FileContentCache: {normalized_path} changed while reading, "
-                f"result is not cached")
+                f"result is not cached"
+            )
 
         return content
 
     @staticmethod
-    def _read(
-        path: str,
-        encoding: str,
-        default: Any
-    ) -> Any:
+    def _read(path: str, encoding: str, default: Any) -> Any:
         """
         Read a text file using strict decoding.
         """
@@ -458,8 +393,7 @@ class FileContentCache:
             with open(path, "r", encoding=encoding) as file_object:
                 return file_object.read()
         except (OSError, UnicodeError, LookupError) as error:
-            Log.debug(
-                f"FileContentCache: cannot read {path}: {error}")
+            Log.debug(f"FileContentCache: cannot read {path}: {error}")
             return default
 
     def invalidate(self, path: str) -> int:
@@ -473,10 +407,9 @@ class FileContentCache:
 
         return self._cache.invalidate_if(
             lambda key: (
-                isinstance(key, tuple)
-                and len(key) >= 1
-                and key[0] == cache_path
-            ))
+                isinstance(key, tuple) and len(key) >= 1 and key[0] == cache_path
+            )
+        )
 
     def clear(self) -> None:
         """
@@ -509,26 +442,19 @@ class MessageStructCache:
         :param maxsize:
             Maximum number of cached interface structures.
         """
-        self._cache = LruTtlCache(
-            maxsize=maxsize,
-            name="MessageStructCache",
-        )
+        self._cache = LruTtlCache(maxsize=maxsize, name="MessageStructCache")
 
     def get_or_create(
         self,
         kind: str,
         type_name: str,
-        factory: Callable[[], List[Dict[str, Any]]]
+        factory: Callable[[], List[Dict[str, Any]]],
     ) -> List[Dict[str, Any]]:
         """
         Return a mutable copy of the cached message structure.
         """
         key = (kind, type_name)
-
-        value = self._cache.get_or_create(
-            key,
-            factory,
-        )
+        value = self._cache.get_or_create(key, factory)
 
         # Never expose the cached mutable object to callers.
         return copy.deepcopy(value)
@@ -547,10 +473,7 @@ class MessageStructCache:
 
 
 @lru_cache(maxsize=512)
-def compile_regex(
-    pattern: str,
-    flags: int = 0
-) -> "re.Pattern":
+def compile_regex(pattern: str, flags: int = 0) -> "re.Pattern":
     """
     Compile and cache a runtime-created regular expression.
 

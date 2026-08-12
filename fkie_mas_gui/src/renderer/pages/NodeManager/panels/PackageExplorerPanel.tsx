@@ -547,7 +547,23 @@ export default function PackageExplorerPanel(): JSX.Element {
 
   const createReloadButton = useMemo(() => {
     return (
-      <Tooltip title="Reload package list" placement="bottom" disableInteractive>
+      <Tooltip
+        title={
+          <Stack spacing={0.5}>
+            <Typography variant="body2" fontWeight="bold" fontSize="inherit">
+              Reload package list
+            </Typography>
+            <Typography variant="caption" display="block" fontSize="inherit">
+              Reloads the daemon environment.
+            </Typography>
+            <Typography variant="caption" display="block" fontSize="inherit">
+              Clears the daemon caches for files, messages and service structs.
+            </Typography>
+          </Stack>
+        }
+        placement="bottom"
+        disableInteractive
+      >
         <IconButton
           size="small"
           onClick={() => {

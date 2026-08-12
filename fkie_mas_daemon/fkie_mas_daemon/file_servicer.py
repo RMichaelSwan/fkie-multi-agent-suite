@@ -54,6 +54,14 @@ class FileServicer:
         Log.info(
             f"{self.__class__.__name__}: Request to [ros.packages.get_list], force: {clear_cache}")
         if clear_cache:
+            # clear launches cache
+            from fkie_mas_daemon.launch.caches import FILE_CONTENT_CACHE
+            from fkie_mas_daemon.launch.caches import MESSAGE_STRUCT_CACHE
+            from fkie_mas_daemon.launch.launch_argument_cache import LAUNCH_ARGUMENT_CACHE
+            FILE_CONTENT_CACHE.clear()
+            MESSAGE_STRUCT_CACHE.clear()
+            LAUNCH_ARGUMENT_CACHE.clear()
+
             try:
                 # try to find the setup.bash and update the environment
                 # vars_to_save = ["ROS_DOMAIN_ID", "RMW_IMPLEMENTATION"]
