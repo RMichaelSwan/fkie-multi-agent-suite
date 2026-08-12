@@ -73,25 +73,23 @@ export default function FileTreeItem(props: FileTreeItemProps): JSX.Element {
   const logCtx = useLoggingContext();
   const fileExtension = getFileExtension(item.file.inc_path as string);
 
+  const isEditorResolved = item.file.resolver === "editor";
+
   function getLabelSx(): object {
-    if (selected && modified) {
-      return {
-        textDecoration: "underline",
-        fontWeight: 600,
-        fontSize: "0.9em",
-      };
+    const sx: Record<string, unknown> = {};
+    if (selected) {
+      sx.textDecoration = "underline";
+      sx.fontWeight = 600;
     }
     if (modified) {
-      return { fontWeight: 600, fontStyle: "italic" };
+      sx.fontStyle = "italic";
     }
-    if (selected) {
-      return {
-        textDecoration: "underline",
-        fontWeight: 600,
-        fontSize: "0.9em",
-      };
+    // entry was resolved by the editor only, the daemon does not know it
+    if (isEditorResolved) {
+      sx.fontStyle = "italic";
+      sx.opacity = 0.85;
     }
-    return {};
+    return sx;
   }
 
   // avoid selection if collapse icon was clicked
@@ -130,7 +128,9 @@ export default function FileTreeItem(props: FileTreeItemProps): JSX.Element {
                   ? "file not found"
                   : item.file.conditional_excluded
                     ? "file conditional not loaded"
-                    : ""
+                    : isEditorResolved
+                      ? "resolved by editor, not confirmed by daemon"
+                      : ""
               }
               placement="top"
               disableInteractive
@@ -140,19 +140,17 @@ export default function FileTreeItem(props: FileTreeItemProps): JSX.Element {
                 noWrap
                 variant="body2"
                 sx={getLabelSx()}
-                onClick={(event) => {
+                onClick={() => {
                   emitEditorSelectRange({
                     editorId: editorId,
                     filePath: item.file.inc_path,
                     fileRange: null,
                     launchArgs: item.file.args as TLaunchArg[],
                   });
-                  event.stopPropagation();
                 }}
-                onDoubleClick={(event) => {
+                onDoubleClick={() => {
                   navigator.clipboard.writeText(item.file.inc_path);
                   logCtx.success(`${item.file.inc_path} copied!`, "", "path copied");
-                  event.stopPropagation();
                 }}
                 color={!item.file.exists ? "red" : item.file.conditional_excluded ? "orange" : ""}
               >
@@ -166,7 +164,7 @@ export default function FileTreeItem(props: FileTreeItemProps): JSX.Element {
                 <Typography
                   variant="caption"
                   color="inherit"
-                  onClick={(event) => {
+                  onClick={() => {
                     emitEditorSelectRange({
                       editorId: editorId,
                       filePath: item.file.path,
@@ -178,7 +176,6 @@ export default function FileTreeItem(props: FileTreeItemProps): JSX.Element {
                       },
                       launchArgs: [],
                     });
-                    event.stopPropagation();
                   }}
                 >
                   {/* [{labelLine}] */}

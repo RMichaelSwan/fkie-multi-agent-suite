@@ -1354,7 +1354,6 @@ export default class Provider implements IProvider {
         launchNode.topLevelArgs = launchFile.args || [];
         const uniqueNodeName = launchNode.node_name ? launchNode.node_name : launchNode.unique_name;
         if (uniqueNodeName) {
-          console.log(`uniqueNodeName: ${uniqueNodeName}`);
           if (nodesCount[uniqueNodeName]) {
             nodesCount[uniqueNodeName] += 1;
           } else {
