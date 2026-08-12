@@ -212,7 +212,7 @@ export function EditorToolbar(props: EditorToolbarProps): JSX.Element {
       />
       <Tooltip title="copy path to clipboard" disableInteractive>
         <span>
-          <CopyButton value={currentFileState.path} fontSize="0.7em" />
+          <CopyButton value={fileFromUriPath(currentFileState.path)} fontSize="0.7em" />
         </span>
       </Tooltip>
 
