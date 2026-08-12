@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { JSONObject } from "@/types";
 
 export interface TSubscriberEventExt extends SubscriberEvent {

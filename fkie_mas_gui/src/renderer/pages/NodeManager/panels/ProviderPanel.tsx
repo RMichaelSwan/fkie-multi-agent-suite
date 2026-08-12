@@ -324,7 +324,6 @@ export default function ProviderPanel(): JSX.Element {
     });
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useCustomEventListener(EVENT_PROVIDER_STATE, () => {
     debouncedCallbackFilterText([...rosCtx.providers], filterText);
   });

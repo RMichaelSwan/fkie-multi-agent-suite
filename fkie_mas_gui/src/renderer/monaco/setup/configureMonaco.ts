@@ -1,10 +1,5 @@
 import * as MonacoReact from "@monaco-editor/react";
 import { editor, IDisposable, IMarkdownString, languages, Position } from "monaco-editor";
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
-import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
-import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
-import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
 import { IMonacoContext } from "@/renderer/context/MonacoContext";
 import { IRosContext } from "@/renderer/context/RosContext";
@@ -32,31 +27,6 @@ const runtimeState: RuntimeState = {
   initialized: false,
   disposables: [],
 };
-
-function configureWorkers(m: MonacoReact.Monaco): void {
-  self.MonacoEnvironment = {
-    getWorker(_: string, label: string): Worker {
-      switch (label) {
-        case "json":
-          return new jsonWorker();
-        case "css":
-        case "scss":
-        case "less":
-          return new cssWorker();
-        case "html":
-        case "handlebars":
-        case "razor":
-          return new htmlWorker();
-        case "typescript":
-        case "javascript":
-          return new tsWorker();
-        default:
-          return new editorWorker();
-      }
-    },
-  };
-  MonacoReact.loader.config({ monaco: m });
-}
 
 function formatXml(xml: string, tab = 2): string {
   return new XmlBeautify().beautify(xml, tab);
@@ -108,8 +78,8 @@ function initLanguages(
   const m = monacoCtxRef.current.monaco;
   if (!m) return [];
   const newDisposables: IDisposable[] = [];
-  m.languages.typescript.javascriptDefaults.setEagerModelSync(true);
-  m.languages.typescript.typescriptDefaults.setEagerModelSync(true);
+  // m.languages.typescript.javascriptDefaults.setEagerModelSync(true);
+  // m.languages.typescript.typescriptDefaults.setEagerModelSync(true);
 
   // ros2xml
   m.languages.register({ id: "ros2xml" });
@@ -499,8 +469,6 @@ export function initMonacoRuntime(
   if (runtimeState.initialized) return true;
   if (!monacoCtxRef.current) return false;
   if (!monacoCtxRef.current.monaco) return false;
-
-  configureWorkers(monacoCtxRef.current.monaco);
 
   // await MonacoReact.loader.init(); // stellt sicher, dass monaco geladen ist
 

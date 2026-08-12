@@ -1,4 +1,3 @@
-/* eslint-disable max-classes-per-file */
 import { ConnectConfig } from "ssh2";
 import {
   ActionEvent,

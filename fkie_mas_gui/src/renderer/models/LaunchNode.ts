@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 /**
  * LaunchNode models the request to start a node.
  */

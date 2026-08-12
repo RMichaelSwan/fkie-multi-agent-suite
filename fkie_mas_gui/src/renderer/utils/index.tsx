@@ -36,10 +36,8 @@ export function splitAndSearchTerm(searchTerm: string): string[] {
  * Returns true if one of the words contains the search term.
  */
 export function findTerm(searchTerm: string, words: string[]): boolean {
-  // eslint-disable-next-line no-restricted-syntax
   for (const w of words) {
     if (Array.isArray(w)) {
-      // eslint-disable-next-line no-restricted-syntax
       for (const sw of w) {
         if (sw.toLowerCase().includes(searchTerm.toLowerCase())) {
           return true;
@@ -59,7 +57,6 @@ export function findTerm(searchTerm: string, words: string[]): boolean {
 export function findIn(searchTerms: string, words: string[]): boolean {
   let invert = false;
   const searchOrTerms = splitOrSearchTerm(searchTerms);
-  // eslint-disable-next-line no-restricted-syntax
   for (const sO of searchOrTerms) {
     const searchAndTerms = splitAndSearchTerm(sO);
     if (searchAndTerms.length === 1) {
@@ -75,7 +72,6 @@ export function findIn(searchTerms: string, words: string[]): boolean {
     } else {
       // returns only true if all search terms are found
       let foundAnd = true;
-      // eslint-disable-next-line no-restricted-syntax
       for (const sA of searchAndTerms) {
         const sInvert = sA.startsWith("!");
         const searchFor = sInvert ? sA.slice(1) : sA;

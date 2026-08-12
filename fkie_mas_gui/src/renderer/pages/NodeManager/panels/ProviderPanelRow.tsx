@@ -305,7 +305,6 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
         </Tooltip>
       );
     }
-    // eslint-disable-next-line react/jsx-no-useless-fragment
     return <></>;
   }
 

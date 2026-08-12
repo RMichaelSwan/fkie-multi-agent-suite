@@ -130,7 +130,6 @@ export default function ParameterPanel(props: ParameterPanelProps): JSX.Element 
     }
   }, [rosCtx.initialized, rosCtx.providers]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useCustomEventListener(EVENT_PROVIDER_ROS_NODES, (data: EventProviderRosNodes) => {
     if (nodes.length === 1 && nodes[0].providerId === data.provider.id) {
       for (const rosNode of data.nodes) {

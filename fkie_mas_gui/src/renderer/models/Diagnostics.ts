@@ -1,6 +1,3 @@
-/* eslint-disable max-classes-per-file */
-/* eslint-disable camelcase */
-
 import { getDiagnosticColor } from "../components/UI/Colors";
 
 const DIAGNOSTIC_HISTORY_LENGTH = 10;

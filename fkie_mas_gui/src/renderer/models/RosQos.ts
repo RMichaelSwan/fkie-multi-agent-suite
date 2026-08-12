@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import RosDuration from "./RosDuration";
 
 export const RELIABILITY = {

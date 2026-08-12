@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 /**
  * SubscriberNode creates a subscriber node which subscribes a given topic.
  */

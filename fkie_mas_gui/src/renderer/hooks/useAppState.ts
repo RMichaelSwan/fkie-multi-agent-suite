@@ -294,7 +294,7 @@ export function useAppState<T>(
       };
       ctx.registerMigrations([entry]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [compositeKey]);
 
   /* ================ Read Record ================ */
@@ -384,7 +384,7 @@ export function useAppState<T>(
       ctx.remove(namespace, key);
     }
     // Dependencies use primitives only to avoid reference-change loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [needsMigration, compositeKey, recordVersion, currentVersion]);
 
   /* ================ Write (supports functional updates) ================ */
@@ -401,7 +401,7 @@ export function useAppState<T>(
         ctx.set(namespace, key, json, currentVersion);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [ctx, compositeKey, options?.debounce, options?.debounceMs, currentVersion]
   );
 
@@ -425,7 +425,7 @@ export function useAppState<T>(
       null,
       2
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [value, compositeKey, currentVersion]);
 
   /* ================ Import ================ */
@@ -474,7 +474,7 @@ export function useAppState<T>(
         return false;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [ctx, compositeKey, options?.debounce, options?.debounceMs, currentVersion]
   );
 

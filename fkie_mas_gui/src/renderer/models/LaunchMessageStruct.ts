@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { TRosMessageStruct } from "../../types/TRosMessageStruct";
 /**
  * LaunchMessageStruct models the message struct for a ROS message type.

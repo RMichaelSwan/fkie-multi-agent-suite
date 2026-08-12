@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 /**
  * RosService models topics in a ROS system
  */

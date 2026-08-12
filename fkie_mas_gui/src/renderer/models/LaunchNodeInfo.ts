@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-
 import { JSONObject, TFileRange, TLaunchArg } from "@/types";
 import RosParameter, { RosParameterValue } from "./RosParameter";
 

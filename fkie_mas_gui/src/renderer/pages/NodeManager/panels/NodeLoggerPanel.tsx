@@ -89,7 +89,6 @@ export default function NodeLoggerPanel(props: NodeLoggerPanelProps): JSX.Elemen
       setLoggers(ownLoggers);
       // compare new loggers and update to set by user
       const forceUpdateLevels: LoggerConfig[] = [];
-      // eslint-disable-next-line no-restricted-syntax
       for (const [key, value] of Object.entries(rosNode.rosLoggers)) {
         let changed = true;
         for (const l of ownLoggers) {

@@ -1,4 +1,3 @@
-
 export type TLifecycleTransition = { label: string; id: number };
 /**
  * Lifecycle state of a node.
@@ -18,12 +17,7 @@ export default class LifecycleState {
 
   available_transitions: TLifecycleTransition[] = [];
 
-  constructor(
-    id: string,
-    name: string,
-    state: string,
-    available_transitions: TLifecycleTransition[],
-  ) {
+  constructor(id: string, name: string, state: string, available_transitions: TLifecycleTransition[]) {
     this.id = id;
     this.name = name;
     this.state = state;

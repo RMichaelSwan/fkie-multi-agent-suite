@@ -1,4 +1,3 @@
-
 /**
  * Composable node.
  */
@@ -15,11 +14,7 @@ export default class Composable {
 
   nodes: string[] = [];
 
-  constructor(
-    nodeId: string,
-    containerName: string,
-    nodes: string[],
-  ) {
+  constructor(nodeId: string, containerName: string, nodes: string[]) {
     this.nodeId = nodeId;
     this.containerName = containerName;
     this.nodes = nodes;

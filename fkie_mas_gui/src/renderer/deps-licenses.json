@@ -38,19 +38,19 @@
   {
     "name": "@mui/icons-material",
     "licenseType": "MIT",
-    "installedVersion": "7.3.9",
+    "installedVersion": "7.3.11",
     "author": "MUI Team"
   },
   {
     "name": "@mui/material",
     "licenseType": "MIT",
-    "installedVersion": "7.3.9",
+    "installedVersion": "7.3.11",
     "author": "MUI Team"
   },
   {
     "name": "@mui/x-tree-view",
     "licenseType": "MIT",
-    "installedVersion": "8.27.2",
+    "installedVersion": "8.29.2",
     "author": "MUI Team"
   },
   {
@@ -68,31 +68,31 @@
   {
     "name": "@xterm/addon-fit",
     "licenseType": "MIT",
-    "installedVersion": "0.10.0",
+    "installedVersion": "0.11.0",
     "author": "The xterm.js authors https://xtermjs.org/"
   },
   {
     "name": "@xterm/addon-search",
     "licenseType": "MIT",
-    "installedVersion": "0.15.0",
+    "installedVersion": "0.16.0",
     "author": "The xterm.js authors https://xtermjs.org/"
   },
   {
     "name": "@xterm/addon-unicode11",
     "licenseType": "MIT",
-    "installedVersion": "0.8.0",
+    "installedVersion": "0.9.0",
     "author": "The xterm.js authors https://xtermjs.org/"
   },
   {
     "name": "@xterm/addon-web-links",
     "licenseType": "MIT",
-    "installedVersion": "0.11.0",
+    "installedVersion": "0.12.0",
     "author": "The xterm.js authors https://xtermjs.org/"
   },
   {
     "name": "@xterm/addon-webgl",
     "licenseType": "MIT",
-    "installedVersion": "0.18.0",
+    "installedVersion": "0.19.0",
     "author": "The xterm.js authors https://xtermjs.org/"
   },
   {
@@ -104,7 +104,7 @@
   {
     "name": "electron-log",
     "licenseType": "MIT",
-    "installedVersion": "5.4.3",
+    "installedVersion": "5.4.4",
     "author": "Alexey Prokhorov"
   },
   {
@@ -116,7 +116,7 @@
   {
     "name": "electron-updater",
     "licenseType": "MIT",
-    "installedVersion": "6.8.3",
+    "installedVersion": "6.8.9",
     "author": "Vladimir Krivosheev"
   },
   {
@@ -134,13 +134,13 @@
   {
     "name": "express-rate-limit",
     "licenseType": "MIT",
-    "installedVersion": "8.5.1",
+    "installedVersion": "8.6.2",
     "author": "Nathan Friedly http://nfriedly.com/"
   },
   {
     "name": "flexlayout-react",
-    "licenseType": "ISC",
-    "installedVersion": "0.9.1",
+    "licenseType": "MIT",
+    "installedVersion": "0.10.4",
     "author": "Caplin Systems Ltd"
   },
   {
@@ -168,15 +168,9 @@
     "author": "Jeffrey Liu"
   },
   {
-    "name": "license-report",
-    "licenseType": "MIT",
-    "installedVersion": "6.8.5",
-    "author": "BePo65"
-  },
-  {
     "name": "monaco-editor",
     "licenseType": "MIT",
-    "installedVersion": "0.52.2",
+    "installedVersion": "0.56.0",
     "author": "Microsoft Corporation"
   },
   {
@@ -200,7 +194,7 @@
   {
     "name": "react-draggable",
     "licenseType": "MIT",
-    "installedVersion": "4.5.0",
+    "installedVersion": "4.7.1",
     "author": "Matt Zabriskie"
   },
   {
@@ -212,7 +206,7 @@
   {
     "name": "react-json-tree",
     "licenseType": "MIT",
-    "installedVersion": "0.19.0",
+    "installedVersion": "0.20.0",
     "author": "Shu Uesugi <shu@chibicode.com> (http://github.com/chibicode)"
   },
   {
@@ -224,7 +218,7 @@
   {
     "name": "react-virtuoso",
     "licenseType": "MIT",
-    "installedVersion": "4.18.4",
+    "installedVersion": "4.18.11",
     "author": "Petyo Ivanov"
   },
   {
@@ -242,7 +236,7 @@
   {
     "name": "shell-quote",
     "licenseType": "MIT",
-    "installedVersion": "1.8.4",
+    "installedVersion": "1.10.0",
     "author": "James Halliday mail@substack.net http://substack.net"
   },
   {
@@ -260,7 +254,7 @@
   {
     "name": "systeminformation",
     "licenseType": "MIT",
-    "installedVersion": "5.31.6",
+    "installedVersion": "5.33.1",
     "author": "Sebastian Hildebrandt <hildebrandt@plus-innovations.com> (https://plus-innovations.com)"
   },
   {
@@ -296,13 +290,13 @@
   {
     "name": "@eslint/js",
     "licenseType": "MIT",
-    "installedVersion": "9.39.4",
+    "installedVersion": "9.39.5",
     "author": "n/a"
   },
   {
     "name": "@types/react",
     "licenseType": "MIT",
-    "installedVersion": "18.3.28",
+    "installedVersion": "18.3.31",
     "author": "n/a"
   },
   {
@@ -314,13 +308,13 @@
   {
     "name": "@typescript-eslint/eslint-plugin",
     "licenseType": "MIT",
-    "installedVersion": "8.58.0",
+    "installedVersion": "8.67.0",
     "author": "n/a"
   },
   {
     "name": "@typescript-eslint/parser",
     "licenseType": "MIT",
-    "installedVersion": "8.58.0",
+    "installedVersion": "8.67.0",
     "author": "n/a"
   },
   {
@@ -332,13 +326,13 @@
   {
     "name": "electron",
     "licenseType": "MIT",
-    "installedVersion": "41.1.1",
+    "installedVersion": "41.10.5",
     "author": "Electron Community"
   },
   {
     "name": "electron-builder",
     "licenseType": "MIT",
-    "installedVersion": "26.8.1",
+    "installedVersion": "26.15.7",
     "author": "Vladimir Krivosheev"
   },
   {
@@ -350,7 +344,7 @@
   {
     "name": "eslint",
     "licenseType": "MIT",
-    "installedVersion": "9.39.4",
+    "installedVersion": "9.39.5",
     "author": "Nicholas C. Zakas <nicholas+npm@nczconsulting.com>"
   },
   {
@@ -368,7 +362,7 @@
   {
     "name": "prettier",
     "licenseType": "MIT",
-    "installedVersion": "3.8.1",
+    "installedVersion": "3.9.6",
     "author": "James Long"
   },
   {
@@ -392,7 +386,7 @@
   {
     "name": "typescript-eslint",
     "licenseType": "MIT",
-    "installedVersion": "8.58.0",
+    "installedVersion": "8.67.0",
     "author": "n/a"
   },
   {
@@ -400,5 +394,11 @@
     "licenseType": "MIT",
     "installedVersion": "6.4.3",
     "author": "Evan You"
+  },
+  {
+    "name": "vite-plugin-monaco-editor",
+    "licenseType": "MIT",
+    "installedVersion": "1.1.0",
+    "author": "china-bin"
   }
 ]

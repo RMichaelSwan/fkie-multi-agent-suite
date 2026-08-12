@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { TTag } from "@/types";
 import { DiagnosticNodeInfo } from "./Diagnostics";
 import LaunchNodeInfo from "./LaunchNodeInfo";

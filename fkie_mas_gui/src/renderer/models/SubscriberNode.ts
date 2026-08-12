@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import RosQos from "./RosQos";
 import SubscriberFilter from "./SubscriberFilter";
 

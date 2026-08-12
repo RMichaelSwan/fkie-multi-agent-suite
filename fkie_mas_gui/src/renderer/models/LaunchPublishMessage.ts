@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { JSONObject } from "@/types";
 import RosQos from "./RosQos";
 
