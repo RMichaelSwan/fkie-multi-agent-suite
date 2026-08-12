@@ -1,16 +1,5 @@
 import { generateUniqueId } from "@/renderer/utils";
-import {
-  Alert,
-  AlertTitle,
-  Button,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableRow,
-  Typography,
-} from "@mui/material";
+import { Alert, AlertTitle, Button, Divider, Stack, Typography } from "@mui/material";
 import { useCallback, useEffect, useState } from "react";
 
 import { useRosContext } from "@/renderer/hooks/useRosContext";
@@ -149,45 +138,42 @@ export default function ExternalAppsPanel(props: ExternalAppsProps): JSX.Element
           Please start a local MAS daemon for this domain or join one to start ROS apps.
         </Alert>
       )}
-      <TableContainer>
-        <Table>
-          <TableBody>
-            {applicationRows.map((row) => {
-              let command: RowType | null = null;
+      <Stack divider={<Divider flexItem />}>
+        {applicationRows.map((row) => {
+          let command: RowType | null = null;
 
-              if (rosCtx.rosInfo) {
-                if (rosCtx.rosInfo.version === "1" && row.commandROS1) command = row;
+          if (rosCtx.rosInfo) {
+            if (rosCtx.rosInfo.version === "1" && row.commandROS1) command = row;
+            if (rosCtx.rosInfo.version === "2" && row.package) command = row;
+          }
+          if (!command) return null;
 
-                if (rosCtx.rosInfo.version === "2" && row.package) command = row;
-              }
-              return (
-                <TableRow key={row.id} sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
-                  {command && (
-                    <TableCell component="th" scope="row">
-                      <Button
-                        disabled={!localProvider}
-                        key={`${row.application}-${contentToId(contentId)}`}
-                        sx={{ justifyContent: "flex-start", textTransform: "none" }}
-                        color="inherit"
-                        onClick={() => {
-                          runApp(command);
-                        }}
-                      >
-                        <Stack direction="column" spacing="3px" alignItems="flex-start">
-                          <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                            {row.application}
-                          </Typography>
-                          <Typography variant="body2">{`${command.binary} ${command.args}`}</Typography>
-                        </Stack>
-                      </Button>
-                    </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          // keep a non-null reference for the click handler
+          const cmd = command;
+          return (
+            <Button
+              fullWidth
+              disableRipple={false}
+              disabled={!localProvider}
+              key={`${row.application}-${contentToId(contentId)}`}
+              sx={{ justifyContent: "flex-start", textTransform: "none", textAlign: "left", borderRadius: 0, py: 1 }}
+              color="inherit"
+              onClick={() => {
+                runApp(cmd);
+              }}
+            >
+              <Stack direction="column" spacing="3px" alignItems="flex-start" sx={{ width: "100%" }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                  {row.application}
+                </Typography>
+                <Typography variant="body2" noWrap sx={{ width: "100%" }}>
+                  {`${cmd.binary} ${cmd.args.join(" ")}`}
+                </Typography>
+              </Stack>
+            </Button>
+          );
+        })}
+      </Stack>
     </Stack>
   );
 }
