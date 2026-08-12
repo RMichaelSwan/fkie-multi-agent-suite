@@ -2,6 +2,10 @@
 Changelog for package fkie_mas_pylib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.2 (12.08.2026)
+------------------
+* fix(websocket): fix race conditions, handler cleanup and JSON errors in client and server
+
 5.8.1 (09.07.2026)
 ------------------
 * improve handle of composable nodes

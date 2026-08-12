@@ -1,5 +1,24 @@
 # Changelog
 
+## 5.9.11 - 12.08.2026
+
+- Anchor launch dialog to prevent upward growth and focus loss when scrolling parameters
+- Prevent endless scrolling in launch dialog parameters
+- Updated dependency styles and information
+- Make external ROS application buttons span the full width.
+- Fix duplicate file entries in external editor
+- Update dependency minor versions
+- [fkie_mas_daemon] Clear daemon caches for files, message, and service structs when reloading packages
+- Added copy button to editor toolbar
+- [fkie_mas_pylib] fix(websocket): fix race conditions, handler cleanup and JSON errors in client and server
+- [fkie_mas_daemon] fix(screen): correct SIGKILL mapping and harden kill_node
+- [fkie_mas_daemon] fix(rosstate_servicer): resolve races in state handling and fix node name/JSON encoding bugs
+- Added sub capability groups
+- [fkie_mas_daemon] More accurate ROS state refresh
+- [fkie_mas_daemon] Improvements to launch file loading
+- [fkie_mas_daemon] Fix reading of additional environment variables via os.environ in Python launch files
+- Fixed: invalid Version while check for update
+
 ## 5.9.10 - 10.08.2026
 
 Merge pull request #16 from RMichaelSwan/fix/additional-envs

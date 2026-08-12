@@ -2,6 +2,15 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.5 (12.08.2026)
+------------------
+* Clear daemon caches for files, message, and service structs when reloading packages
+* fix(screen): correct SIGKILL mapping and harden kill_node
+* fix(rosstate_servicer): resolve races in state handling and fix node name/JSON encoding bugs
+* More accurate ROS state refresh
+* Improvements to launch file loading
+* Fix reading of additional environment variables via os.environ in Python launch files
+
 5.8.4 (10.08.2026)
 ------------------
 * Merge pull request #16 from RMichaelSwan/fix/additional-envs
