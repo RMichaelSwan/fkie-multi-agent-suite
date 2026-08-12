@@ -397,6 +397,20 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
       scroll="paper"
       PaperComponent={DraggablePaper}
       aria-labelledby="draggable-dialog-title"
+      sx={{
+        // Anchor the paper at the top so growing content only expands downwards
+        "& .MuiDialog-container": {
+          alignItems: "flex-start",
+        },
+      }}
+      slotProps={{
+        paper: {
+          sx: {
+            mt: "8vh",
+            maxHeight: "84vh",
+          },
+        },
+      }}
       onKeyUp={(event) => {
         if (lastKey === "Enter") {
           launchSelectedFile();
