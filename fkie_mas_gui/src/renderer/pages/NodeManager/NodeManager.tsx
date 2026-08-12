@@ -471,6 +471,13 @@ export default function NodeManager(): JSX.Element {
     []
   );
 
+  /** Resolves the BorderNode at the given dock location via its conventional id. */
+  function findBorderByLocation(model: Model, location: DockLocation): BorderNode | undefined {
+    // Border nodes use fixed ids of the form "border_<location>"
+    const node = model.getNodeById(`border_${location.getName()}`);
+    return node instanceof BorderNode ? node : undefined;
+  }
+
   function getPanelId(id: string, toNodeId: string): TPanelId {
     const result: TPanelId = {
       id: toNodeId,
@@ -500,12 +507,7 @@ export default function NodeManager(): JSX.Element {
     }
 
     if (result.isBorder) {
-      result.id =
-        modelRef.current
-          .getBorderSet()
-          .getBorders()
-          .find((b) => b.getLocation() === result.location)
-          ?.getId() || id;
+      result.id = findBorderByLocation(modelRef.current, result.location)?.getId() || id;
     } else {
       const nodeBId = modelRef.current.getNodeById(toNodeId);
       if (toNodeId === LAYOUT_TAB_SETS.CENTER && !nodeBId) {
@@ -554,10 +556,7 @@ export default function NodeManager(): JSX.Element {
 
         if (panelId.isBorder) {
           // If any tab in same border is visible, selecting the new tab can hide it
-          const border = modelRef.current
-            .getBorderSet()
-            .getBorders()
-            .find((b) => b.getLocation() === panelId.location);
+          const border = findBorderByLocation(modelRef.current, panelId.location);
 
           const hasVisible = border?.getChildren().some((c) => (c as TabNode).isVisible());
 
