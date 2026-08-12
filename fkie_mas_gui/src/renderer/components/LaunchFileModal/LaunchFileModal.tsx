@@ -506,20 +506,16 @@ export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Elemen
                           return value === undefined || value === "" || option === value;
                         }}
                         onWheel={(event) => {
-                          let newIndex = -1;
-                          options.forEach((value, index) => {
-                            if (
-                              value === (event.target as HTMLInputElement).value
-                            ) {
-                              if (event.deltaY > 0) {
-                                newIndex = index + 1;
-                              } else {
-                                newIndex = index - 1;
-                              }
-                            }
-                          });
-                          if (newIndex < 0) newIndex = options.length - 1;
-                          else if (newIndex > options.length - 1) newIndex = 0;
+                          // Only react when the field is focused, avoids accidental value changes
+                          // if (document.activeElement !== event.currentTarget.querySelector("input")) {
+                          //   return;
+                          // }
+                          const currentIndex = options.indexOf(arg.value);
+                          const direction = event.deltaY > 0 ? 1 : -1;
+                          const base = currentIndex === -1 ? 0 : currentIndex;
+                          // Clamp to the list boundaries -> no endless (cyclic) scrolling
+                          const newIndex = Math.min(Math.max(base + direction, 0), options.length - 1);
+                          if (newIndex === currentIndex) return;
                           setCurrentArgs((prev) =>
                             prev.map((item) => {
                               if (item.name === arg.name) {
