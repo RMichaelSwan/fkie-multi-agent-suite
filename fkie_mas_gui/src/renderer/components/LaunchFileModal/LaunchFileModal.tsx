@@ -22,13 +22,7 @@ import { useAlwaysCurrentRef } from "@/renderer/hooks/useAlwaysCurrentRef";
 import { useAppState } from "@/renderer/hooks/useAppState";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import {
-  getFileName,
-  LaunchArgument,
-  LaunchLoadReply,
-  LaunchLoadRequest,
-  PathItem,
-} from "@/renderer/models";
+import { getFileName, LaunchArgument, LaunchLoadReply, LaunchLoadRequest, PathItem } from "@/renderer/models";
 import { getDir } from "@/renderer/models/FileItem";
 import { enqueueSnackbar } from "notistack";
 import { ErrorAlertComponent } from "../UI";
@@ -50,9 +44,7 @@ interface LaunchFileModalProps {
   onLaunchCallback: () => void;
 }
 
-export default function LaunchFileModal(
-  props: LaunchFileModalProps,
-): JSX.Element {
+export default function LaunchFileModal(props: LaunchFileModalProps): JSX.Element {
   const {
     selectedProvider = undefined,
     selectedLaunchFile,
@@ -65,9 +57,7 @@ export default function LaunchFileModal(
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const loadingRef = useAlwaysCurrentRef(loading);
-  const [selectedLaunch, setSelectedLaunch] = useState<LaunchLoadReply | null>(
-    null,
-  );
+  const [selectedLaunch, setSelectedLaunch] = useState<LaunchLoadReply | null>(null);
   const [messageLaunchLoaded, setMessageLaunchLoaded] = useState<TInfoMessage>({
     severity: "info",
   });
@@ -88,22 +78,15 @@ export default function LaunchFileModal(
         }
         return {};
       },
+    }
+  );
+  const { value: lastOpenPath, set: setLastOpenPath } = useAppState<string>("packages", "last-open-path", "", {
+    version: 1,
+    migrateFrom: {
+      localStorageKey: "lastOpenPath",
     },
-  );
-  const { value: lastOpenPath, set: setLastOpenPath } = useAppState<string>(
-    "packages",
-    "last-open-path",
-    "",
-    {
-      version: 1,
-      migrateFrom: {
-        localStorageKey: "lastOpenPath",
-      },
-    },
-  );
-  const [currentArgs, setCurrentArgs] = useState<LaunchArgumentWithHistory[]>(
-    [],
-  );
+  });
+  const [currentArgs, setCurrentArgs] = useState<LaunchArgumentWithHistory[]>([]);
   const [scrollBar, setScrollBar] = useState<string>("auto");
   const [lastKey, setLastKey] = useState<string>("");
   const booleanWordRegex = /\b(true|false)\b/;
@@ -112,10 +95,7 @@ export default function LaunchFileModal(
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const getLaunchFile = useCallback(
     async (file: string): Promise<void> => {
-      const provider = rosCtx.getProviderById(
-        selectedProvider || selectedLaunchFile.providerId || "",
-        true,
-      );
+      const provider = rosCtx.getProviderById(selectedProvider || selectedLaunchFile.providerId || "", true);
       if (!provider || !provider.isAvailable()) return;
 
       if (provider.launchLoadFile) {
@@ -135,23 +115,16 @@ export default function LaunchFileModal(
           forceFirstFile,
           requestArgs,
           masteruri,
-          host,
+          host
         );
 
         setLoading(true);
-        const result: LaunchLoadReply = await provider.launchLoadFile(
-          request,
-          false,
-        );
+        const result: LaunchLoadReply = await provider.launchLoadFile(request, false);
         setLoading(false);
         if (!loadingRef.current) return;
 
         if (result.status.code === "ALREADY_OPEN") {
-          logCtx.warn(
-            `Launch file [${getFileName(path)}] was already loaded`,
-            `File: ${path}`,
-            "already loaded",
-          );
+          logCtx.warn(`Launch file [${getFileName(path)}] was already loaded`, `File: ${path}`, "already loaded");
           setMessageLaunchLoaded({
             message: "Launch file was already loaded",
             severity: "warning",
@@ -168,22 +141,16 @@ export default function LaunchFileModal(
           const argList: LaunchArgumentWithHistory[] = [];
           if (result.args) {
             for (const arg of result.args) {
-              const argValue: string = !arg.value
-                ? (arg.default_value as string)
-                : arg.value;
+              const argValue: string = !arg.value ? (arg.default_value as string) : arg.value;
               let historyList = argHistory[arg.name];
               if (historyList === undefined) {
                 historyList = [];
               }
               historyList = [...new Set([...historyList, argValue])];
               if (historyList.length === 1) {
-                if (
-                  `${argValue}`.toLocaleLowerCase().localeCompare("true") === 0
-                ) {
+                if (`${argValue}`.toLocaleLowerCase().localeCompare("true") === 0) {
                   historyList.push("False");
-                } else if (
-                  `${argValue}`.toLocaleLowerCase().localeCompare("false") === 0
-                ) {
+                } else if (`${argValue}`.toLocaleLowerCase().localeCompare("false") === 0) {
                   historyList.push("True");
                 }
               }
@@ -212,23 +179,16 @@ export default function LaunchFileModal(
             logCtx.warn(
               `Launch file [${getFileName(path)}] loaded with warnings`,
               `File: ${path}\n${result.status.msg}`,
-              "loaded with warnings",
+              "loaded with warnings"
             );
           } else {
-            logCtx.success(
-              `Launch file [${getFileName(path)}] loaded`,
-              `File: ${path}`,
-              "launch file loaded",
-            );
+            logCtx.success(`Launch file [${getFileName(path)}] loaded`, `File: ${path}`, "launch file loaded");
           }
           onLaunchCallback();
           return;
         }
 
-        if (
-          result.status.code === "ERROR" ||
-          result.status.code === "CONNECTION_ERROR"
-        ) {
+        if (result.status.code === "ERROR" || result.status.code === "CONNECTION_ERROR") {
           setMessageLaunchLoaded({
             message: result.status.msg,
             severity: "error",
@@ -236,7 +196,7 @@ export default function LaunchFileModal(
           logCtx.error(
             `Error on load "${getFileName(path)}"`,
             `Error message: ${result.status.msg}`,
-            result.status.msg,
+            result.status.msg
           );
           return;
         }
@@ -246,17 +206,11 @@ export default function LaunchFileModal(
         logCtx.error(
           `The provider [${selectedProvider}] does not support [launchLoadFile]`,
           "Please check your provider configuration",
-          "not supported by provider",
+          "not supported by provider"
         );
       }
     },
-    [
-      argHistory,
-      rosCtx.initialized,
-      rosCtx.providers,
-      selectedProvider,
-      selectedLaunchFile,
-    ],
+    [argHistory, rosCtx.initialized, rosCtx.providers, selectedProvider, selectedLaunchFile]
   );
 
   // The user clicked on launch, fill arguments a make a request to provider
@@ -265,19 +219,13 @@ export default function LaunchFileModal(
     setOpen(false);
     if (!selectedLaunch) return;
 
-    const provider = rosCtx.getProviderById(
-      selectedProvider || selectedLaunchFile.providerId || "",
-      true,
-    );
+    const provider = rosCtx.getProviderById(selectedProvider || selectedLaunchFile.providerId || "", true);
     if (!provider || !provider.isAvailable()) return;
 
     if (provider.launchLoadFile) {
       const rosPackage = "";
       const launch = "";
-      const path =
-        selectedLaunch.paths && selectedLaunch.paths.length > 0
-          ? selectedLaunch.paths[0]
-          : "";
+      const path = selectedLaunch.paths && selectedLaunch.paths.length > 0 ? selectedLaunch.paths[0] : "";
       const forceFirstFile = true;
       const requestArgs = false;
 
@@ -287,10 +235,7 @@ export default function LaunchFileModal(
         args.push(new LaunchArgument(arg.name, arg.value));
         let hList: string[] = argHistory[arg.name];
         if (hList !== undefined) {
-          hList = hList.filter(
-            (value) =>
-              value != null && `${value}`.length > 0 && value !== arg.value,
-          );
+          hList = hList.filter((value) => value != null && `${value}`.length > 0 && value !== arg.value);
         } else {
           hList = [];
         }
@@ -308,35 +253,28 @@ export default function LaunchFileModal(
         forceFirstFile,
         requestArgs,
         provider.rosState.masteruri ? provider.rosState.masteruri : "",
-        provider.host(),
+        provider.host()
       );
 
       setLoading(true);
-      const resultLaunchLoadFile = await provider.launchLoadFile(
-        request,
-        false,
-      );
+      const resultLaunchLoadFile = await provider.launchLoadFile(request, false);
       setLoading(false);
 
       if (!resultLaunchLoadFile) {
         logCtx.error(
           "Invalid response for [launchLoadFile], check DAEMON screen output",
           "Please check your provider configuration",
-          "not supported by provider",
+          "not supported by provider"
         );
       } else if (resultLaunchLoadFile.status.code === "OK") {
         if (resultLaunchLoadFile.status.msg) {
           logCtx.warn(
             `Launch file [${getFileName(path)}] loaded with warnings`,
             `File: ${path}\n${resultLaunchLoadFile.status.msg}`,
-            "loaded with warnings",
+            "loaded with warnings"
           );
         } else {
-          logCtx.success(
-            `Launch file [${getFileName(path)}] loaded`,
-            `File: ${path}`,
-            "launch file loaded",
-          );
+          logCtx.success(`Launch file [${getFileName(path)}] loaded`, `File: ${path}`, "launch file loaded");
         }
       } else if (resultLaunchLoadFile.status.code === "PARAMS_REQUIRED") {
         setMessageLaunchLoaded({
@@ -353,39 +291,27 @@ export default function LaunchFileModal(
           anchorOrigin: { vertical: "top", horizontal: "right" },
           preventDuplicate: true,
           content: (key, message) => (
-            <ErrorAlertComponent
-              id={key}
-              message={message}
-              details={`${resultLaunchLoadFile.status.msg}`}
-            />
+            <ErrorAlertComponent id={key} message={message} details={`${resultLaunchLoadFile.status.msg}`} />
           ),
         });
         logCtx.error(
           `Could not load file: "${path}"`,
           `Error message: ${resultLaunchLoadFile.status.msg}`,
-          "could not load file",
+          "could not load file"
         );
       }
     } else {
       logCtx.error(
         `The provider [${selectedProvider}] does not support [launchLoadFile]`,
         "Please check your provider configuration",
-        "not supported by provider",
+        "not supported by provider"
       );
     }
 
     setSelectedLaunch(null);
     setSelectedLaunchFile(undefined);
     onLaunchCallback();
-  }, [
-    currentArgs,
-    argHistory,
-    selectedLaunch,
-    selectedProvider,
-    logCtx.success,
-    setSelectedLaunchFile,
-    setArgHistory,
-  ]);
+  }, [currentArgs, argHistory, selectedLaunch, selectedProvider, logCtx.success, setSelectedLaunchFile, setArgHistory]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
@@ -393,9 +319,7 @@ export default function LaunchFileModal(
     getLaunchFile(selectedLaunchFile.path);
   }, [selectedLaunchFile]);
 
-  function handleClose(
-    reason: "backdropClick" | "escapeKeyDown" | "confirmed" | "cancel",
-  ): void {
+  function handleClose(reason: "backdropClick" | "escapeKeyDown" | "confirmed" | "cancel"): void {
     if (reason && reason === "backdropClick") return;
     setOpen(false);
   }
@@ -408,7 +332,7 @@ export default function LaunchFileModal(
             arg.history = arg.history.filter((value) => value !== option);
           }
           return arg;
-        }),
+        })
       );
       const newHistory = {};
       for (const [key, value] of Object.entries(argHistory)) {
@@ -420,15 +344,11 @@ export default function LaunchFileModal(
       }
       setArgHistory(newHistory);
     },
-    [argHistory, setArgHistory],
+    [argHistory, setArgHistory]
   );
 
   const openFileDialog = useCallback(
-    async (
-      argName: string,
-      argValue: string,
-      openDirectory: boolean,
-    ): Promise<void> => {
+    async (argName: string, argValue: string, openDirectory: boolean): Promise<void> => {
       let defaultPath = lastOpenPath;
       if (!defaultPath && argValue.startsWith("/")) {
         defaultPath = argValue;
@@ -444,11 +364,11 @@ export default function LaunchFileModal(
               arg.value = filePath;
             }
             return arg;
-          }),
+          })
         );
       }
     },
-    [currentArgs, lastOpenPath, setLastOpenPath],
+    [currentArgs, lastOpenPath, setLastOpenPath]
   );
 
   function isPathParam(name: string, value: string): boolean {
@@ -472,9 +392,7 @@ export default function LaunchFileModal(
   return (
     <Dialog
       open={open}
-      onClose={(reason: "backdropClick" | "escapeKeyDown") =>
-        handleClose(reason)
-      }
+      onClose={(reason: "backdropClick" | "escapeKeyDown") => handleClose(reason)}
       fullWidth
       scroll="paper"
       PaperComponent={DraggablePaper}
@@ -486,22 +404,14 @@ export default function LaunchFileModal(
       }}
       onMouseUp={() => setLastKey("")}
     >
-      <DialogTitle
-        className="draggable-dialog-title"
-        style={{ cursor: "move" }}
-        id="draggable-dialog-title"
-      >
+      <DialogTitle className="draggable-dialog-title" style={{ cursor: "move" }} id="draggable-dialog-title">
         Launch file
       </DialogTitle>
       <DialogContent sx={{ overflow: scrollBar }}>
         {selectedLaunch?.paths && selectedLaunch.paths.length > 0 && (
           <Stack paddingBottom={1}>
-            <Typography
-              variant="body2"
-              sx={{ color: "grey", wordBreak: "break-all", overflow: "hidden" }}
-            >
-              {getDir(selectedLaunch.paths[0])}/
-              <b>{getFileName(selectedLaunch.paths[0])}</b>
+            <Typography variant="body2" sx={{ color: "grey", wordBreak: "break-all", overflow: "hidden" }}>
+              {getDir(selectedLaunch.paths[0])}/<b>{getFileName(selectedLaunch.paths[0])}</b>
             </Typography>
           </Stack>
         )}
@@ -517,15 +427,11 @@ export default function LaunchFileModal(
           <Stack>
             <Stack>
               {currentArgs.map((arg) => {
-                const optionsTmp = new Set([
-                  ...(arg.choices || []),
-                  ...arg.history,
-                ]);
+                const optionsTmp = new Set([...(arg.choices || []), ...arg.history]);
                 const options = Array.from(optionsTmp).filter((value) => value);
                 return (
                   <Stack key={`stack-launch-load-${arg.name}`} direction="row">
-                    {options.length > 1 ||
-                    (options.length === 1 && options[0] !== arg.value) ? (
+                    {options.length > 1 || (options.length === 1 && options[0] !== arg.value) ? (
                       <Autocomplete
                         key={`autocomplete-launch-load-${arg.name}`}
                         size="small"
@@ -554,15 +460,8 @@ export default function LaunchFileModal(
                         )}
                         renderOption={(props, option) => {
                           return (
-                            <Stack
-                              {...(props as HTMLAttributes<HTMLDivElement>)}
-                              key={option}
-                              direction="row"
-                            >
-                              <Typography
-                                style={{ overflowWrap: "anywhere" }}
-                                width="stretch"
-                              >
+                            <Stack {...(props as HTMLAttributes<HTMLDivElement>)} key={option} direction="row">
+                              <Typography style={{ overflowWrap: "anywhere" }} width="stretch">
                                 {option}
                               </Typography>
                               <IconButton
@@ -587,7 +486,7 @@ export default function LaunchFileModal(
                                 }
                               }
                               return item;
-                            }),
+                            })
                           );
                         }}
                         onInputChange={(_event, newInputValue) => {
@@ -600,15 +499,11 @@ export default function LaunchFileModal(
                                 }
                               }
                               return item;
-                            }),
+                            })
                           );
                         }}
                         isOptionEqualToValue={(option, value) => {
-                          return (
-                            value === undefined ||
-                            value === "" ||
-                            option === value
-                          );
+                          return value === undefined || value === "" || option === value;
                         }}
                         onWheel={(event) => {
                           let newIndex = -1;
@@ -634,7 +529,7 @@ export default function LaunchFileModal(
                                 }
                               }
                               return item;
-                            }),
+                            })
                           );
                         }}
                         onMouseEnter={() => {
@@ -665,7 +560,7 @@ export default function LaunchFileModal(
                                 item.value = event.target.value;
                               }
                               return item;
-                            }),
+                            })
                           );
                         }}
                       />
@@ -678,15 +573,10 @@ export default function LaunchFileModal(
                               Select a file
                             </Typography>
                             <Stack direction="row" spacing={"0.2em"}>
-                              <Typography
-                                fontWeight={"bold"}
-                                fontSize={"inherit"}
-                              >
+                              <Typography fontWeight={"bold"} fontSize={"inherit"}>
                                 Shift:
                               </Typography>
-                              <Typography fontSize={"inherit"}>
-                                select a directory
-                              </Typography>
+                              <Typography fontSize={"inherit"}>select a directory</Typography>
                             </Stack>
                           </div>
                         }
@@ -695,11 +585,7 @@ export default function LaunchFileModal(
                         <IconButton
                           component="label"
                           onClick={(event: React.MouseEvent) => {
-                            openFileDialog(
-                              arg.name,
-                              arg.value,
-                              event.nativeEvent.shiftKey,
-                            );
+                            openFileDialog(arg.name, arg.value, event.nativeEvent.shiftKey);
                           }}
                         >
                           <MoreHorizIcon />
@@ -713,13 +599,8 @@ export default function LaunchFileModal(
           </Stack>
         )}
         {!loading && messageLaunchLoaded.message && (
-          <Alert
-            severity={messageLaunchLoaded.severity}
-            style={{ minWidth: 0 }}
-          >
-            <AlertTitle>
-              {messageLaunchLoaded.message.replaceAll("/", " / ")}
-            </AlertTitle>
+          <Alert severity={messageLaunchLoaded.severity} style={{ minWidth: 0 }}>
+            <AlertTitle>{messageLaunchLoaded.message.replaceAll("/", " / ")}</AlertTitle>
           </Alert>
         )}
       </DialogContent>
@@ -733,12 +614,7 @@ export default function LaunchFileModal(
         >
           Cancel
         </Button>
-        <Button
-          autoFocus
-          color="success"
-          onClick={launchSelectedFile}
-          disabled={loading}
-        >
+        <Button autoFocus color="success" onClick={launchSelectedFile} disabled={loading}>
           Load
         </Button>
       </DialogActions>
