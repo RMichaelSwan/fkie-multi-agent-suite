@@ -1,14 +1,22 @@
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import { Autocomplete, Box, Button, IconButton, Link, Stack, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, IconButton, Link, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useAutoUpdateContext } from "@/renderer/context/AutoUpdateContext";
 import licenses from "@/renderer/deps-licenses.json";
 import packageJson from "../../../../package.json";
 import CopyButton from "../UI/CopyButton";
+
+type LicenseEntry = {
+  name: string;
+  licenseType?: string;
+  installedVersion?: string;
+  author?: string;
+  link?: string;
+};
 
 function LinearProgressWithLabel({ value, ...props }): JSX.Element {
   return (
@@ -68,6 +76,49 @@ export default function About(): JSX.Element {
       </Box>
     );
   }
+
+  /** true if a license-report field contains usable data */
+  function hasValue(value?: string): boolean {
+    const v = (value || "").trim();
+    return !!v && v.toLowerCase() !== "n/a";
+  }
+
+  /** Convert repository fields like "git+https://github.com/u/r.git" into a browsable https URL */
+  function toRepoUrl(entry: LicenseEntry): string {
+    if (!hasValue(entry.link)) return "";
+    const url = (entry.link as string)
+      .trim()
+      .replace(/^git\+/, "")
+      .replace(/\.git$/, "")
+      .replace(/^git:\/\//, "https://")
+      .replace(/^ssh:\/\/git@/, "https://")
+      .replace(/^git@([^:]+):/, "https://$1/");
+    if (/^https?:\/\//.test(url)) return url;
+    const shorthand = url.match(/^(?:github:)?([\w.-]+\/[\w.-]+)$/);
+    return shorthand ? `https://github.com/${shorthand[1]}` : "";
+  }
+
+  /** npm page of the exact installed version (falls back to the package page) */
+  function toNpmUrl(entry: LicenseEntry): string {
+    const base = `https://www.npmjs.com/package/${entry.name}`;
+    return hasValue(entry.installedVersion) ? `${base}/v/${entry.installedVersion}` : base;
+  }
+
+  /** Split author string "Name <mail@host> (https://url)" into name and contact parts */
+  function splitAuthor(author?: string): { name: string; contact: string } {
+    if (!hasValue(author)) return { name: "", contact: "" };
+    const value = (author as string).trim();
+    const match = value.match(/^([^<(]*)(.*)$/);
+    return { name: (match?.[1] || value).trim(), contact: (match?.[2] || "").trim() };
+  }
+
+  // sort dependencies alphabetically by name (case-insensitive, natural number order)
+  const sortedLicenses = useMemo(() => {
+    const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
+    return [...(licenses as LicenseEntry[])].sort(
+      (a, b) => collator.compare(a.name, b.name) || collator.compare(a.installedVersion || "", b.installedVersion || "")
+    );
+  }, []);
 
   return (
     <Stack height="100%" padding="0.3em" overflow="auto">
@@ -280,18 +331,65 @@ export default function About(): JSX.Element {
       </Stack>
       {/** dependencies */}
       <Typography variant="body1" mt="0.6em" sx={{ fontWeight: "bold" }}>
-        List of {Object.entries(licenses).length} dependencies:
+        List of {sortedLicenses.length} dependencies:
       </Typography>
       <Stack>
-        {licenses && (
-          <ul>
-            {licenses.map((item) => (
-              <li key={item.name}>
-                {item.name}@{item.installedVersion}: {item.licenseType}
+        <ul>
+          {sortedLicenses.map((item) => {
+            const repoUrl = toRepoUrl(item);
+            const npmUrl = toNpmUrl(item);
+            const { name: authorName, contact: authorContact } = splitAuthor(item.author);
+
+            return (
+              <li key={`${item.name}@${item.installedVersion}`}>
+                {/* package name -> repository */}
+                {repoUrl ? (
+                  <Tooltip title={`Repository: ${repoUrl}`} placement="top-start" enterDelay={400} disableInteractive>
+                    <Link href={repoUrl} target="_blank" rel="noopener noreferrer">
+                      {item.name}
+                    </Link>
+                  </Tooltip>
+                ) : (
+                  <Tooltip title="No repository defined for this package" placement="top-start" disableInteractive>
+                    <Typography component="span" variant="body1">
+                      {item.name}
+                    </Typography>
+                  </Tooltip>
+                )}
+
+                {/* version -> npm */}
+                <Typography component="span" variant="body1" sx={{ml: 0.5, mr: 0.5}}>
+                  @
+                </Typography>
+                <Tooltip title={`npm package: ${npmUrl}`} placement="top-start" enterDelay={400} disableInteractive>
+                  <Link href={npmUrl} target="_blank" rel="noopener noreferrer">
+                    {item.installedVersion}
+                  </Link>
+                </Tooltip>
+                <Typography component="span" variant="body1">
+                  : {item.licenseType}
+                </Typography>
+
+                {/* author, visually subdued */}
+                {authorName && (
+                  <Typography
+                    component="span"
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ ml: 1, fontStyle: "italic" }}
+                  >
+                    {authorName}
+                    {authorContact && (
+                      <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 0.5 }}>
+                        {authorContact}
+                      </Typography>
+                    )}
+                  </Typography>
+                )}
               </li>
-            ))}
-          </ul>
-        )}
+            );
+          })}
+        </ul>
       </Stack>
     </Stack>
   );

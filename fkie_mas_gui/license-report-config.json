@@ -1,5 +1,5 @@
 {
   "output": "json",
-  "fields": ["name", "licenseType", "installedVersion", "author"],
+  "fields": ["name", "licenseType", "installedVersion", "author", "link"],
   "only": "prod,dev,peer"
 }

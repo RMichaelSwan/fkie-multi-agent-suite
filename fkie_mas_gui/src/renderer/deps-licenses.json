@@ -3,402 +3,469 @@
     "name": "@electron-toolkit/preload",
     "licenseType": "MIT",
     "installedVersion": "3.0.2",
-    "author": "Alex Wei<https://github.com/alex8088>"
+    "author": "Alex Wei<https://github.com/alex8088>",
+    "link": "git+https://github.com/alex8088/electron-toolkit.git"
   },
   {
     "name": "@electron-toolkit/utils",
     "licenseType": "MIT",
     "installedVersion": "4.0.0",
-    "author": "Alex Wei<https://github.com/alex8088>"
+    "author": "Alex Wei<https://github.com/alex8088>",
+    "link": "git+https://github.com/alex8088/electron-toolkit.git"
   },
   {
     "name": "@emotion/react",
     "licenseType": "MIT",
     "installedVersion": "11.14.0",
-    "author": "Emotion Contributors"
+    "author": "Emotion Contributors",
+    "link": "git+https://github.com/emotion-js/emotion.git#main"
   },
   {
     "name": "@emotion/styled",
     "licenseType": "MIT",
     "installedVersion": "11.14.1",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/emotion-js/emotion.git#main"
   },
   {
     "name": "@eslint/compat",
     "licenseType": "Apache-2.0",
     "installedVersion": "1.4.1",
-    "author": "Nicholas C. Zakas"
+    "author": "Nicholas C. Zakas",
+    "link": "git+https://github.com/eslint/rewrite.git"
   },
   {
     "name": "@monaco-editor/react",
     "licenseType": "MIT",
     "installedVersion": "4.7.0",
-    "author": "Suren Atoyan <contact@surenatoyan.com>"
+    "author": "Suren Atoyan <contact@surenatoyan.com>",
+    "link": "git+https://github.com/suren-atoyan/monaco-react.git"
   },
   {
     "name": "@mui/icons-material",
     "licenseType": "MIT",
     "installedVersion": "7.3.11",
-    "author": "MUI Team"
+    "author": "MUI Team",
+    "link": "git+https://github.com/mui/material-ui.git"
   },
   {
     "name": "@mui/material",
     "licenseType": "MIT",
     "installedVersion": "7.3.11",
-    "author": "MUI Team"
+    "author": "MUI Team",
+    "link": "git+https://github.com/mui/material-ui.git"
   },
   {
     "name": "@mui/x-tree-view",
     "licenseType": "MIT",
     "installedVersion": "8.29.2",
-    "author": "MUI Team"
+    "author": "MUI Team",
+    "link": "git+https://github.com/mui/mui-x.git"
   },
   {
     "name": "@react-hook/debounce",
     "licenseType": "MIT",
     "installedVersion": "4.0.0",
-    "author": "Jared Lunde <jared.lunde@gmail.com>"
+    "author": "Jared Lunde <jared.lunde@gmail.com>",
+    "link": "https://github.com/jaredLunde/react-hook.git"
   },
   {
     "name": "@types/ssh2",
     "licenseType": "MIT",
     "installedVersion": "1.15.5",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
   },
   {
     "name": "@xterm/addon-fit",
     "licenseType": "MIT",
     "installedVersion": "0.11.0",
-    "author": "The xterm.js authors https://xtermjs.org/"
+    "author": "The xterm.js authors https://xtermjs.org/",
+    "link": "git+https://github.com/xtermjs/xterm.js.git#master"
   },
   {
     "name": "@xterm/addon-search",
     "licenseType": "MIT",
     "installedVersion": "0.16.0",
-    "author": "The xterm.js authors https://xtermjs.org/"
+    "author": "The xterm.js authors https://xtermjs.org/",
+    "link": "git+https://github.com/xtermjs/xterm.js.git#master"
   },
   {
     "name": "@xterm/addon-unicode11",
     "licenseType": "MIT",
     "installedVersion": "0.9.0",
-    "author": "The xterm.js authors https://xtermjs.org/"
+    "author": "The xterm.js authors https://xtermjs.org/",
+    "link": "git+https://github.com/xtermjs/xterm.js.git#master"
   },
   {
     "name": "@xterm/addon-web-links",
     "licenseType": "MIT",
     "installedVersion": "0.12.0",
-    "author": "The xterm.js authors https://xtermjs.org/"
+    "author": "The xterm.js authors https://xtermjs.org/",
+    "link": "git+https://github.com/xtermjs/xterm.js.git#master"
   },
   {
     "name": "@xterm/addon-webgl",
     "licenseType": "MIT",
     "installedVersion": "0.19.0",
-    "author": "The xterm.js authors https://xtermjs.org/"
+    "author": "The xterm.js authors https://xtermjs.org/",
+    "link": "git+https://github.com/xtermjs/xterm.js.git#master"
   },
   {
     "name": "@xterm/xterm",
     "licenseType": "MIT",
     "installedVersion": "5.5.0",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/xtermjs/xterm.js.git"
   },
   {
     "name": "electron-log",
     "licenseType": "MIT",
     "installedVersion": "5.4.4",
-    "author": "Alexey Prokhorov"
+    "author": "Alexey Prokhorov",
+    "link": "git+https://github.com/megahertz/electron-log.git"
   },
   {
     "name": "electron-settings",
     "licenseType": "MIT",
     "installedVersion": "4.0.4",
-    "author": "Nathan Buchar hello@nathanbuchar.com https://www.nathanbuchar.com"
+    "author": "Nathan Buchar hello@nathanbuchar.com https://www.nathanbuchar.com",
+    "link": "git+https://github.com/nathanbuchar/electron-settings.git"
   },
   {
     "name": "electron-updater",
     "licenseType": "MIT",
     "installedVersion": "6.8.9",
-    "author": "Vladimir Krivosheev"
+    "author": "Vladimir Krivosheev",
+    "link": "git+https://github.com/electron-userland/electron-builder.git"
   },
   {
     "name": "eslint-plugin-react-hooks",
     "licenseType": "MIT",
     "installedVersion": "5.2.0",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/facebook/react.git"
   },
   {
     "name": "express",
     "licenseType": "MIT",
     "installedVersion": "5.2.1",
-    "author": "TJ Holowaychuk <tj@vision-media.ca>"
+    "author": "TJ Holowaychuk <tj@vision-media.ca>",
+    "link": "git+https://github.com/expressjs/express.git"
   },
   {
     "name": "express-rate-limit",
     "licenseType": "MIT",
     "installedVersion": "8.6.2",
-    "author": "Nathan Friedly http://nfriedly.com/"
+    "author": "Nathan Friedly http://nfriedly.com/",
+    "link": "git+https://github.com/express-rate-limit/express-rate-limit.git"
   },
   {
     "name": "flexlayout-react",
     "licenseType": "MIT",
     "installedVersion": "0.10.4",
-    "author": "Caplin Systems Ltd"
+    "author": "Caplin Systems Ltd",
+    "link": "git+https://github.com/caplin/FlexLayout.git"
   },
   {
     "name": "hostile",
     "licenseType": "MIT",
     "installedVersion": "1.4.0",
-    "author": "Feross Aboukhadijeh feross@feross.org https://feross.org"
+    "author": "Feross Aboukhadijeh feross@feross.org https://feross.org",
+    "link": "git://github.com/feross/hostile.git"
   },
   {
     "name": "idb",
     "licenseType": "ISC",
     "installedVersion": "8.0.3",
-    "author": "Jake Archibald"
+    "author": "Jake Archibald",
+    "link": "git://github.com/jakearchibald/idb.git"
   },
   {
     "name": "json5",
     "licenseType": "MIT",
     "installedVersion": "2.2.3",
-    "author": "Aseem Kishore <aseem.kishore@gmail.com>"
+    "author": "Aseem Kishore <aseem.kishore@gmail.com>",
+    "link": "git+https://github.com/json5/json5.git"
   },
   {
     "name": "jtest",
     "licenseType": "ISC",
     "installedVersion": "0.0.1",
-    "author": "Jeffrey Liu"
+    "author": "Jeffrey Liu",
+    "link": "git://github.com/liuch/test-module.git"
   },
   {
     "name": "monaco-editor",
     "licenseType": "MIT",
     "installedVersion": "0.56.0",
-    "author": "Microsoft Corporation"
+    "author": "Microsoft Corporation",
+    "link": "git+https://github.com/microsoft/monaco-editor.git"
   },
   {
     "name": "notistack",
     "licenseType": "MIT",
     "installedVersion": "3.0.2",
-    "author": "Hossein Dehnokhalaji hossein.dehnavi98@yahoo.com https://iamhosseindhv.com"
+    "author": "Hossein Dehnokhalaji hossein.dehnavi98@yahoo.com https://iamhosseindhv.com",
+    "link": "git+https://github.com/iamhosseindhv/notistack.git"
   },
   {
     "name": "react-app-polyfill",
     "licenseType": "MIT",
     "installedVersion": "3.0.0",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/facebook/create-react-app.git"
   },
   {
     "name": "react-custom-events",
     "licenseType": "MIT",
     "installedVersion": "1.1.1",
-    "author": "Harsh Rohila"
+    "author": "Harsh Rohila",
+    "link": "git+https://github.com/HarshRohila/react-custom-events.git"
   },
   {
     "name": "react-draggable",
     "licenseType": "MIT",
     "installedVersion": "4.7.1",
-    "author": "Matt Zabriskie"
+    "author": "Matt Zabriskie",
+    "link": "https://github.com/react-grid-layout/react-draggable.git"
   },
   {
     "name": "react-file-icon",
     "licenseType": "MIT",
     "installedVersion": "1.6.0",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/corygibbons/react-file-icon.git"
   },
   {
     "name": "react-json-tree",
     "licenseType": "MIT",
     "installedVersion": "0.20.0",
-    "author": "Shu Uesugi <shu@chibicode.com> (http://github.com/chibicode)"
+    "author": "Shu Uesugi <shu@chibicode.com> (http://github.com/chibicode)",
+    "link": "git+https://github.com/reduxjs/redux-devtools.git"
   },
   {
     "name": "react-router-dom",
     "licenseType": "MIT",
     "installedVersion": "6.30.4",
-    "author": "Remix Software <hello@remix.run>"
+    "author": "Remix Software <hello@remix.run>",
+    "link": "git+https://github.com/remix-run/react-router.git"
   },
   {
     "name": "react-virtuoso",
     "licenseType": "MIT",
     "installedVersion": "4.18.11",
-    "author": "Petyo Ivanov"
+    "author": "Petyo Ivanov",
+    "link": "git+https://github.com/petyosi/react-virtuoso.git"
   },
   {
     "name": "react-window",
     "licenseType": "MIT",
     "installedVersion": "1.8.11",
-    "author": "Brian Vaughn <brian.david.vaughn@gmail.com> (https://github.com/bvaughn/)"
+    "author": "Brian Vaughn <brian.david.vaughn@gmail.com> (https://github.com/bvaughn/)",
+    "link": "git+https://github.com/bvaughn/react-window.git"
   },
   {
     "name": "react18-json-view",
     "licenseType": "MIT",
     "installedVersion": "0.2.10",
-    "author": "Suni"
+    "author": "Suni",
+    "link": "git+https://github.com/YYsuni/react18-json-view.git"
   },
   {
     "name": "shell-quote",
     "licenseType": "MIT",
     "installedVersion": "1.10.0",
-    "author": "James Halliday mail@substack.net http://substack.net"
+    "author": "James Halliday mail@substack.net http://substack.net",
+    "link": "git+ssh://git@github.com/ljharb/shell-quote.git"
   },
   {
     "name": "split-pane-react",
     "licenseType": "MIT",
     "installedVersion": "0.1.3",
-    "author": "yyllff"
+    "author": "yyllff",
+    "link": "git+https://github.com/yyllff/split-pane-react.git"
   },
   {
     "name": "ssh2",
     "licenseType": "MIT",
     "installedVersion": "1.17.0",
-    "author": "Brian White <mscdex@mscdex.net>"
+    "author": "Brian White <mscdex@mscdex.net>",
+    "link": "git+ssh://git@github.com/mscdex/ssh2.git"
   },
   {
     "name": "systeminformation",
     "licenseType": "MIT",
     "installedVersion": "5.33.1",
-    "author": "Sebastian Hildebrandt <hildebrandt@plus-innovations.com> (https://plus-innovations.com)"
+    "author": "Sebastian Hildebrandt <hildebrandt@plus-innovations.com> (https://plus-innovations.com)",
+    "link": "git+https://github.com/sebhildebrandt/systeminformation.git"
   },
   {
     "name": "uuid",
     "licenseType": "MIT",
     "installedVersion": "11.1.1",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/uuidjs/uuid.git"
   },
   {
     "name": "@biomejs/biome",
     "licenseType": "MIT OR Apache-2.0",
     "installedVersion": "1.9.4",
-    "author": "Emanuele Stoppa"
+    "author": "Emanuele Stoppa",
+    "link": "git+https://github.com/biomejs/biome.git"
   },
   {
     "name": "@electron-toolkit/eslint-config-prettier",
     "licenseType": "MIT",
     "installedVersion": "3.0.0",
-    "author": "Alex Wei<https://github.com/alex8088>"
+    "author": "Alex Wei<https://github.com/alex8088>",
+    "link": "git+https://github.com/alex8088/electron-toolkit.git"
   },
   {
     "name": "@electron-toolkit/eslint-config-ts",
     "licenseType": "MIT",
     "installedVersion": "3.1.0",
-    "author": "Alex Wei<https://github.com/alex8088>"
+    "author": "Alex Wei<https://github.com/alex8088>",
+    "link": "git+https://github.com/alex8088/electron-toolkit.git"
   },
   {
     "name": "@electron-toolkit/tsconfig",
     "licenseType": "MIT",
     "installedVersion": "1.0.1",
-    "author": "Alex Wei<https://github.com/alex8088>"
+    "author": "Alex Wei<https://github.com/alex8088>",
+    "link": "git+https://github.com/alex8088/electron-toolkit.git"
   },
   {
     "name": "@eslint/js",
     "licenseType": "MIT",
     "installedVersion": "9.39.5",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/eslint/eslint.git"
   },
   {
     "name": "@types/react",
     "licenseType": "MIT",
     "installedVersion": "18.3.31",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
   },
   {
     "name": "@types/react-dom",
     "licenseType": "MIT",
     "installedVersion": "18.3.7",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
   },
   {
     "name": "@typescript-eslint/eslint-plugin",
     "licenseType": "MIT",
     "installedVersion": "8.67.0",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/typescript-eslint/typescript-eslint.git"
   },
   {
     "name": "@typescript-eslint/parser",
     "licenseType": "MIT",
     "installedVersion": "8.67.0",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/typescript-eslint/typescript-eslint.git"
   },
   {
     "name": "@vitejs/plugin-react",
     "licenseType": "MIT",
     "installedVersion": "4.7.0",
-    "author": "Evan You"
+    "author": "Evan You",
+    "link": "git+https://github.com/vitejs/vite-plugin-react.git"
   },
   {
     "name": "electron",
     "licenseType": "MIT",
     "installedVersion": "41.10.5",
-    "author": "Electron Community"
+    "author": "Electron Community",
+    "link": "git+https://github.com/electron/electron.git"
   },
   {
     "name": "electron-builder",
     "licenseType": "MIT",
     "installedVersion": "26.15.7",
-    "author": "Vladimir Krivosheev"
+    "author": "Vladimir Krivosheev",
+    "link": "git+https://github.com/electron-userland/electron-builder.git"
   },
   {
     "name": "electron-vite",
     "licenseType": "MIT",
     "installedVersion": "3.1.0",
-    "author": "Alex Wei<https://github.com/alex8088>"
+    "author": "Alex Wei<https://github.com/alex8088>",
+    "link": "git+https://github.com/alex8088/electron-vite.git"
   },
   {
     "name": "eslint",
     "licenseType": "MIT",
     "installedVersion": "9.39.5",
-    "author": "Nicholas C. Zakas <nicholas+npm@nczconsulting.com>"
+    "author": "Nicholas C. Zakas <nicholas+npm@nczconsulting.com>",
+    "link": "git+https://github.com/eslint/eslint.git"
   },
   {
     "name": "eslint-plugin-react",
     "licenseType": "MIT",
     "installedVersion": "7.37.5",
-    "author": "Yannick Croissant <yannick.croissant+npm@gmail.com>"
+    "author": "Yannick Croissant <yannick.croissant+npm@gmail.com>",
+    "link": "git+https://github.com/jsx-eslint/eslint-plugin-react.git"
   },
   {
     "name": "globals",
     "licenseType": "MIT",
     "installedVersion": "16.5.0",
-    "author": "Sindre Sorhus sindresorhus@gmail.com https://sindresorhus.com"
+    "author": "Sindre Sorhus sindresorhus@gmail.com https://sindresorhus.com",
+    "link": "git+https://github.com/sindresorhus/globals.git"
   },
   {
     "name": "prettier",
     "licenseType": "MIT",
     "installedVersion": "3.9.6",
-    "author": "James Long"
+    "author": "James Long",
+    "link": "git+https://github.com/prettier/prettier.git"
   },
   {
     "name": "react",
     "licenseType": "MIT",
     "installedVersion": "18.3.1",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/facebook/react.git"
   },
   {
     "name": "react-dom",
     "licenseType": "MIT",
     "installedVersion": "18.3.1",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/facebook/react.git"
   },
   {
     "name": "typescript",
     "licenseType": "Apache-2.0",
     "installedVersion": "5.9.3",
-    "author": "Microsoft Corp."
+    "author": "Microsoft Corp.",
+    "link": "git+https://github.com/microsoft/TypeScript.git"
   },
   {
     "name": "typescript-eslint",
     "licenseType": "MIT",
     "installedVersion": "8.67.0",
-    "author": "n/a"
+    "author": "n/a",
+    "link": "git+https://github.com/typescript-eslint/typescript-eslint.git"
   },
   {
     "name": "vite",
     "licenseType": "MIT",
     "installedVersion": "6.4.3",
-    "author": "Evan You"
+    "author": "Evan You",
+    "link": "git+https://github.com/vitejs/vite.git"
   },
   {
     "name": "vite-plugin-monaco-editor",
     "licenseType": "MIT",
     "installedVersion": "1.1.0",
-    "author": "china-bin"
+    "author": "china-bin",
+    "link": "git+https://github.com/vdesjs/vite-plugin-monaco-editor.git"
   }
 ]

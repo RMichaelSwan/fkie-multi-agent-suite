@@ -88,6 +88,7 @@ npm run build:linux
 - update licenses of dependencies
 
 ```bash
+export NODE_OPTIONS=--use-env-proxy
 npm install -g license-report
 license-report --config=./license-report-config.json > src/renderer/deps-licenses.json
 ```
