@@ -12,7 +12,7 @@ import { useSetting } from "@/renderer/hooks/useSetting";
 import { getFileAbb, getFileName, LaunchIncludedFile } from "@/renderer/models";
 import { fileFromUriPath } from "@/renderer/monaco/utils";
 import { TFileRange, TLaunchArg } from "@/types";
-import { OverflowMenu } from "../UI";
+import { CopyButton, OverflowMenu } from "../UI";
 
 export type THistoryModel = {
   uriPath: string;
@@ -210,6 +210,11 @@ export function EditorToolbar(props: EditorToolbarProps): JSX.Element {
         })}
         id="path-options"
       />
+      <Tooltip title="copy path to clipboard" disableInteractive>
+        <span>
+          <CopyButton value={currentFileState.path} fontSize="0.7em" />
+        </span>
+      </Tooltip>
 
       <Tooltip title="go back" disableInteractive>
         <span>
