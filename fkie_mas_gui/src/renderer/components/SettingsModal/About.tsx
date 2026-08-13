@@ -189,7 +189,7 @@ export default function About(): JSX.Element {
               renderOption={(props, option) => {
                 const info = auCtx.availableVersions?.find((v) => v.version === option);
                 return (
-                  <Box component="li" {...props} sx={{ display: "flex", gap: "0.5em" }}>
+                  <Box {...props} key={option} component="li" sx={{ display: "flex", gap: "0.5em" }}>
                     <Typography variant="body2">{option}</Typography>
                     {info?.prerelease && (
                       <Typography variant="body2" sx={{ fontStyle: "italic", opacity: 0.6 }}>
