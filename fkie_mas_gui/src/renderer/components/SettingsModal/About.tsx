@@ -3,7 +3,7 @@ import { Autocomplete, Box, Button, IconButton, Link, Stack, TextField, Tooltip,
 import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAutoUpdateContext } from "@/renderer/context/AutoUpdateContext";
 import licenses from "@/renderer/deps-licenses.json";
@@ -34,12 +34,24 @@ LinearProgressWithLabel.propTypes = {
   value: PropTypes.number.isRequired,
 };
 
+const CHANNELS = ["prerelease", "release"];
+
 export default function About(): JSX.Element {
   const auCtx = useAutoUpdateContext();
   const [openErrorTooltip, setOpenErrorTooltip] = useState(!!auCtx.updateError);
 
   const updateCli = auCtx.getUpdateCli(true, true);
   const updateCliRobot = auCtx.getUpdateCli(false, true);
+
+  const channelOptions = useMemo(
+    () => [...CHANNELS, ...(auCtx.availableVersions || []).map((v) => v.version).filter((v) => !CHANNELS.includes(v))],
+    [auCtx.availableVersions]
+  );
+
+  // true if the current selection is a concrete version instead of a channel
+  const selectedVersion = useMemo(() => {
+    return CHANNELS.includes(auCtx.updateChannel) ? "" : auCtx.updateChannel;
+  }, [auCtx.updateChannel]);
 
   function changelog(data: string[]) {
     return (
@@ -170,20 +182,37 @@ export default function About(): JSX.Element {
               disablePortal
               disableClearable
               freeSolo
-              // disableCloseOnSelect
-              // multiple
               id="auto-complete-au-channel"
               size="small"
-              options={["prerelease", "release"]}
-              sx={{ margin: 0, width: "9em" }}
-              renderInput={(params) => <TextField {...params} label="Update channel" />}
+              options={channelOptions}
+              groupBy={(option) => (CHANNELS.includes(option) ? "Channel" : "Version")}
+              renderOption={(props, option) => {
+                const info = auCtx.availableVersions?.find((v) => v.version === option);
+                return (
+                  <Box component="li" {...props} sx={{ display: "flex", gap: "0.5em" }}>
+                    <Typography variant="body2">{option}</Typography>
+                    {info?.prerelease && (
+                      <Typography variant="body2" sx={{ fontStyle: "italic", opacity: 0.6 }}>
+                        {" "}
+                        - prerelease
+                      </Typography>
+                    )}
+                  </Box>
+                );
+              }}
+              sx={{ margin: 0, width: "16em" }}
+              renderInput={(params) => <TextField {...params} label="Update channel / version" />}
               value={auCtx.updateChannel}
               onChange={(_event: unknown, newValue: string | null) => {
-                if (newValue && (["prerelease", "release"].includes(newValue) || newValue.split(".").length === 3)) {
+                if (!newValue) return;
+                // accept known channels, listed versions or a manually typed semver value
+                const isVersion = newValue.split(".").length === 3;
+                if (channelOptions.includes(newValue) || isVersion) {
                   auCtx.setUpdateChannel(newValue);
                 }
               }}
             />
+
             {auCtx.checkingForUpdate && (
               <Box sx={{ display: "flex" }}>
                 <CircularProgress size="1em" />
@@ -217,13 +246,12 @@ export default function About(): JSX.Element {
                   <CircularProgress style={{ marginLeft: "0.5em" }} size="1em" />
                 ) : (
                   <Button
-                    color="primary"
-                    onClick={async () => {
-                      auCtx.installDebian(true, true);
-                    }}
-                    variant="text"
+                    color="warning"
+                    variant="contained"
+                    size="small"
+                    onClick={() => auCtx.installDebian(true, true)}
                   >
-                    Update
+                    {`Install ${selectedVersion} now`}
                   </Button>
                 )}
               </Stack>
@@ -358,7 +386,7 @@ export default function About(): JSX.Element {
                 )}
 
                 {/* version -> npm */}
-                <Typography component="span" variant="body1" sx={{ml: 0.5, mr: 0.5}}>
+                <Typography component="span" variant="body1" sx={{ ml: 0.5, mr: 0.5 }}>
                   @
                 </Typography>
                 <Tooltip title={`npm package: ${npmUrl}`} placement="top-start" enterDelay={400} disableInteractive>

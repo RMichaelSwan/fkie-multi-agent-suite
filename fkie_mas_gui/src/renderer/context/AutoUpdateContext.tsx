@@ -11,6 +11,11 @@ import packageJson from "../../../package.json";
 import { useAppState } from "../hooks/useAppState";
 import { useSetting } from "../hooks/useSetting";
 
+export type TAvailableVersion = {
+  version: string;
+  prerelease: boolean;
+};
+
 /**
  * Context providing automatic update management for both AppImage and Debian builds.
  */
@@ -32,6 +37,7 @@ export interface IAutoUpdateContext {
   installDebian: (gui: boolean, ros: boolean) => void;
   installing: boolean;
   setLocalProviderId: (providerId: string) => void;
+  availableVersions: TAvailableVersion[];
 }
 
 export const AutoUpdateContext = createContext<IAutoUpdateContext | null>(null);
@@ -79,6 +85,14 @@ export const AutoUpdateProvider = ({
     }
   );
   const { value: checkTimestamp, set: setCheckTimestamp } = useAppState<number>("updater", "check-timestamp", 0);
+  const { value: availableVersions, set: setAvailableVersions } = useAppState<TAvailableVersion[]>(
+    "updater",
+    "available-versions",
+    [],
+    {
+      version: 1,
+    }
+  );
   // ==== Credentials Dialog State ====
   const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
   const credentialsResolverRef = useRef<{
@@ -218,6 +232,16 @@ export const AutoUpdateProvider = ({
         const data = await response.json();
         if (!Array.isArray(data)) throw new Error(`Unexpected GitHub API response: ${JSON.stringify(data)}`);
 
+        // store all released versions incl. prerelease flag to allow pinning a specific one
+        const versions: TAvailableVersion[] = [];
+        for (const r of data) {
+          const version = (r.name || r.tag_name) as string;
+          if (!version || !semver.valid(version)) return;
+          if (versions.some((v) => v.version === version)) return;
+          versions.push({ version: version, prerelease: !!r.prerelease || !!semver.prerelease(version) });
+        }
+        setAvailableVersions(versions.sort((a, b) => semver.rcompare(a.version, b.version)));
+
         let release: JSONObject | undefined;
         if (channel === "release") release = data.find((r) => !r.prerelease);
         else if (channel === "prerelease") release = data[0];
@@ -248,7 +272,7 @@ export const AutoUpdateProvider = ({
         setCheckedThisRun(true);
       }
     },
-    [fetchWithAuth, requestCredentials, autoUpdateManager]
+    [fetchWithAuth, requestCredentials, autoUpdateManager, setAvailableVersions]
   );
 
   const getTitle = (release: JSONObject) =>
@@ -293,6 +317,7 @@ export const AutoUpdateProvider = ({
   const setUpdateChannel = useCallback(
     (channel: "prerelease" | "release" | string): void => {
       if (updateChannel === channel) return;
+      // a pinned version may be older than the installed one
       setStoredChannel(channel);
       if (["prerelease", "release"].includes(channel))
         autoUpdateManager?.setChannel(channel as "prerelease" | "release");
@@ -348,7 +373,12 @@ export const AutoUpdateProvider = ({
   }, [rosCtx.providers]);
 
   useEffect(() => {
-    if (autoUpdateManager && localProviderId && autoCheckAllowed(checkTimestamp)) checkForUpdate(updateChannel);
+    if (
+      autoUpdateManager &&
+      localProviderId &&
+      (autoCheckAllowed(checkTimestamp) || updateChannel.split(".").length === 3)
+    )
+      checkForUpdate(updateChannel);
   }, [autoUpdateManager, localProviderId, updateChannel, checkTimestamp]);
 
   useEffect(() => {
@@ -382,6 +412,7 @@ export const AutoUpdateProvider = ({
       installDebian,
       installing,
       setLocalProviderId,
+      availableVersions,
     }),
     [
       autoUpdateManager,
@@ -395,6 +426,7 @@ export const AutoUpdateProvider = ({
       requestedInstallUpdate,
       isAppImage,
       installing,
+      availableVersions,
     ]
   );
 
