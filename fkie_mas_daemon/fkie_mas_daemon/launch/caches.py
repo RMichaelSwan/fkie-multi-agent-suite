@@ -498,6 +498,7 @@ def cache_statistics() -> Dict[str, Any]:
     """
     # Imported lazily to avoid a circular import at module load time.
     from .launch_argument_cache import LAUNCH_ARGUMENT_CACHE
+    from .launch_definition_index import NODE_DEFINITION_CACHE
 
     regex_info = compile_regex.cache_info()
 
@@ -505,6 +506,7 @@ def cache_statistics() -> Dict[str, Any]:
         "launch_arguments": LAUNCH_ARGUMENT_CACHE.statistics(),
         "file_content": FILE_CONTENT_CACHE.statistics(),
         "message_struct": MESSAGE_STRUCT_CACHE.statistics(),
+        "node_definitions": NODE_DEFINITION_CACHE.statistics(),
         "regex": {
             "hits": regex_info.hits,
             "misses": regex_info.misses,

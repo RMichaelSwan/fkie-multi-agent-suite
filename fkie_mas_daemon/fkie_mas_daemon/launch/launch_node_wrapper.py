@@ -39,6 +39,7 @@ from fkie_mas_pylib.logging.logging import Log
 from fkie_mas_pylib import names
 from fkie_mas_pylib.defines import SEP
 
+from .launch_load_state import LaunchLoadState
 from .utils import perform_to_string
 from .utils import perform_to_tuple_list
 
@@ -50,9 +51,18 @@ class LaunchNodeWrapper(LaunchNodeInfo):
     # _unique_names: Set[str] = set()
     # _remapped_names: Dict[str, Set[str]] = {}
 
-    def __init__(self, entity: launch.actions.ExecuteProcess, *, launch_description: Union[launch.LaunchDescription, launch.actions.IncludeLaunchDescription], launch_context: launch.LaunchContext, composable_container: str = None, environment: Dict = {}, remove_environment: List[str] = None, position_in_file=0) -> None:
+    def __init__(self,
+                 entity: launch.actions.ExecuteProcess,
+                 load_state: LaunchLoadState,
+                 *,
+                 launch_context: launch.LaunchContext,
+                 #                 launch_description: Union[launch.LaunchDescription, launch.actions.IncludeLaunchDescription],
+                 composable_container: str = None,
+                 #                environment: Dict = {},
+                 #                remove_environment: List[str] = None
+                 ) -> None:
         self._entity = entity
-        self._launch_description = launch_description
+        self._launch_description = load_state.launch_description
         self._launch_context = launch_context
         self.timer_period = 0
         if isinstance(self._entity, launch_ros.actions.Node):
@@ -180,9 +190,9 @@ class LaunchNodeWrapper(LaunchNodeInfo):
                         content = f"{err}"
                     self.parameters.append(RosParameter(node_name, param_file, content))
         self.cwd = perform_to_string(self._launch_context, getattr(self._entity, 'cwd', None))
-        self.remove_environment = [] if remove_environment is None else remove_environment
+        self.remove_environment = [] if load_state.remove_environment is None else load_state.remove_environment
         # perform_to_tuple_list(self._launch_context, getattr(self._entity, 'additional_env', {}))
-        self.additional_env = dict(environment)
+        self.additional_env = dict(load_state.environment)
         add_env = perform_to_tuple_list(self._launch_context, getattr(self._entity, 'env', {}))
         add_env_extra = perform_to_tuple_list(self._launch_context, getattr(self._entity, 'additional_env', {}))
         if add_env_extra:
@@ -207,61 +217,26 @@ class LaunchNodeWrapper(LaunchNodeInfo):
         #  on_exit: List[Any] = [],
         #  required: bool = False,
         #  file_name: str = '',
-        #  file_range: Dict[str, Number] = {"startLineNumber": 0,
-        #                                   "endLineNumber": 0,
-        #                                   "startColumn": 0,
-        #                                   "endColumn": 0},
+        self.file_range: Dict[str, int] = {"startLineNumber": 0,
+                                           "endLineNumber": 0,
+                                           "startColumn": 0,
+                                           "endColumn": 0}
+
         #  launch_context_arg: str = '',
         #  launch_name: str = ''
         #  composable_container: str = ''
         #  Search the line number of a given node in launch file
-        if (self.file_name):
-            node_base_name = os.path.basename(node_name)
-            name_select_len = len(node_base_name) + 7
-            lines_with_node_name = []
-            with open(self.file_name, "r") as launch_file:
-                current_position = 0
-                for line_number, line_text in enumerate(launch_file):
-                    # search only after given position
-                    if current_position >= position_in_file:
-                        start_column = line_text.find(f'name="{node_base_name}"')
-                        if start_column < 0:
-                            start_column = line_text.find(
-                                f"name='{node_base_name}'")
-                        if start_column > -1:
-                            start_column += 1
-                            lines_with_node_name.append(
-                                [line_number + 1, line_text, start_column, start_column + name_select_len])
-                    current_position += len(line_text) + 1
-            line_number = -1
-            start_column = 0
-            end_column = 0
-            line_text = ""
-            if len(lines_with_node_name) == 0:
-                # no line found. TODO: Report error?
-                line_number = 0
-            elif len(lines_with_node_name) >= 1:
-                line_number = lines_with_node_name[0][0]
-                line_text = lines_with_node_name[0][1]
-                start_column = lines_with_node_name[0][2]
-                end_column = lines_with_node_name[0][3]
-            # elif len(lines_with_node_name) > node_occurrence[item.launch_name]:
-            #     # More than one occurrence, but Node are loaded from top to bottom
-            #     # try to find the correct match
-            #     line_number = lines_with_node_name[
-            #         node_occurrence[item.launch_name]
-            #     ][0]
-            #     line_text = lines_with_node_name[node_occurrence[item.launch_name]][
-            #         1
-            #     ]
 
-            # range in text where the node appears
-            self.file_range = {
-                "startLineNumber": line_number,
-                "endLineNumber": line_number,
-                "startColumn": start_column,
-                "endColumn": end_column,
-            }
+        # range in text where the node appears
+        file_range = load_state.cursor().file_range(self.node_name)
+        if file_range is not None:
+            self.file_range = file_range
+        elif PRINT_DEBUG_LOAD:
+            Log.debug(f"LaunchNodeWrapper: no file range for '{self.node_name}' "
+                      f"in {load_state.current_file}")
+        self.timer_period = load_state.timer_period
+        if load_state.launch_prefix:
+            self.launch_prefix = load_state.launch_prefix
 
     # def __del__(self):
     #     try:

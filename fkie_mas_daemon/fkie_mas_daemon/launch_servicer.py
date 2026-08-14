@@ -83,6 +83,8 @@ from fkie_mas_pylib.interface.runtime_interface import SubscriberNode
 from fkie_mas_pylib.interface import SelfEncoder
 from fkie_mas_pylib import ros_pkg
 
+from .launch.launch_definition_index import invalidate_node_definitions
+from .launch.launch_include_index import invalidate_include_definitions
 ActionClass = Type
 ActionRequestClass = Type
 
@@ -342,6 +344,8 @@ class LaunchServicer:
         # Invalidate content derived directly from the changed file.
         FILE_CONTENT_CACHE.invalidate(path)
         LAUNCH_ARGUMENT_CACHE.invalidate(path)
+        invalidate_node_definitions(path)
+        invalidate_include_definitions(path)
 
         # Invalidate argument templates of affected root launch files.
         for launch_path in affected_paths:
