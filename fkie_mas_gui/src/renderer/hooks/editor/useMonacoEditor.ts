@@ -13,6 +13,10 @@ type UseMonacoEditorOptions = {
 export function useMonacoEditor({ editorId, editorRef, saveModel = () => {} }: UseMonacoEditorOptions) {
   const monacoCtx = useMonacoContext();
 
+
+  // read the manager as a value - the effect below must re-run once it exists
+  const dirtyManager = monacoCtx.dirtyManager();
+
   const [activeModel, setActiveModel] = useState<editor.ITextModel | null>(null);
   const [activeModelDirty, setActiveModelDirty] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -83,28 +87,26 @@ export function useMonacoEditor({ editorId, editorRef, saveModel = () => {} }: U
       if (!editorInstance) return;
 
       const currentModel = editorInstance.getModel();
-
-      if (currentModel) {
+      if (currentModel && !currentModel.isDisposed()) {
         monacoViewStates.current.set(currentModel.uri.path, editorInstance.saveViewState());
       }
 
+      // keep the ref in sync synchronously - dirty events can arrive before react commits
+      activeModelRef.current = model;
       editorInstance.setModel(model);
 
       if (model) {
         const viewState = monacoViewStates.current.get(model.uri.path);
-        if (viewState) {
-          editorInstance.restoreViewState(viewState);
-        }
+        if (viewState) editorInstance.restoreViewState(viewState);
 
         const dirty = monacoCtx.isModifiedModel(model);
         setActiveModelDirty(dirty);
         setModifiedFiles((prev) => {
-          if (dirty) {
-            if (prev.includes(model.uri.path)) return prev;
-            return [...prev, model.uri.path];
-          }
+          if (dirty) return prev.includes(model.uri.path) ? prev : [...prev, model.uri.path];
           return prev.filter((m) => m !== model.uri.path);
         });
+      } else {
+        setActiveModelDirty(false);
       }
       setActiveModel(model);
       editorInstance.focus();
@@ -118,7 +120,9 @@ export function useMonacoEditor({ editorId, editorRef, saveModel = () => {} }: U
 
   const handleDirtyChange = useCallback(
     (model: editor.ITextModel, dirty: boolean) => {
-      if (activeModelRef.current?.uri.path === model?.uri.path) {
+      // fall back to the editor model - the ref may not be assigned yet on first load
+      const current = activeModelRef.current ?? editorRef.current?.getModel() ?? null;
+      if (current?.uri.path === model?.uri.path) {
         setActiveModelDirty(dirty);
       }
 
@@ -126,25 +130,27 @@ export function useMonacoEditor({ editorId, editorRef, saveModel = () => {} }: U
       if (!registry?.has(model)) return;
 
       setModifiedFiles((prev) => {
-        if (dirty) {
-          if (prev.includes(model.uri.path)) return prev;
-          return [...prev, model.uri.path];
-        }
+        if (dirty) return prev.includes(model.uri.path) ? prev : [...prev, model.uri.path];
         return prev.filter((m) => m !== model.uri.path);
       });
     },
-    [editorId, monacoCtx]
+    [editorId, editorRef, monacoCtx]
   );
 
   useEffect(() => {
-    const dirtyManager = monacoCtx.dirtyManager();
     if (!dirtyManager) return;
     dirtyManager.onDirtyChange(editorId, handleDirtyChange);
+
+    // events emitted before this listener existed are lost - sync once
+    const model = editorRef.current?.getModel();
+    if (model && !model.isDisposed()) {
+      handleDirtyChange(model, dirtyManager.refresh(model));
+    }
 
     return () => {
       dirtyManager.removeDirtyListener(editorId);
     };
-  }, [editorId, monacoCtx, handleDirtyChange]);
+  }, [editorId, dirtyManager, handleDirtyChange]);
 
   // ---------------------------
   // dispose
