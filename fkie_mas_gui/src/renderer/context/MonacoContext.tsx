@@ -1,7 +1,7 @@
 import * as MonacoReact from "@monaco-editor/react";
 import * as monacoEditor from "monaco-editor";
 import { editor } from "monaco-editor";
-import { createContext, useCallback, useEffect, useMemo, useRef } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAlwaysCurrentRef } from "@/renderer/hooks/useAlwaysCurrentRef";
 import { IncludeResolver } from "@/renderer/hooks/useIncludedFiles";
@@ -23,6 +23,8 @@ import { errorToMessage } from "../utils";
 
 export interface IMonacoContext {
   monaco: MonacoReact.Monaco | null;
+  /** true as soon as the workspace (dirty manager, registry, ...) exists */
+  workspaceReady: boolean;
   dirtyManager: () => MonacoDirtyManager | undefined;
   modelRegistry: () => ModelRegistry | undefined;
   getModel: (editorId: string, path: string, forceReload?: boolean) => Promise<TModelResult>;
@@ -55,21 +57,30 @@ export function MonacoProvider({ children }: { children: React.ReactNode }) {
   // -------------------- Services --------------------
   const workspaceRef = useRef<MonacoWorkspace | null>(null);
 
+    /**
+   * Child effects run before parent effects. Without this state flag consumers
+   * that read the workspace in their own effect would see `undefined` and would
+   * never re-run, because the context value would not change afterwards.
+   */
+  const [workspaceReady, setWorkspaceReady] = useState(false);
+
   useEffect(() => {
     if (!monacoInstance) return;
 
     if (!workspaceRef.current) {
       workspaceRef.current = new MonacoWorkspace(monacoInstance, rosCtxRef);
     }
+    // publish a new context value so consumers can attach their listeners
+    setWorkspaceReady(true);
   }, [monacoInstance]);
 
   const dirtyManager = useCallback(() => {
     return workspaceRef.current?.dirty;
-  }, []);
+  }, [workspaceReady]);
 
   const modelRegistry = useCallback(() => {
     return workspaceRef.current?.models;
-  }, []);
+  }, [workspaceReady]);
 
   const closeEditors = useCallback((editorIds?: string[]): void => {
     if (editorIds === undefined) {
@@ -260,6 +271,7 @@ export function MonacoProvider({ children }: { children: React.ReactNode }) {
   const contextValue: IMonacoContext = useMemo(
     () => ({
       monaco: monacoInstance,
+      workspaceReady,
       dirtyManager,
       modelRegistry,
       getModel,
@@ -278,6 +290,7 @@ export function MonacoProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       monacoInstance,
+      workspaceReady,
       dirtyManager,
       modelRegistry,
       getModel,

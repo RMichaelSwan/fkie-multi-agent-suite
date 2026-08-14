@@ -35,14 +35,26 @@ export class MonacoDirtyManager {
    * Typically UI components (tab bar, save indicators, etc.).
    */
   private listeners = new Map<string, DirtyChangeListener>();
+  private globalDisposables: monaco.IDisposable[] = [];
 
   constructor(private monaco: MonacoReact.Monaco) {
     // existing models
     for (const model of monaco.editor.getModels()) {
       this.trackModel(model);
     }
-    this.monaco.editor.onDidCreateModel((m) => this.trackModel(m));
-    this.monaco.editor.onWillDisposeModel((m) => this.untrackModel(m));
+    this.globalDisposables.push(
+      this.monaco.editor.onDidCreateModel((m) => this.trackModel(m)),
+      this.monaco.editor.onWillDisposeModel((m) => this.untrackModel(m))
+    );
+  }
+
+  dispose(): void {
+    for (const d of this.globalDisposables) {
+      d.dispose();
+    }
+    this.globalDisposables = [];
+    this.listeners.clear();
+    this.dirtyModels.clear();
   }
 
   private trackModel(model: monaco.editor.ITextModel) {
@@ -65,7 +77,9 @@ export class MonacoDirtyManager {
     this.disposables.delete(model);
 
     this.savedVersions.delete(model);
-    this.dirtyModels.delete(model);
+    // notify listeners, otherwise the ui keeps a stale modified marker for this uri
+    const wasDirty = this.dirtyModels.delete(model);
+    if (wasDirty) this.emitDirtyChange(model, false);
   }
 
   /**
@@ -132,6 +146,12 @@ export class MonacoDirtyManager {
 
   removeDirtyListener(id: string) {
     this.listeners.delete(id);
+  }
+
+  refresh(model: monaco.editor.ITextModel): boolean {
+    if (model.isDisposed()) return false;
+    this.updateDirtyState(model);
+    return this.dirtyModels.has(model);
   }
 
   /**

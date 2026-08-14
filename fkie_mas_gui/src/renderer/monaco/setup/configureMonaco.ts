@@ -232,6 +232,8 @@ export function registerLaunchLinkProvider(monacoCtxRef: React.MutableRefObject<
       monacoCtx.monaco.languages.registerLinkProvider(e, {
         provideLinks(model) {
           if (!monacoCtxRef.current) return;
+          // async link computation may run after the model was disposed
+          if (model.isDisposed()) return { links: [] };
           const text = model.getValue();
           const currentFile = fileFromUriPath(model.uri.path);
           const links: languages.ILink[] = [];
