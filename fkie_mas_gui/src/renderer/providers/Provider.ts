@@ -2526,6 +2526,7 @@ export default class Provider implements IProvider {
           const paramList = [
             ...(((value.data as TParamListResult)?.params as RosParameter[])?.map((item) => {
               item.id = `${item.node}#${item.name}`;
+              item.providerId = this.id
               return item;
             }) || []),
           ];
@@ -2535,6 +2536,7 @@ export default class Provider implements IProvider {
         const paramList = [
           ...((value.data as RosParameter[])?.map((item) => {
             item.id = `${item.node}#${item.name}`;
+            item.providerId = this.id
             return item;
           }) || []),
         ];
@@ -2558,6 +2560,7 @@ export default class Provider implements IProvider {
             const paramList = [
               ...(((value.data as TParamListResult)?.params as RosParameter[])?.map((item) => {
                 item.id = `${item.node}#${item.name}`;
+                item.providerId = this.id
                 return item;
               }) || []),
             ];
@@ -2567,6 +2570,7 @@ export default class Provider implements IProvider {
           const paramList = [
             ...((value.data as RosParameter[])?.map((item) => {
               item.id = `${item.node}#${item.name}`;
+              item.providerId = this.id
               return item;
             }) || []),
           ];
