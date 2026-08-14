@@ -2,6 +2,10 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.8.6 (14.08.2026)
+------------------
+* Fix node search with variables
+
 5.8.5 (12.08.2026)
 ------------------
 * Clear daemon caches for files, message, and service structs when reloading packages

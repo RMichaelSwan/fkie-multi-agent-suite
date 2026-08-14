@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.9.12 - 14.08.2026
+
+- Fix host display changing its height
+- [fkie_mas_daemon] Fix node search with variables
+- Add or open parameters directly in launch file
+- Fix: correctly track modified launch files
+- Fixed load monaco in external window
+- Add version selection to update channel
+
 ## 5.9.11 - 12.08.2026
 
 - Anchor launch dialog to prevent upward growth and focus loss when scrolling parameters
