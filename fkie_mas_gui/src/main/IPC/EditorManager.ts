@@ -6,6 +6,7 @@ import {
   TEditorManager,
   TFileRange,
   TLaunchArg,
+  TParameterRequest,
 } from "@/types";
 import editorIcon from "@public/google_edit_document.png?asset";
 import { BrowserWindow, ipcMain } from "electron";
@@ -54,9 +55,10 @@ export default class EditorManager implements TEditorManager {
         id: string,
         launchFile: string,
         fileRange: TFileRange,
-        launchArgs: TLaunchArg[]
+        launchArgs: TLaunchArg[],
+        selectParameter?: TParameterRequest
       ) => {
-        return this.emitFileRange(id, launchFile, fileRange, launchArgs);
+        return this.emitFileRange(id, launchFile, fileRange, launchArgs, selectParameter);
       }
     );
   }
@@ -72,12 +74,20 @@ export default class EditorManager implements TEditorManager {
     id: string,
     path: string,
     fileRange: TFileRange | null,
-    launchArgs: TLaunchArg[]
-  ) => Promise<boolean> = async (id, path, fileRange, launchArgs) => {
+    launchArgs: TLaunchArg[],
+    selectParameter?: TParameterRequest
+  ) => Promise<boolean> = async (id, path, fileRange, launchArgs, selectParameter) => {
     if (this.editors[id]) {
       this.editors[id].window.restore();
       this.editors[id].window.focus();
-      this.editors[id].window.webContents.send(EditorManagerEvents.onFileRange, id, path, fileRange, launchArgs);
+      this.editors[id].window.webContents.send(
+        EditorManagerEvents.onFileRange,
+        id,
+        path,
+        fileRange,
+        launchArgs,
+        selectParameter
+      );
       return Promise.resolve(true);
     }
     return Promise.resolve(false);
@@ -115,7 +125,8 @@ export default class EditorManager implements TEditorManager {
         props.id,
         props.path,
         props.fileRange,
-        props.launchArgs
+        props.launchArgs,
+        props.selectParameter
       );
       return Promise.resolve(null);
     }

@@ -9,25 +9,28 @@ import SplitPane, { Pane, SashContent } from "split-pane-react";
 import "split-pane-react/esm/themes/default.css";
 
 import { AlertsBar, EditorSidebar, EditorToolbar, THistoryModel } from "@/renderer/components/FileEditorPanel";
+import { PendingEditStyles } from "@/renderer/components/FileEditorPanel/PendingEditStyles";
 import { useEditorKeyboard } from "@/renderer/hooks/editor/useEditorKeyboard";
 import { useEditorLayout } from "@/renderer/hooks/editor/useEditorLayout";
+import { usePendingParameterEdit } from "@/renderer/hooks/editor/usePendingParameterEdit";
 import { useIncludedFiles } from "@/renderer/hooks/useIncludedFiles";
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useMonacoInitContext } from "@/renderer/hooks/useMonacoInitContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { getFileName } from "@/renderer/models";
+import { locateNodeParameter } from "@/renderer/monaco/ParameterEditing";
 import { cleanUpXmlComment } from "@/renderer/monaco/setup";
 import { TModelResult } from "@/renderer/monaco/types";
 import { createEditorId, createUriPath, fileFromUriPath } from "@/renderer/monaco/utils";
 import {
+  emitCloseComponent,
   EVENT_EDITOR_SELECT_RANGE,
   TEventEditorSelectRange,
-  emitCloseComponent,
 } from "@/renderer/pages/NodeManager/layout/events";
 import { Provider } from "@/renderer/providers";
 import { EventProviderLaunchLoaded, EventProviderPathEvent } from "@/renderer/providers/events";
 import { EVENT_PROVIDER_LAUNCH_LOADED, EVENT_PROVIDER_PATH_EVENT } from "@/renderer/providers/eventTypes";
-import { TFileRange, TLaunchArg } from "@/types";
+import { TFileRange, TLaunchArg, TParameterRequest } from "@/types";
 import "./FileEditorPanel.css";
 
 type TAlertNotification = {
@@ -43,10 +46,20 @@ interface FileEditorPanelProps {
   fileRange: TFileRange | null;
   launchArgs: TLaunchArg[];
   topLevelLaunchArgs: TLaunchArg[];
+  selectParameter?: TParameterRequest;
 }
 
 export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Element {
-  const { editorId, provider, rootFilePath, currentFilePath, fileRange, launchArgs, topLevelLaunchArgs } = props;
+  const {
+    editorId,
+    provider,
+    rootFilePath,
+    currentFilePath,
+    fileRange,
+    launchArgs,
+    topLevelLaunchArgs,
+    selectParameter,
+  } = props;
   const logCtx = useLoggingContext();
   const monacoInitCtx = useMonacoInitContext();
   const monacoCtx = monacoInitCtx.monacoCtx;
@@ -66,6 +79,26 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
   const [eventButton, setEventButton] = useState<React.MouseEvent<HTMLDivElement, MouseEvent> | undefined>(undefined);
   const [keyboardEvent, setKeyboardEvent] = useState<React.KeyboardEvent | undefined>();
   const [savedFiles, setSavedFiles] = useState<string[]>([]);
+
+  // a requested parameter is applied by an effect, never inside setEditorModel:
+  // the model must be active and dirty-tracked before the insert happens
+  const [parameterRequest, setParameterRequest] = useState<TParameterRequest | null>(null);
+
+  const { hasPendingEdit, startPendingEdit, rejectPendingEdit, clearPendingState, pendingEditWidget } =
+    usePendingParameterEdit(
+      editorRef,
+      monacoCtx.monaco,
+      (request) => {
+        // onAccepted
+        const model = editorRef.current?.getModel();
+        if (!model) return;
+        const result = locateNodeParameter(model, request, provider.rosVersion === "1" ? "1" : "2");
+        if (result.found && result.range) setSelectionRange(result.range);
+      },
+      () => {
+        // onReverted
+      }
+    );
 
   const {
     panelRef,
@@ -95,6 +128,9 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
       saveModel(model);
     },
   });
+
+  // the selectParameter prop is a one-shot request on panel open
+  const selectParameterAppliedRef = useRef<boolean>(false);
 
   const ownUriPaths: Set<string> = useMemo(() => {
     const result = new Set([
@@ -153,6 +189,11 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
       appendToHistory: boolean = true
     ): Promise<boolean> => {
       if (!uriPath) return false;
+      // an unconfirmed parameter insert must not survive a model switch or a reload
+      const currentUriPath = editorRef.current?.getModel()?.uri.path;
+      if (hasPendingEdit && (currentUriPath !== uriPath || forceReload)) {
+        rejectPendingEdit();
+      }
       setNotificationDescription({ message: "Getting file from provider...", messageSeverity: "info" });
       // If model does not exist, try to fetch it
       const result: TModelResult = await monacoCtx.getModel(editorId, uriPath, forceReload);
@@ -183,25 +224,72 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
         setHistoryModel({ uriPath: result.model.uri.path, range: range, launchArgs: launchArgs });
       }
 
+      // only apply the initial parameter request once, never on reloads
+      // the insert itself is done by the effect below, after react committed the model
+      if (selectParameter && !selectParameterAppliedRef.current) {
+        selectParameterAppliedRef.current = true;
+        setParameterRequest(selectParameter);
+      }
+
       return true;
     },
-    [mEditor, monacoCtx.getModel]
+    [mEditor, monacoCtx, editorId, logCtx, selectParameter, hasPendingEdit, rejectPendingEdit]
   );
 
   const reloadCurrentFile = useCallback(async () => {
-    if (mEditor.activeModel?.uri.path) {
-      const path = mEditor.activeModel?.uri.path;
-      const result = await setEditorModel(path, selectionRange, currentLaunchArgs, true, false);
-      if (result) {
-        logCtx.success(`File reloaded [${getFileName(path)}]`, "", `${getFileName(path)} reloaded`);
-      }
+    if (!mEditor.activeModel?.uri.path) return;
+    const path = mEditor.activeModel.uri.path;
+    // drop the pending insert before the model gets disposed by forceReload
+    if (hasPendingEdit) rejectPendingEdit();
+    const result = await setEditorModel(path, selectionRange, currentLaunchArgs, true, false);
+    if (result) {
+      logCtx.success(`File reloaded [${getFileName(path)}]`, "", `${getFileName(path)} reloaded`);
     }
-  }, [mEditor, selectionRange, currentLaunchArgs, logCtx, setEditorModel]);
+  }, [mEditor, selectionRange, currentLaunchArgs, logCtx, setEditorModel, hasPendingEdit, rejectPendingEdit]);
+
+  /** select the parameter definition, or insert it as pending edit */
+  const applyParameterRequest = useCallback(
+    (request: TParameterRequest): void => {
+      const model = editorRef.current?.getModel();
+      if (!model) return;
+      const result = locateNodeParameter(model, request, provider.rosVersion === "1" ? "1" : "2");
+
+      if (result.found && result.range) {
+        setSelectionRange(result.range);
+        return;
+      }
+      if (result.insert && !monacoCtx.isReadOnly(model)) {
+        startPendingEdit(request, result.insert);
+        // the dirty event may have fired before react committed the active model
+        // mEditor.refreshDirtyState();
+        return;
+      }
+      setNotificationDescription({
+        message: result.error || `Parameter [${request.paramName}] could not be inserted (read-only file)`,
+        messageSeverity: "warning",
+      });
+    },
+    [provider, monacoCtx, startPendingEdit]
+  );
+
+  // apply a queued parameter request as soon as the model is active in the editor
+  useEffect(() => {
+    if (!parameterRequest) return;
+    const model = mEditor.activeModel;
+    if (!model) return;
+    // the editor must already show this model, otherwise the insert hits the wrong buffer
+    if (editorRef.current?.getModel()?.uri.path !== model.uri.path) return;
+    setParameterRequest(null);
+    applyParameterRequest(parameterRequest);
+  }, [parameterRequest, mEditor.activeModel, applyParameterRequest]);
 
   /** select node definition on event. */
   useCustomEventListener(EVENT_EDITOR_SELECT_RANGE, async (data: TEventEditorSelectRange) => {
-    if (data.editorId === editorId) {
-      setEditorModel(data.filePath, data.fileRange, data.launchArgs);
+    if (data.editorId !== editorId) return;
+    const ok = await setEditorModel(data.filePath, data.fileRange, data.launchArgs);
+    if (ok && data.selectParameter) {
+      selectParameterAppliedRef.current = true;
+      setParameterRequest(data.selectParameter);
     }
   });
 
@@ -252,7 +340,7 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
       }
       if (monacoCtx.dirtyManager()?.isDirty(model)) {
         setNotificationDescription({
-          message: `${result.file.fileName} was changed on remote host! Sa        return;ve your file or reload manually!`,
+          message: `${result.file.fileName} was changed on remote host! Save your file or reload manually!`,
           messageSeverity: "warning",
         });
       }
@@ -265,19 +353,16 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
   const saveModel = useCallback(
     async (editorModel: editor.ITextModel): Promise<void> => {
       // update saved file to avoid reload question of the current editing file
+      if (hasPendingEdit) clearPendingState();
       if (!savedFiles.includes(editorModel.uri.path)) {
         setSavedFiles((prev) => [...prev, editorModel.uri.path]);
       }
       const saveResult = await monacoCtx.saveFile(editorModel);
       if (saveResult.result) {
-        // update state of external window
-        const path = fileFromUriPath(editorModel.uri.path);
-        const id = createEditorId(rootFilePath, provider.id);
-        window.editorManager?.changed(id, path, false);
         // update model state
         mEditor.setCurrentModel(editorModel);
       } else {
-        setSavedFiles((prev) => prev.filter((f) => f === editorModel.uri.path));
+        setSavedFiles((prev) => prev.filter((f) => f !== editorModel.uri.path));
         setNotificationDescription({
           message: `Could not save file: ${saveResult.message}`,
           messageSeverity: "warning",
@@ -285,7 +370,7 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
         logCtx.error("Could not save file", saveResult.message, "save failed");
       }
     },
-    [savedFiles, rootFilePath]
+    [savedFiles, rootFilePath, hasPendingEdit, clearPendingState, monacoCtx, mEditor, logCtx]
   );
 
   const debouncedWidthUpdate = useDebounceCallback((newWidth) => {
@@ -387,10 +472,9 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
         return;
       }
       if (result.model) {
-        setEditorModel(result.model.uri.path, filePath === currentFilePath ? fileRange : null, launchArgs);
+        await setEditorModel(result.model.uri.path, filePath === currentFilePath ? fileRange : null, launchArgs);
       }
       // Ignore "non-launch" files
-      // TODO: Add parameter Here
       if (result.file && !["launch", "xml", "xacro", "py"].includes(result.file.extension)) {
         console.log(`wrong extension: ${result.file.extension} of ${result.file}`);
         includeResolver.clearIncludedFiles();
@@ -417,13 +501,27 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
     }
   }, [monacoInitCtx.initialized, isDarkMode]);
 
+  // report dirty state of the active model to the external editor window
+  useEffect(() => {
+    const model = mEditor.activeModel;
+    if (!model) return;
+    window.editorManager?.changed(
+      createEditorId(rootFilePath, provider.id),
+      fileFromUriPath(model.uri.path),
+      mEditor.activeModelDirty
+    );
+  }, [mEditor.activeModel, mEditor.activeModelDirty, rootFilePath, provider.id]);
+
   const handleEditorChange = useCallback(
     async (_value: string | undefined, event: editor.IModelContentChangedEvent): Promise<void> => {
-      if (mEditor.activeModel) {
-        cleanUpXmlComment(event.changes, mEditor.activeModel);
-      }
+      // use the editor model directly - activeModel may still be stale on the first change
+      const model = editorRef.current?.getModel();
+      if (!model || model.isDisposed()) return;
+      cleanUpXmlComment(event.changes, model);
+      // refresh dirty state (toolbar, sidebar, external window)
+      mEditor.setCurrentModel(model);
     },
-    [mEditor.activeModel]
+    [mEditor]
   );
 
   const onStateChange = useCallback(
@@ -450,7 +548,6 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
       overflow="auto"
     >
       <SplitPane
-        // defaultSize={sideBarWidth}
         sizes={[sideBarWidth]}
         onChange={([size]) => {
           if (size !== sideBarMinSize && size >= sideBarMinSize) {
@@ -460,11 +557,7 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
         }}
         split="vertical"
         resizerSize={6}
-        sashRender={(_index, active) => (
-          <SashContent className={`sash-wrap-line ${active ? "active" : "inactive"}`}>
-            {/* <span className="line"/> */}
-          </SashContent>
-        )}
+        sashRender={(_index, active) => <SashContent className={`sash-wrap-line ${active ? "active" : "inactive"}`} />}
       >
         <Pane minSize={sideBarMinSize} style={{ backgroundColor: backgroundColor }}>
           <EditorSidebar
@@ -506,11 +599,15 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
               reloadCurrentFile();
             }}
           />
+          <PendingEditStyles />
+          {/* portal target of the pending edit buttons - must stay mounted */}
+          {/* the span wrapper avoids the prop-types warning of mui containers */}
+          <span style={{ display: "contents" }}>{pendingEditWidget}</span>
           <AlertsBar
             refEl={alertRef as ForwardedRef<HTMLDivElement>}
+            activeModel={mEditor.activeModel}
             message={notificationDescription?.message}
             messageSeverity={notificationDescription?.messageSeverity}
-            activeModel={mEditor.activeModel}
             onClose={() => setNotificationDescription(undefined)}
           />
           <Monaco.Editor
@@ -538,7 +635,6 @@ export default function FileEditorPanel(props: FileEditorPanelProps): JSX.Elemen
                 bracketPairs: true,
               },
               definitionLinkOpensInPeek: false,
-              // automaticLayout: true,
               comments: {
                 ignoreEmptyLines: false,
                 insertSpace: true,

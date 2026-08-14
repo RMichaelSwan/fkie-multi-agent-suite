@@ -1,5 +1,5 @@
 import { RosNode } from "@/renderer/models";
-import { InfoStateLevel, TFileRange, TInfoState, TLaunchArg } from "@/types";
+import { InfoStateLevel, TFileRange, TInfoState, TLaunchArg, TParameterRequest } from "@/types";
 import { emitCustomEvent } from "react-custom-events";
 import { TLayoutTabConfig } from "./LayoutTabConfig";
 
@@ -43,6 +43,7 @@ export type TEventEditorSelectRange = {
   filePath: string;
   fileRange: TFileRange | null;
   launchArgs?: TLaunchArg[];
+  selectParameter?: TParameterRequest;
 };
 
 export type TEventInfoState = {

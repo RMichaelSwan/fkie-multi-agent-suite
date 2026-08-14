@@ -15,6 +15,7 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
+import { useNavigationContext } from "@/renderer/hooks/useNavigationContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSetting } from "@/renderer/hooks/useSetting";
 import { RosParameter, RosParameterRange, RosParameterValue } from "@/renderer/models";
@@ -32,6 +33,7 @@ interface ParameterTreeItemProps {
 
 export default function ParameterTreeItem(props: ParameterTreeItemProps): JSX.Element {
   const { itemId, namespacePart, paramInfo, provider } = props;
+  const navCtx = useNavigationContext();
 
   function fixStringArray(val: RosParameterValue): RosParameterValue {
     if (Array.isArray(val)) {
@@ -526,6 +528,22 @@ export default function ParameterTreeItem(props: ParameterTreeItemProps): JSX.El
             anchorReference="anchorPosition"
             anchorPosition={contextMenu != null ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
           >
+            <MenuItem
+              sx={{ fontSize: "0.8em" }}
+              onClick={(event) => {
+                navCtx.openEditorForParameter(
+                  paramInfo.providerId,
+                  paramInfo.node,
+                  paramInfo.name,
+                  `${paramInfo.value}`,
+                  paramInfo.type,
+                  event.nativeEvent.shiftKey
+                );
+                setContextMenu(null);
+              }}
+            >
+              Show/insert in launch file
+            </MenuItem>
             <MenuItem
               sx={{ fontSize: "0.8em" }}
               onClick={async () => {

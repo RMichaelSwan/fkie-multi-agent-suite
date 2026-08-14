@@ -326,6 +326,7 @@ export default function HostTreeViewPanel(props: HostTreeViewPanelProps): JSX.El
         setEditNodeWithMultipleLaunchInfos({ node: node, external: external });
       } else {
         const [rootLaunch, launchInfo] = launchInfos[0];
+        console.log(`Open for ${node.name}: ${JSON.stringify(launchInfo)}`);
         navCtx.openEditor(
           node.providerId,
           rootLaunch,

@@ -458,7 +458,11 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
                   </Typography>
                 </Link>
                 {provider.isLocalHost && (
-                  <Typography variant="body2" color="grey">
+                  <Typography
+                    variant="body2"
+                    color="grey"
+                    sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
                     - localhost
                   </Typography>
                 )}

@@ -622,6 +622,7 @@ export default function NodeManager(): JSX.Element {
               fileRange={config.editorConfig.fileRange}
               launchArgs={config.editorConfig.launchArgs}
               topLevelLaunchArgs={config.editorConfig.topLevelLaunchArgs}
+              selectParameter={config.editorConfig.selectParameter}
             />
           );
         return <Typography>Provider with ID {config.editorConfig.providerId} not found</Typography>;

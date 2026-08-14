@@ -18,7 +18,7 @@ import { useMonacoInitContext } from "@/renderer/hooks/useMonacoInitContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
 import { useSettingsContext } from "@/renderer/hooks/useSettingsContext";
 import { SaveResult } from "@/renderer/monaco/types";
-import { TFileRange, TLaunchArg } from "@/types";
+import { TFileRange, TLaunchArg, TParameterRequest } from "@/types";
 import DraggablePaper from "../../components/UI/DraggablePaper";
 import { getBaseName, getFileName } from "../../models";
 import { EVENT_CLOSE_COMPONENT } from "../../pages/NodeManager/layout/events";
@@ -33,6 +33,7 @@ type TLaunchInfo = {
   fileRange: TFileRange | null;
   launchArgs: TLaunchArg[];
   topLevelLaunchArgs: TLaunchArg[];
+  selectParameter?: TParameterRequest;
 };
 
 export default function EditorApp(): JSX.Element {
@@ -61,9 +62,11 @@ export default function EditorApp(): JSX.Element {
     const range = urlParams.get("fileRange");
     const launchArgsStr = urlParams.get("launchArgs");
     const topLevelLaunchArgsStr = urlParams.get("topLevelLaunchArgs");
+    const selectParameterStr = urlParams.get("selectParameter");
     let fileRange: TFileRange | null = null;
     let launchArgs: TLaunchArg[] = [];
     let topLevelLaunchArgs: TLaunchArg[] = [];
+    let selectParameter: TParameterRequest | undefined = undefined;
     if (range) {
       fileRange = JSON.parse(range);
     }
@@ -72,6 +75,9 @@ export default function EditorApp(): JSX.Element {
     }
     if (topLevelLaunchArgsStr) {
       topLevelLaunchArgs = JSON.parse(topLevelLaunchArgsStr);
+    }
+    if (selectParameterStr) {
+      selectParameter = JSON.parse(selectParameterStr);
     }
     if (!host || !port) {
       logCtx.error(`invalid address ${host}:${port}`, "");
@@ -103,6 +109,7 @@ export default function EditorApp(): JSX.Element {
         fileRange: fileRange,
         launchArgs: launchArgs,
         topLevelLaunchArgs: topLevelLaunchArgs,
+        selectParameter: selectParameter,
       });
     } else {
       logCtx.error(`connection to ${host}:${port} failed`, "");
@@ -168,6 +175,7 @@ export default function EditorApp(): JSX.Element {
           fileRange={launchInfo.fileRange}
           launchArgs={launchInfo.launchArgs}
           topLevelLaunchArgs={launchInfo.topLevelLaunchArgs}
+          selectParameter={launchInfo.selectParameter}
         />
       )}
       {launchInfo && dirtyModels.length > 0 && (

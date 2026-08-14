@@ -3,10 +3,19 @@ import React, { createContext, useCallback, useMemo, useState } from "react";
 
 import { useLoggingContext } from "@/renderer/hooks/useLoggingContext";
 import { useRosContext } from "@/renderer/hooks/useRosContext";
-import { getBaseName } from "@/renderer/models";
+import { getBaseName, LaunchNodeInfo } from "@/renderer/models";
 import { emitEditorSelectRange, emitOpenComponent } from "@/renderer/pages/NodeManager/layout/events";
 import { xor } from "@/renderer/utils/index";
-import { CmdType, CmdTypes, TEditorConfig, TFileRange, TLaunchArg, TPublisherConfig, TSubscriberConfig } from "@/types";
+import {
+  CmdType,
+  CmdTypes,
+  TEditorConfig,
+  TFileRange,
+  TLaunchArg,
+  TParameterRequest,
+  TPublisherConfig,
+  TSubscriberConfig,
+} from "@/types";
 import { TServiceConfig } from "@/types/ServiceManager";
 import { TTerminalConfig } from "@/types/TerminalManager";
 import { useSetting } from "../hooks/useSetting";
@@ -52,6 +61,14 @@ export interface INavigationContext {
     topLevelLaunchArgs: TLaunchArg[],
     externalKeyModifier: boolean
   ) => void;
+  openEditorForParameter: (
+    providerId: string,
+    nodeName: string,
+    paramName: string,
+    paramValue?: string,
+    paramType?: string,
+    externalKeyModifier?: boolean
+  ) => Promise<void>;
   startPublisher: (
     providerId: string,
     topicName: string | undefined,
@@ -148,7 +165,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       setSelected(triggerId, last.selected, false);
       return last;
     },
-    [history]
+    [history, setSelected]
   );
 
   const openEditor = useCallback(
@@ -159,7 +176,8 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       fileRange: TFileRange | null,
       launchArgs: TLaunchArg[],
       topLevelLaunchArgs: TLaunchArg[],
-      externalKeyModifier: boolean
+      externalKeyModifier: boolean,
+      selectParameter?: TParameterRequest
     ): Promise<void> => {
       const provider = rosCtx.getProviderById(providerId);
       if (!provider) return;
@@ -169,7 +187,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
 
       const hasExtEditor = await window.editorManager?.has(id);
       if (hasExtEditor) {
-        window.editorManager?.emitFileRange(id, path, fileRange, launchArgs);
+        window.editorManager?.emitFileRange(id, path, fileRange, launchArgs, selectParameter);
         return;
       }
       const editorProps: TEditorConfig = {
@@ -182,6 +200,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         fileRange,
         launchArgs,
         topLevelLaunchArgs,
+        selectParameter,
       };
 
       if (openExternal && !isElectron()) {
@@ -198,6 +217,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         filePath: path,
         fileRange: fileRange,
         launchArgs: launchArgs,
+        selectParameter: selectParameter,
       });
       emitOpenComponent({
         id: id,
@@ -212,7 +232,60 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, editorOpenExternal, editorOpenLocation, layoutModel]
+    [rosCtx, editorOpenExternal, editorOpenLocation, layoutModel, openAsPopout]
+  );
+
+  /** open the launch file of a node and select/insert one of its parameters */
+  const openEditorForParameter = useCallback(
+    async (
+      providerId: string,
+      nodeName: string,
+      paramName: string,
+      paramValue?: string,
+      paramType?: string,
+      externalKeyModifier: boolean = false
+    ): Promise<void> => {
+      const provider = rosCtx.getProviderById(providerId);
+      if (!provider) return;
+
+      const node = provider.rosNodes.find((n) => n.name === nodeName);
+      if (!node || node.launchInfo.size === 0) {
+        logCtx.error(`Could not find launch file for node: [${nodeName}]`, "", "no launch files");
+        return;
+      }
+
+      // Prefer the launch file recorded on the node; otherwise fall back to the
+      // first available launch file that provides this node.
+      // TODO: ask user if multiple launch files provide this node
+      const direct = node.launchPath ? node.launchInfo.get(node.launchPath) : undefined;
+      const [rootLaunch, launchInfo]: [string | null, LaunchNodeInfo | undefined] = direct
+        ? [direct.launch_name, direct]
+        : Array.from(node.launchInfo.entries())[0];
+
+      if (!rootLaunch || !launchInfo) {
+        logCtx.error(`Could not find launch file for node: [${nodeName}]`, "", "no launch files");
+        return;
+      }
+
+      await openEditor(
+        provider.id,
+        rootLaunch,
+        launchInfo.file_name || "",
+        launchInfo.file_range,
+        launchInfo.launch_context_arg || [],
+        launchInfo.topLevelArgs,
+        externalKeyModifier,
+        {
+          nodeName: node.name,
+          paramName,
+          paramValue,
+          paramType,
+          // location of the node definition - used instead of the node name lookup
+          fileRange: launchInfo.file_range,
+        }
+      );
+    },
+    [rosCtx, logCtx, openEditor]
   );
 
   const startPublisher = useCallback(
@@ -280,7 +353,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, publisherOpenExternal, publisherOpenLocation, layoutModel, logCtx]
+    [rosCtx, publisherOpenExternal, publisherOpenLocation, layoutModel, logCtx, openAsPopout]
   );
 
   const openSubscriber = useCallback(
@@ -348,7 +421,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, subscriberOpenExternal, subscriberOpenLocation, layoutModel, logCtx]
+    [rosCtx, subscriberOpenExternal, subscriberOpenLocation, layoutModel, logCtx, openAsPopout]
   );
 
   const openServiceCaller = useCallback(
@@ -411,7 +484,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, serviceOpenExternal, layoutModel]
+    [rosCtx, serviceOpenExternal, layoutModel, openAsPopout]
   );
 
   const openServiceIntrospection = useCallback(
@@ -455,7 +528,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, serviceOpenExternal, layoutModel]
+    [rosCtx, serviceOpenExternal, layoutModel, openAsPopout]
   );
 
   const openActionSendGoal = useCallback(
@@ -499,7 +572,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, serviceOpenExternal, layoutModel]
+    [rosCtx, serviceOpenExternal, layoutModel, openAsPopout]
   );
 
   const openActionIntrospection = useCallback(
@@ -543,7 +616,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, serviceOpenExternal, layoutModel]
+    [rosCtx, serviceOpenExternal, layoutModel, openAsPopout]
   );
 
   const openTerminal = useCallback(
@@ -623,7 +696,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
         },
       });
     },
-    [rosCtx, layoutModel, logCtx, logOpenExternal, screenOpenExternal]
+    [rosCtx, layoutModel, logCtx, logOpenExternal, screenOpenExternal, openAsPopout]
   );
 
   const value = useMemo<INavigationContext>(
@@ -635,6 +708,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       layoutModel,
       setLayoutModel,
       openEditor,
+      openEditorForParameter,
       openSubscriber,
       openServiceCaller,
       openServiceIntrospection,
@@ -650,6 +724,7 @@ export function NavigationProvider({ children }: INavigationProvider): JSX.Eleme
       setSelectedFromHistory,
       layoutModel,
       openEditor,
+      openEditorForParameter,
       openSubscriber,
       openServiceCaller,
       openServiceIntrospection,

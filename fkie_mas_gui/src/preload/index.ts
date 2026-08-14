@@ -29,6 +29,7 @@ import {
   TerminateCallback,
   TFileRange,
   TLaunchArg,
+  TParameterRequest,
   TPublisherConfig,
   TPublishManager,
   TRosInfo,
@@ -143,16 +144,25 @@ if (process.contextIsolated) {
       changed: (id: string, path: string, changed: boolean) => {
         return ipcRenderer.invoke(EditorManagerEvents.changed, id, path, changed);
       },
-      emitFileRange: (id: string, path: string, fileRange: TFileRange, launchArgs: TLaunchArg[]) => {
-        return ipcRenderer.invoke(EditorManagerEvents.emitFileRange, id, path, fileRange, launchArgs);
+      emitFileRange: (
+        id: string,
+        path: string,
+        fileRange: TFileRange,
+        launchArgs: TLaunchArg[],
+        selectParameter: TParameterRequest
+      ) => {
+        return ipcRenderer.invoke(EditorManagerEvents.emitFileRange, id, path, fileRange, launchArgs, selectParameter);
       },
       has: (id: string) => {
         return ipcRenderer.invoke(EditorManagerEvents.has, id);
       },
       onFileRange: (callback: FileRangeCallback) =>
-        ipcRenderer.on(EditorManagerEvents.onFileRange, (_event, id, launchFile, fileRange, launchArgs) => {
-          callback(id, launchFile, fileRange, launchArgs);
-        }),
+        ipcRenderer.on(
+          EditorManagerEvents.onFileRange,
+          (_event, id, launchFile, fileRange, launchArgs, selectParameter) => {
+            callback(id, launchFile, fileRange, launchArgs, selectParameter);
+          }
+        ),
       onClose: (callback: EditorCloseCallback) =>
         ipcRenderer.on(EditorManagerEvents.onClose, (_event, id) => {
           return callback(id);

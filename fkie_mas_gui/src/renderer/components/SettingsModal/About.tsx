@@ -3,7 +3,7 @@ import { Autocomplete, Box, Button, IconButton, Link, Stack, TextField, Tooltip,
 import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import PropTypes from "prop-types";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useAutoUpdateContext } from "@/renderer/context/AutoUpdateContext";
 import licenses from "@/renderer/deps-licenses.json";

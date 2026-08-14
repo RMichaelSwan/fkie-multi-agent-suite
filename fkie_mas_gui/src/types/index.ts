@@ -34,6 +34,7 @@ import {
 import { envEntryToExportStr, envEntryToStr, TEnvEntry } from "./TEnvEntry";
 import { TerminalCloseCallback, TerminalManagerEvents, TTerminalManager } from "./TerminalManager";
 import { InfoStateLevel, TInfoState } from "./TInfoState";
+import { TParameterRequest } from "./TParameterRequest";
 import { TResult } from "./TResult";
 import { TResultData } from "./TResultData";
 import { TResultProcess } from "./TResultProcess";
@@ -86,6 +87,7 @@ export type {
   TFileRange,
   TInfoState,
   TLaunchArg,
+  TParameterRequest,
   TPublisherConfig,
   TPublishManager,
   TResult,
