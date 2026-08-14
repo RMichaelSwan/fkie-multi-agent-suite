@@ -524,19 +524,15 @@ export default function NodeManager(): JSX.Element {
 
   // Add tabs to layout after EVENT_OPEN_COMPONENT was received
   useEffect(() => {
-    console.log(`addToLayout: ${addToLayout.length}`);
     if (addToLayout.length > 0) {
       const newAddToLayout = [...addToLayout];
       const tab = newAddToLayout.pop();
-      console.log(`tab : ${JSON.stringify(tab)}`);
       if (tab?.id) {
         const node = modelRef.current.getNodeById(tab.id);
         if (node) {
-          console.log(`node found return : ${node.getId()}`);
           return;
         }
         const panelId = getPanelId(tab.id || "", tab.toNodeId);
-        console.log(`panelId: ${JSON.stringify(panelId)}`);
 
         // store current selected tab in CENTER
         const isDomainCenterTab = tab.component === LAYOUT_TABS.DOMAIN && panelId.id === LAYOUT_TAB_SETS.CENTER;
