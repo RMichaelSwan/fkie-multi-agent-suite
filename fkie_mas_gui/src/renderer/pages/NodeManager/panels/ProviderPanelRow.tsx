@@ -461,7 +461,13 @@ export default function ProviderPanelRow(props: ProviderPanelRowProps): JSX.Elem
                   <Typography
                     variant="body2"
                     color="grey"
-                    sx={{ flexShrink: 1, minWidth: 20, overflow: "hidden", textOverflow: "ellipsis" }}
+                    sx={{
+                      flexShrink: 1,
+                      minWidth: 20,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     - localhost
                   </Typography>
