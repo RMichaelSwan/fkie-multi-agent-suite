@@ -36,6 +36,7 @@ import { ProviderLaunchConfiguration } from "@/renderer/models";
 import { RmwSelection, TProviderLaunchParams, ZenohEnvSelection } from "@/renderer/models/ProviderLaunchConfiguration";
 import { EVENT_PROVIDER_STATE } from "@/renderer/providers/eventTypes";
 import Provider, { generateProviderId } from "@/renderer/providers/Provider";
+import { isElectron } from "@/renderer/utils/popout";
 import { LAYOUT_TAB_SETS, LAYOUT_TABS } from "../layout";
 import { emitOpenComponent } from "../layout/events";
 import ProviderPanelRow from "./ProviderPanelRow";
@@ -158,6 +159,8 @@ export default function ProviderPanel(): JSX.Element {
     if (rosCtx.providers.length !== 0) return;
     const doStart = cliCtx.getArgument("start") || false;
     const doJoin = cliCtx.getArgument("join") || false;
+    // Headless electron window not needed unless --start specified
+    if (isElectron() && !!cliCtx.getArgument("headless") && !doStart) return;
     const doJoinWs = (cliCtx.getArgument("join-ws") as string).split(",");
     if (doStart || doJoin) {
       const rosDomainId = Number.parseInt(`${cliCtx.getArgument("ros-domain-id") || rosCtx.rosInfo?.domainId}`);
