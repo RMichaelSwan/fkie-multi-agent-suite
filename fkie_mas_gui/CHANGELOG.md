@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.9.13 - 21.08.2026
+
+- Fix edge cases with previous approach to headless startup
+- fix: do not apply --join-ws in hidden headless window to fix cpu use regression in mas-daemon
+
 ## 5.9.12 - 14.08.2026
 
 - Fix host display changing its height
