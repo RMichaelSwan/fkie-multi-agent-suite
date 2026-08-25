@@ -82,6 +82,7 @@ except ImportError:
 
 
 RATE_CHECK_DISCOVERY_NODE_HZ = 0.5
+MIN_CHECK_DISCOVERY_NODE_HZ = 0.1
 
 
 class RosStateServicer:
@@ -119,11 +120,13 @@ class RosStateServicer:
         self.topic_name_endpoint = f"{NM_NAMESPACE}/daemons"
         self.topic_state_publisher_count = 0
         self._force_refresh = False
+        self._graph_changing = False
         self._ts_state_updated = 0
         self._ts_state_notified = 0
         self._last_seen_participant_count = 0
         self._thread_check_discovery_node = None
         self._check_delay = 1.0 / RATE_CHECK_DISCOVERY_NODE_HZ
+        self._max_check_delay = 1.0 / MIN_CHECK_DISCOVERY_NODE_HZ
         self._on_shutdown = False
         self._state_jsonify = RosStateJsonify(cb_nodes=self._callback_nodes,
                                               cb_topics=self._callback_topics,
@@ -400,16 +403,17 @@ class RosStateServicer:
                 if not send_notification:
                     if now - ts_state_notified > self._check_delay * 2.0:
                         # check own state
+                        count_changed = False
                         count_topics = len(nmd.ros_node.get_topic_names_and_types())
                         if self._count_topics != count_topics:
                             Log.debug(f"count_topics old/new: {self._count_topics} / {count_topics}")
-                            send_notification = True
+                            count_changed = True
                             self._count_topics = count_topics
                         else:
                             count_services = len(nmd.ros_node.get_service_names_and_types())
                             if self._count_services != count_services:
                                 Log.debug(f"count_services old/new: {self._count_services} / {count_services}")
-                                send_notification = True
+                                count_changed = True
                                 self._count_services = count_services
                             else:
                                 unique_nodes = set()
@@ -418,8 +422,17 @@ class RosStateServicer:
                                 count_nodes = len(unique_nodes)
                                 if self._count_nodes != count_nodes:
                                     Log.debug(f"count_nodes old/new: {self._count_nodes} / {count_nodes}")
-                                    send_notification = True
+                                    count_changed = True
                                     self._count_nodes = count_nodes
+                        if (now - ts_state_notified) > self._max_check_delay:
+                            send_notification = True
+                            self._graph_changing = False
+                        # debounce state update so that updates wait until the graph is stable
+                        elif count_changed:
+                            self._graph_changing = True
+                        elif self._graph_changing:
+                            self._graph_changing = False
+                            send_notification = True
 
                 if send_notification:
                     try:
