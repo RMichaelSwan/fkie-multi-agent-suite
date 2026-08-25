@@ -119,6 +119,7 @@ class RosStateServicer:
         self.topic_name_endpoint = f"{NM_NAMESPACE}/daemons"
         self.topic_state_publisher_count = 0
         self._force_refresh = False
+        self._had_clients = False
         self._ts_state_updated = 0
         self._ts_state_notified = 0
         self._last_seen_participant_count = 0
@@ -390,14 +391,18 @@ class RosStateServicer:
                     if self._ts_state_updated > ts_state_notified:
                         if now - ts_state_notified > self._check_delay:
                             update_ros_state = True
+                clients_connected = self.websocket.count_clients() > 0
                 with self._ros_node_state_mutex:
+                    if clients_connected and not self._had_clients:
+                        self._force_refresh = True
                     force_refresh = self._force_refresh
+                self._had_clients = clients_connected
                 send_notification = False
                 # send only if websocket clients are connected
-                if (update_ros_state or force_refresh) and self.websocket.count_clients() > 0:
+                if (update_ros_state or force_refresh) and clients_connected:
                     send_notification = True
 
-                if not send_notification:
+                if not send_notification and clients_connected:
                     if now - ts_state_notified > self._check_delay * 2.0:
                         # check own state
                         count_topics = len(nmd.ros_node.get_topic_names_and_types())
