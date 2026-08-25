@@ -183,6 +183,8 @@ class RosStateJsonify:
         self._lock = threading.RLock()
         self._lifecycle_subscriptions: Dict[NodeId, Subscription] = {}
         self._local_addresses = get_local_addresses()
+        # (pid, create_time) -> (namespace, node name) or None;
+        self._process_cache: Dict[Tuple[int, float], Optional[Tuple[str, str]]] = {}
         self._update_cycles = 0
         self._participant_infos: Dict[ParticipantGid, ParticipantEntitiesInfo] = {}
         self._ros_service_dict: Dict[Tuple[ServiceNameWoPrefix, ServiceType], RosService] = {}
@@ -379,29 +381,44 @@ class RosStateJsonify:
     #  process/screen/location helper
     # ------------------------------------------------------------------ #
 
+    @staticmethod
+    def _node_id_from_cmdline(cmdline: List[str]) -> Optional[Tuple[str, str]]:
+        """Returns (namespace, node name) if the process was started with '__node:=', else None."""
+        node_name: Optional[str] = None
+        node_ns = ""
+        for arg in cmdline or []:
+            if arg.startswith("__node:="):
+                node_name = arg[len("__node:="):]
+            elif arg.startswith("__ns:="):
+                node_ns = arg[len("__ns:="):].rstrip('/')
+        if node_name:
+            return (node_ns, node_name)
+        return None
+
     def _scan_processes(self) -> Dict[Tuple[str, str], List[int]]:
         """Scans all processes once and returns an index (namespace, basename) -> [pid]
         for all processes started with a '__node:=' argument."""
         index: Dict[Tuple[str, str], List[int]] = {}
-        for process in psutil.process_iter(["pid", "cmdline"]):
+        cache: Dict[Tuple[int, float], Optional[Tuple[str, str]]] = {}
+        for process in psutil.process_iter(["pid", "create_time"]):
             try:
-                cmdline = process.info["cmdline"]
-                if not cmdline:
-                    continue
-                node_name: Optional[str] = None
-                node_ns = ""
-                for arg in cmdline:
-                    if arg.startswith("__node:="):
-                        node_name = arg[len("__node:="):]
-                    elif arg.startswith("__ns:="):
-                        node_ns = arg[len("__ns:="):].rstrip('/')
-                if node_name:
-                    index.setdefault((node_ns, node_name), []).append(process.info["pid"])
+                pid = process.info["pid"]
+                # (pid, create_time) is unique, so cached result stays valid, even if pid reused
+                key = (pid, process.info["create_time"])
+                if key in self._process_cache:
+                    node_id = self._process_cache[key]
+                else:
+                    node_id = self._node_id_from_cmdline(process.cmdline())
+                cache[key] = node_id
+                if node_id is not None:
+                    index.setdefault(node_id, []).append(pid)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
             except Exception:
                 Log.debug(f"{self.__class__.__name__}: ignored exception while scanning processes: "
                           f"{traceback.format_exc()}")
+        # rebuilt from scratch, so entries of vanished processes are dropped
+        self._process_cache = cache
         return index
 
     def _index_screens(self) -> Dict[NodeFullName, List[str]]:
