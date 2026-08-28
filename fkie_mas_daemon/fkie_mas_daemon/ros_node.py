@@ -12,6 +12,7 @@ import os
 import signal
 import sys
 import threading
+import time
 
 import rclpy
 from rclpy.action import ActionClient
@@ -163,19 +164,27 @@ class RosNodeLauncher(object):
         for start_file in start_files:
             self.server.load_launch_file(start_file, autostart=True)
 
-    def call_service(self, srv_name: str, srv_type: SrvType, request: SrvTypeRequest, *, timeout_sec: float = 10.0, callback_group: CallbackGroup | None = None) -> SrvTypeResponse:
+    def call_service(self, srv_name: str, srv_type: SrvType, request: SrvTypeRequest, *, timeout_sec: float | None = 10.0, callback_group: CallbackGroup | None = None) -> SrvTypeResponse:
         """
         Make a service request and wait for the result.
 
         :param srv_name: The service name.
         :param srv_type: The service type.
         :param request: The service request.
+        :param timeout_sec: Maximum wait for availability and response, or None to wait until shutdown.
         :return: The service response.
         """
         client = self.ros_node.create_client(srv_type, srv_name, callback_group=callback_group)
+        deadline = None if timeout_sec is None else time.monotonic() + timeout_sec
         try:
-            if not client.wait_for_service(timeout_sec=timeout_sec):
-                raise Exception(f"Service '{srv_name}' of type '{srv_type}' not available")
+            while True:
+                wait_sec = 1.0 if deadline is None else max(0.0, min(1.0, deadline - time.monotonic()))
+                if client.wait_for_service(timeout_sec=wait_sec):
+                    break
+                if self._on_shutdown or not rclpy.ok(context=self.ros_node.context):
+                    raise RuntimeError(f"Waiting for service '{srv_name}' interrupted by shutdown")
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise Exception(f"Service '{srv_name}' of type '{srv_type}' not available")
 
             event = threading.Event()
 
@@ -186,12 +195,21 @@ class RosNodeLauncher(object):
             future = client.call_async(request)
             future.add_done_callback(unblock)
 
-            event.wait(timeout=timeout_sec)
+            while True:
+                wait_sec = 1.0 if deadline is None else max(0.0, min(1.0, deadline - time.monotonic()))
+                if event.wait(timeout=wait_sec):
+                    break
+                if self._on_shutdown or not rclpy.ok(context=self.ros_node.context):
+                    future.cancel()
+                    raise RuntimeError(f"Waiting for service '{srv_name}' response interrupted by shutdown")
+                if deadline is not None and time.monotonic() >= deadline:
+                    future.cancel()
+                    raise TimeoutError(f"Service '{srv_name}' response timed out")
             if future.exception() is not None:
                 raise future.exception()
             return future.result()
         finally:
-            self.ros_node.destroy_client(srv_name)
+            self.ros_node.destroy_client(client)
 
     def call_action(self, srv_name: str, srv_type: SrvType, request: SrvTypeRequest, timeout_sec: float = 10.0) -> SrvTypeResponse:
         [srv_name, action_type] = srv_name.split("/_action/")
