@@ -82,6 +82,7 @@ class SensorInterface(object):
 
     def start_timer(self, interval: float, callback: Callable):
         self._timer = threading.Timer(interval, callback)
+        self._timer.daemon = True
         self._timer.start()
 
     def cancel_timer(self):
