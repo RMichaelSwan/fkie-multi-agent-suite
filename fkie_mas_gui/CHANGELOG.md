@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.10.0 - 28.08.2026
+
+- [fkie_mas_daemon] Prevent ros2 component containers from being quit too early on launch
+- [fkie_mas_daemon] Prevent update of internal ros graph state when no clients are connected to reduce CPU use.
+
 ## 5.9.13 - 21.08.2026
 
 - Fix edge cases with previous approach to headless startup

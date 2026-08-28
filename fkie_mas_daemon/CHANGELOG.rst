@@ -2,6 +2,11 @@
 Changelog for package fkie_mas_daemon
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+5.9.0 (28.08.2026)
+------------------
+* Prevent ros2 component containers from being quit too early on launch
+* Prevent update of internal ros graph state when no clients are connected to reduce CPU use.
+
 5.8.6 (14.08.2026)
 ------------------
 * Fix node search with variables
