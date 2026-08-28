@@ -60,6 +60,9 @@ import fkie_mas_daemon as nmd
 
 PRINT_DEBUG_LOAD = False
 
+_component_load_timeout = float(os.environ.get('MAS_COMPONENT_LOAD_TIMEOUT', '30'))
+COMPONENT_LOAD_TIMEOUT = _component_load_timeout if _component_load_timeout > 0 else None
+
 # statically known patterns: compiled once at import time
 XML_COMMENT_RE = re.compile(r'<!--.*?-->', re.DOTALL)
 
@@ -1120,21 +1123,18 @@ class LaunchConfig(object):
                       f"'{self.launch_name}': {error}")
 
     def run_composed_node(self, node: LaunchNodeWrapper):
-        # Create a client to load nodes in the target container.
-        client_load_node = nmd.ros_node.create_client(
-            composition_interfaces.srv.LoadNode, f'{node.composable_container}/_container/load_node')
         request = node.get_composed_load_request()
         service_load_node_name = f'{node.composable_container}/_container/load_node'
         Log.debug(f" -> load composed node to '{service_load_node_name}'")
         response = nmd.launcher.call_service(
-            service_load_node_name, composition_interfaces.srv.LoadNode, request, timeout_sec=5.0)
+            service_load_node_name, composition_interfaces.srv.LoadNode, request,
+            timeout_sec=COMPONENT_LOAD_TIMEOUT)
         if response is None:
             error_msg = f"Failed to load service '{request.node_name}' of type '{request.plugin_name}' in container '{node.composable_container}': None as service response"
             Log.error(error_msg)
             raise exceptions.StartException(error_msg)
         Log.debug(f"  <- load composed node: response received: {response} {dir(response)}")
         node_name = response.full_node_name if response.full_node_name else request.node_name
-        nmd.ros_node.destroy_client(client_load_node)
         if response.success:
             Log.info(f"Loaded node '{response.full_node_name}' in container '{node.composable_container}'")
         else:

@@ -4,4 +4,6 @@ The daemon instance is usually launched by MAS Gui through SSH connection. After
 
 Beside offering remote configuration access to MAS Gui the daemon supports many other features, e.g. system monitoring, forwarding diagnostic messages or auto start/load of launchfiles.
 
+For ROS2 composable nodes, `MAS_COMPONENT_LOAD_TIMEOUT` controls how many seconds autostart waits for the container load service and response. It defaults to 30; set it to 0 to wait until daemon shutdown.
+
 The configuration is stored at *$HOME/.config/ros.fkie/mas_daemon.yaml* and can be changed through MAS Gui for each host.
