@@ -105,8 +105,14 @@ export function usePersistentLayout(options: TUsePersistentLayoutOptions): TUseP
 
   /* ---------------- model instance ---------------- */
   // Built synchronously on first render so `model` is never null.
-  const [modelState, setModelState] = useState<{ model: Model; stateKey: string; hydrated: boolean }>(() => ({
+  const [modelState, setModelState] = useState<{
+    model: Model;
+    source: IJsonModel;
+    stateKey: string;
+    hydrated: boolean;
+  }>(() => ({
     model: createModel(layoutJsonRef.current),
+    source: layoutJsonRef.current,
     stateKey,
     hydrated,
   }));
@@ -116,8 +122,13 @@ export function usePersistentLayout(options: TUsePersistentLayoutOptions): TUseP
     // rebuild exactly once when the persisted layout arrives after the first render
     const lateHydration = hydrated && !modelState.hydrated;
     if (!keyChanged && !lateHydration) return;
+    // nothing was stored: the model already shows this layout, and rebuilding it drops tabs added meanwhile
+    if (!keyChanged && layoutJsonRef.current === modelState.source) {
+      setModelState({ ...modelState, hydrated });
+      return;
+    }
 
-    setModelState({ model: createModel(layoutJsonRef.current), stateKey, hydrated });
+    setModelState({ model: createModel(layoutJsonRef.current), source: layoutJsonRef.current, stateKey, hydrated });
   }, [stateKey, hydrated, createModel, modelState]);
 
   /* ---------------- save ---------------- */
@@ -140,7 +151,7 @@ export function usePersistentLayout(options: TUsePersistentLayoutOptions): TUseP
   const replaceLayout = useCallback(
     (json: IJsonModel): void => {
       setLayoutJson(json);
-      setModelState({ model: createModel(json), stateKey, hydrated: true });
+      setModelState({ model: createModel(json), source: json, stateKey, hydrated: true });
       hydratedRef.current = true;
       setHydrated(true);
     },
